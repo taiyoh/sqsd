@@ -1,0 +1,12 @@
+queue_url="http://example.com/queue/hoge"
+max_message_per_request=10
+sleep_seconds=1
+wait_time_seconds=0
+process_count=40
+
+[stat]
+port=4080
+
+[http_worker]
+url="http://127.0.0.1/run_job"
+request_content_type="application/json"
