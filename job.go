@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"net/url"
 	"net/http"
 	"strings"
+	"log"
+	"bytes"
 )
 
 type SQSJob struct {
@@ -17,8 +18,6 @@ type SQSJob struct {
 	URL string
 	ContentType string
 }
-
-type SQSJobKey string
 
 func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 	return &SQSJob{
@@ -35,14 +34,13 @@ func (j *SQSJob) Run(parent context.Context) {
 	_, cancel := context.WithCancel(parent)
 	defer cancel()
 
-	uri, err := url.Parse(j.URL)
-	if err != nil {
-		cancel()
-	}
-
-	var resp *http.Response
-	resp, err = http.Post(uri.String(), j.ContentType, strings.NewReader(j.Payload))
-	if err != nil || resp.Status != "200" {
+	resp, err := http.Post(j.URL, j.ContentType, strings.NewReader(j.Payload))
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	statusCode := resp.StatusCode
+	defer resp.Body.Close()
+	if err != nil || statusCode != 200 {
+		log.Printf("job[%s] failed. response: %s", j.ID, buf.String())
 		cancel()
 	}
 	j.Finished <- struct {}{}
