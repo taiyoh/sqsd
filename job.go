@@ -1,32 +1,32 @@
 package sqsd
 
 import (
+	"bytes"
 	"context"
-	"time"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"log"
 	"net/http"
 	"strings"
-	"log"
-	"bytes"
+	"time"
 )
 
 type SQSJob struct {
-	Finished chan struct{}
-	ID string
-	Payload string
-	StartAt time.Time
-	URL string
+	Finished    chan struct{}
+	ID          string
+	Payload     string
+	StartAt     time.Time
+	URL         string
 	ContentType string
 }
 
 func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 	return &SQSJob{
-		ID: *msg.MessageId,
-		Payload: *msg.Body,
-		StartAt : time.Now(),
-		Finished : make(chan struct{}),
-		URL : conf.URL,
-		ContentType : conf.RequestContentType,
+		ID:          *msg.MessageId,
+		Payload:     *msg.Body,
+		StartAt:     time.Now(),
+		Finished:    make(chan struct{}),
+		URL:         conf.URL,
+		ContentType: conf.RequestContentType,
 	}
 }
 
@@ -43,5 +43,5 @@ func (j *SQSJob) Run(parent context.Context) {
 		log.Printf("job[%s] failed. response: %s", j.ID, buf.String())
 		cancel()
 	}
-	j.Finished <- struct {}{}
+	j.Finished <- struct{}{}
 }

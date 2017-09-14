@@ -1,8 +1,8 @@
 package sqsd
 
 import (
-	"net/http"
 	"github.com/fukata/golang-stats-api-handler"
+	"net/http"
 	"strconv"
 )
 
@@ -21,5 +21,5 @@ func (s *SQSStat) Stop() {
 }
 
 func (s *SQSStat) Run() {
-	http.ListenAndServe(":" + strconv.Itoa(s.Port), nil)
+	http.ListenAndServe(":"+strconv.Itoa(s.Port), nil)
 }

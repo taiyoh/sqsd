@@ -1,25 +1,25 @@
 package sqsd
 
 import (
-	"strings"
-	"net/url"
 	"errors"
-	"github.com/pelletier/go-toml"
 	"fmt"
+	"github.com/pelletier/go-toml"
+	"net/url"
+	"strings"
 )
 
 type SQSDConf struct {
-	QueueURL string `toml:"queue_url"`
-	HTTPWorker SQSDHttpWorkerConf `toml:"http_worker"`
-	Stat SQSDStatConf `toml:"stat"`
-	MaxMessagesPerRequest int64 `toml:"max_message_per_request"`
-	SleepSeconds int64 `toml:"sleep_seconds"`
-	WaitTimeSeconds int64 `toml:"wait_time_seconds"`
-	ProcessCount int `toml:"process_count"`
+	QueueURL              string             `toml:"queue_url"`
+	HTTPWorker            SQSDHttpWorkerConf `toml:"http_worker"`
+	Stat                  SQSDStatConf       `toml:"stat"`
+	MaxMessagesPerRequest int64              `toml:"max_message_per_request"`
+	SleepSeconds          int64              `toml:"sleep_seconds"`
+	WaitTimeSeconds       int64              `toml:"wait_time_seconds"`
+	ProcessCount          int                `toml:"process_count"`
 }
 
 type SQSDHttpWorkerConf struct {
-	URL string `toml:"url"`
+	URL                string `toml:"url"`
 	RequestContentType string `toml:"request_content_type"`
 }
 
