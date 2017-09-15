@@ -2,8 +2,8 @@ package sqsd
 
 import (
 	"context"
-	"log"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"log"
 	"time"
 )
 
@@ -14,28 +14,28 @@ type SQSWorker struct {
 	CurrentWorkings map[string]*SQSJob
 	Conf            *SQSDHttpWorkerConf
 	QueueURL        string
-	Runnable		bool
-	Pause chan bool
+	Runnable        bool
+	Pause           chan bool
 }
 
 func NewWorker(resource *SQSResource, conf *SQSDConf) *SQSWorker {
 	return &SQSWorker{
-		Resource: resource,
+		Resource:        resource,
 		SleepSeconds:    time.Duration(conf.SleepSeconds),
 		ProcessCount:    conf.ProcessCount,
 		CurrentWorkings: make(map[string]*SQSJob),
 		Conf:            &conf.HTTPWorker,
-		Runnable: true,
-		Pause: make(chan bool),
+		Runnable:        true,
+		Pause:           make(chan bool),
 	}
 }
 
 func (w *SQSWorker) Run(ctx context.Context) {
 	for {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			break
-		case shouldStop := <- w.Pause:
+		case shouldStop := <-w.Pause:
 			w.Runnable = shouldStop == false
 		default:
 			if w.IsWorkerAvailable() {

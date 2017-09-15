@@ -1,10 +1,10 @@
 package sqsd
 
 import (
-	"testing"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
+	"testing"
 )
 
 func TestNewWorker(t *testing.T) {
@@ -55,7 +55,7 @@ func TestIsRunnable(t *testing.T) {
 		t.Error("IsWorkerAvailable flag is wrong")
 	}
 
-	for i := 1; i <= w.ProcessCount - 1; i++ {
+	for i := 1; i <= w.ProcessCount-1; i++ {
 		w.SetupJob(&sqs.Message{
 			MessageId: aws.String("id:" + strconv.Itoa(i)),
 			Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),

@@ -10,7 +10,7 @@ import (
 )
 
 type SQSJob struct {
-	Msg *sqs.Message
+	Msg         *sqs.Message
 	StartAt     time.Time
 	URL         string
 	ContentType string
@@ -18,7 +18,7 @@ type SQSJob struct {
 
 func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 	return &SQSJob{
-		Msg : msg,
+		Msg:         msg,
 		StartAt:     time.Now(),
 		URL:         conf.URL,
 		ContentType: conf.RequestContentType,
