@@ -73,7 +73,7 @@ func (w *SQSWorker) HandleMessages(messages []*sqs.Message) {
 			job := NewJob(msg, w.Conf)
 			ctx := context.Background()
 			w.CurrentWorkings[job.ID] = job
-			go job.Run(ctx)
+			go job.Run()
 			select {
 			case <-ctx.Done(): //
 				close(job.Finished)

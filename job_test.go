@@ -1,7 +1,6 @@
 package sqsd
 
 import (
-	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -33,9 +32,9 @@ func TestJobCancelled(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintln(w, "no gooooood")
-			w.WriteHeader(http.StatusInternalServerError)
 			w.Header().Set("content-Type", "text")
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "no goood")
 			return
 		},
 	))
@@ -48,11 +47,11 @@ func TestJobCancelled(t *testing.T) {
 
 	job := NewJob(sqsMsg, conf)
 
-	ctx := context.Background()
-
-	go job.Run(ctx)
+	go job.Run()
 
 	select {
-	case <-ctx.Done():
+	case <-job.Failed:
+	case <- job.Finished:
+		t.Error("job request failed but Finished")
 	}
 }
