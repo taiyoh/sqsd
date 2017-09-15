@@ -2,96 +2,95 @@ package sqsd
 
 import (
 	"context"
-	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"log"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"time"
 )
 
 type SQSWorker struct {
-	Req             *sqs.ReceiveMessageInput
-	Svc             *sqs.SQS
+	Resource        *SQSResource
 	SleepSeconds    time.Duration
 	ProcessCount    int
 	CurrentWorkings map[string]*SQSJob
 	Conf            *SQSDHttpWorkerConf
-	QueueUrl        string
+	QueueURL        string
+	Runnable		bool
+	Pause chan bool
 }
 
-func NewWorker(conf *SQSDConf) *SQSWorker {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	svc := sqs.New(sess)
-	req := &sqs.ReceiveMessageInput{
-		AttributeNames: []*string{
-			aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
-		},
-		MessageAttributeNames: []*string{
-			aws.String(sqs.QueueAttributeNameAll),
-		},
-		QueueUrl:            &conf.QueueURL,
-		MaxNumberOfMessages: aws.Int64(conf.MaxMessagesPerRequest),
-		VisibilityTimeout:   aws.Int64(10), // 10 sec
-		WaitTimeSeconds:     aws.Int64(conf.WaitTimeSeconds),
-	}
-
+func NewWorker(resource *SQSResource, conf *SQSDConf) *SQSWorker {
 	return &SQSWorker{
-		Req:             req,
-		Svc:             svc,
+		Resource: resource,
 		SleepSeconds:    time.Duration(conf.SleepSeconds),
 		ProcessCount:    conf.ProcessCount,
 		CurrentWorkings: make(map[string]*SQSJob),
 		Conf:            &conf.HTTPWorker,
-		QueueUrl:        conf.QueueURL,
+		Runnable: true,
+		Pause: make(chan bool),
 	}
 }
 
-func (w *SQSWorker) Stop() {
-}
-
-func (w *SQSWorker) Run() {
+func (w *SQSWorker) Run(ctx context.Context) {
 	for {
-		if w.IsWorkerAvailable() {
-			result, err := w.Svc.ReceiveMessage(w.Req)
-			if err != nil {
-				fmt.Println("Error", err)
-			} else if len(result.Messages) == 0 {
-				fmt.Println("Received no messages")
-			} else {
-				w.HandleMessages(result.Messages)
+		select {
+		case <- ctx.Done():
+			break
+		case shouldStop := <- w.Pause:
+			w.Runnable = shouldStop == false
+		default:
+			if w.IsWorkerAvailable() {
+				results, err := w.Resource.GetMessages(5)
+				if err != nil {
+					log.Println("Error", err)
+				} else if len(results) == 0 {
+					log.Println("received no messages")
+				} else {
+					log.Printf("received %d messages. run jobs", len(results))
+					w.HandleMessages(results)
+				}
 			}
+			time.Sleep(w.SleepSeconds * time.Second)
 		}
-		time.Sleep(w.SleepSeconds * time.Second)
 	}
+}
+
+func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
+	job := NewJob(msg, w.Conf)
+	w.CurrentWorkings[job.ID] = job
+	return job
+}
+
+func (w *SQSWorker) CloseJob(job *SQSJob) {
+	close(job.Finished)
+	close(job.Failed)
+	delete(w.CurrentWorkings, job.ID)
 }
 
 func (w *SQSWorker) HandleMessages(messages []*sqs.Message) {
 	for _, msg := range messages {
-		if w.CanWork(msg) {
-			job := NewJob(msg, w.Conf)
-			ctx := context.Background()
-			w.CurrentWorkings[job.ID] = job
-			go job.Run()
-			select {
-			case <-ctx.Done(): //
-				close(job.Finished)
-				delete(w.CurrentWorkings, job.ID)
-			case <-job.Finished:
-				w.Svc.DeleteMessageRequest(&sqs.DeleteMessageInput{
-					QueueUrl:      aws.String(w.QueueUrl),
-					ReceiptHandle: aws.String(*msg.ReceiptHandle),
-				})
-				close(job.Finished)
-				delete(w.CurrentWorkings, job.ID)
-			}
+		if !w.CanWork(msg) {
+			continue
+		}
+		job := w.SetupJob(msg)
+		go job.Run()
+		select {
+		case <-job.Failed:
+			w.CloseJob(job)
+		case <-job.Finished:
+			w.Resource.DeleteMessage(msg)
+			w.CloseJob(job)
 		}
 	}
 }
 
 func (w *SQSWorker) IsWorkerAvailable() bool {
-	return len(w.CurrentWorkings) < w.ProcessCount
+	if !w.Runnable {
+		return false
+	}
+	if len(w.CurrentWorkings) >= w.ProcessCount {
+		return false
+	}
+	return true
 }
 
 func (w *SQSWorker) CanWork(msg *sqs.Message) bool {
