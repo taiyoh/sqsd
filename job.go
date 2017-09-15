@@ -10,10 +10,7 @@ import (
 )
 
 type SQSJob struct {
-	Finished    chan struct{}
-	Failed      chan struct{}
-	ID          string
-	Payload     string
+	Msg *sqs.Message
 	StartAt     time.Time
 	URL         string
 	ContentType string
@@ -21,26 +18,27 @@ type SQSJob struct {
 
 func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 	return &SQSJob{
-		ID:          *msg.MessageId,
-		Payload:     *msg.Body,
+		Msg : msg,
 		StartAt:     time.Now(),
-		Finished:    make(chan struct{}),
-		Failed:      make(chan struct{}),
 		URL:         conf.URL,
 		ContentType: conf.RequestContentType,
 	}
 }
 
-func (j *SQSJob) Run() {
-	resp, err := http.Post(j.URL, j.ContentType, strings.NewReader(j.Payload))
+func (j *SQSJob) ID() string {
+	return *j.Msg.MessageId
+}
+
+func (j *SQSJob) Run() bool {
+	resp, err := http.Post(j.URL, j.ContentType, strings.NewReader(*j.Msg.Body))
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	statusCode := resp.StatusCode
 	defer resp.Body.Close()
 	if err != nil || statusCode != 200 {
-		log.Printf("job[%s] failed. status: %d, response: %s", j.ID, statusCode, buf.String())
-		j.Failed <- struct{}{}
+		log.Printf("job[%s] failed. status: %d, response: %s", j.ID(), statusCode, buf.String())
+		return false
 	} else {
-		j.Finished <- struct{}{}
+		return true
 	}
 }

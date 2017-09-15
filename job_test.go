@@ -24,7 +24,7 @@ func TestNewJob(t *testing.T) {
 	}
 }
 
-func TestJobCancelled(t *testing.T) {
+func TestJobFailed(t *testing.T) {
 	sqsMsg := &sqs.Message{
 		MessageId: aws.String("foobar"),
 		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
@@ -47,11 +47,38 @@ func TestJobCancelled(t *testing.T) {
 
 	job := NewJob(sqsMsg, conf)
 
-	go job.Run()
+	ok := job.Run()
 
-	select {
-	case <-job.Failed:
-	case <- job.Finished:
-		t.Error("job request failed but Finished")
+	if ok {
+		t.Error("job request failed but finish status")
+	}
+}
+
+func TestJobSucceed(t *testing.T) {
+	sqsMsg := &sqs.Message{
+		MessageId: aws.String("foobar"),
+		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("content-Type", "text")
+			fmt.Fprintf(w, "goood")
+			return
+		},
+	))
+	defer ts.Close()
+
+	conf := &SQSDHttpWorkerConf{
+		RequestContentType: "application/json",
+		URL:                ts.URL,
+	}
+
+	job := NewJob(sqsMsg, conf)
+
+	ok := job.Run()
+
+	if !ok {
+		t.Error("job request finished but fail status")
 	}
 }

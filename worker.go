@@ -56,14 +56,8 @@ func (w *SQSWorker) Run(ctx context.Context) {
 
 func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
 	job := NewJob(msg, w.Conf)
-	w.CurrentWorkings[job.ID] = job
+	w.CurrentWorkings[job.ID()] = job
 	return job
-}
-
-func (w *SQSWorker) CloseJob(job *SQSJob) {
-	close(job.Finished)
-	close(job.Failed)
-	delete(w.CurrentWorkings, job.ID)
 }
 
 func (w *SQSWorker) HandleMessages(messages []*sqs.Message) {
@@ -72,15 +66,16 @@ func (w *SQSWorker) HandleMessages(messages []*sqs.Message) {
 			continue
 		}
 		job := w.SetupJob(msg)
-		go job.Run()
-		select {
-		case <-job.Failed:
-			w.CloseJob(job)
-		case <-job.Finished:
-			w.Resource.DeleteMessage(msg)
-			w.CloseJob(job)
-		}
+		go w.HandleMessage(job)
 	}
+}
+
+func (w *SQSWorker) HandleMessage(job *SQSJob) {
+	ok := job.Run()
+	if ok {
+		w.Resource.DeleteMessage(job.Msg)
+	}
+	delete(w.CurrentWorkings, job.ID())
 }
 
 func (w *SQSWorker) IsWorkerAvailable() bool {

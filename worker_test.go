@@ -16,7 +16,7 @@ func TestNewWorker(t *testing.T) {
 	}
 }
 
-func TestSetupAndCloseJob(t *testing.T) {
+func TestSetupJob(t *testing.T) {
 	c := &SQSDConf{}
 	r := &SQSResource{}
 	w := NewWorker(r, c)
@@ -31,12 +31,12 @@ func TestSetupAndCloseJob(t *testing.T) {
 		t.Error("job not created")
 	}
 
-	if _, exists := w.CurrentWorkings[job.ID]; !exists {
+	if _, exists := w.CurrentWorkings[job.ID()]; !exists {
 		t.Error("job not registered")
 	}
 
-	w.CloseJob(job)
-	if _, exists := w.CurrentWorkings[job.ID]; exists {
+	delete(w.CurrentWorkings, job.ID())
+	if _, exists := w.CurrentWorkings[job.ID()]; exists {
 		t.Error("job not deleted")
 	}
 }
