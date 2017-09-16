@@ -1,19 +1,19 @@
 package sqsd
 
 import (
-	"time"
+	"fmt"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"time"
 )
 
 type SQSMockClient struct {
 	sqsiface.SQSAPI
-	Resp *sqs.ReceiveMessageOutput
+	Resp             *sqs.ReceiveMessageOutput
 	RecvRequestCount int
-	DelRequestCount int
+	DelRequestCount  int
 }
 
 func (c *SQSMockClient) ReceiveMessage(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
@@ -32,15 +32,15 @@ func MockJobServer() *httptest.Server {
 		w.Header().Set("content-Type", "text")
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "no goood")
-	});
+	})
 	mux.HandleFunc("/long", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-Type", "text")
 		fmt.Fprintf(w, "goood")
 		time.Sleep(1 * time.Second)
-	});
+	})
 	mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-Type", "text")
 		fmt.Fprintf(w, "goood")
-	});
+	})
 	return httptest.NewServer(mux)
 }

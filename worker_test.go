@@ -2,16 +2,16 @@ package sqsd
 
 import (
 	"bytes"
-	"encoding/json"
-	"time"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestNewWorker(t *testing.T) {
@@ -111,8 +111,7 @@ func TestHandleMessage(t *testing.T) {
 	r := &SQSResource{Client: &SQSMockClient{}}
 	w := NewWorker(r, c)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := context.Background()
 
 	ts := MockJobServer()
 	defer ts.Close()
@@ -170,11 +169,11 @@ func TestHandleMessages(t *testing.T) {
 	msgs := []*sqs.Message{}
 	for i := 1; i <= 10; i++ {
 		idxStr := strconv.Itoa(i)
-		p := &JobPayload{ID: "msgid:" +strconv.Itoa(i)}
+		p := &JobPayload{ID: "msgid:" + strconv.Itoa(i)}
 		buf, _ := json.Marshal(p)
 		msgs = append(msgs, &sqs.Message{
-			MessageId: aws.String(p.ID),
-			Body: aws.String(bytes.NewBuffer(buf).String()),
+			MessageId:     aws.String(p.ID),
+			Body:          aws.String(bytes.NewBuffer(buf).String()),
 			ReceiptHandle: aws.String("receithandle-" + idxStr),
 		})
 	}
@@ -194,14 +193,13 @@ func TestHandleMessages(t *testing.T) {
 	defer ts.Close()
 
 	c := &SQSDConf{ProcessCount: 5, HTTPWorker: SQSDHttpWorkerConf{URL: ts.URL}}
-	r := &SQSResource{ Client: &SQSMockClient{} }
+	r := &SQSResource{Client: &SQSMockClient{}}
 	w := NewWorker(r, c)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := context.Background()
 
 	w.HandleMessages(ctx, msgs)
-	time.Sleep(1 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 
 	if len(caughtIds) != c.ProcessCount {
 		t.Errorf("requests is wrong: %d", len(caughtIds))
@@ -213,4 +211,48 @@ func TestHandleMessages(t *testing.T) {
 			t.Errorf("id: %s exists", id)
 		}
 	}
+}
+
+func TestWorkerRun(t *testing.T) {
+	c := &SQSDConf{ProcessCount: 5, SleepSeconds: 1}
+	r := &SQSResource{Client: &SQSMockClient{}}
+	w := NewWorker(r, c)
+
+	w.Runnable = false
+
+	funcEnds := make(chan bool)
+	run := func (ctx context.Context) {
+		w.Run(ctx)
+		funcEnds <- true
+	}
+
+	t.Run("context cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		go run(ctx)
+
+		time.Sleep(1 * time.Millisecond)
+		cancel()
+
+		if _, ok := <-funcEnds; !ok {
+			t.Error("Run method not ends...")
+		}
+	})
+
+	/*
+	t.Run("Pause cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		w.Pause() <- false
+		if !w.Runnable {
+			t.Error("Runnable not changed")
+		}
+		go run(ctx)
+
+		time.Sleep(1 * time.Millisecond)
+		cancel()
+
+		if _, ok := <-funcEnds; !ok {
+			t.Error("Run method not ends...")
+		}
+	})
+	*/
 }

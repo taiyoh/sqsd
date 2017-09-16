@@ -35,10 +35,12 @@ func (w *SQSWorker) Pause() chan bool {
 }
 
 func (w *SQSWorker) Run(ctx context.Context) {
+	log.Println("SQSWorker start.")
 	for {
 		select {
 		case <-ctx.Done():
-			break
+			log.Println("context cancel signal caught. Run ends.")
+			return
 		case shouldStop := <-w.Pause():
 			w.Runnable = shouldStop == false
 		default:
