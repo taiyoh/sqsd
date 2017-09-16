@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestNewJob(t *testing.T) {
@@ -57,6 +58,42 @@ func TestJobFailed(t *testing.T) {
 	}
 	if ok {
 		t.Error("job request failed but finish status")
+	}
+}
+
+func TestJobCancelledByContext(t *testing.T) {
+	sqsMsg := &sqs.Message{
+		MessageId: aws.String("foobar"),
+		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(1 * time.Second)
+			w.Header().Set("content-Type", "text")
+			fmt.Fprintf(w, "goood")
+			return
+		},
+	))
+	defer ts.Close()
+
+	conf := &SQSDHttpWorkerConf{
+		RequestContentType: "application/json",
+		URL:                ts.URL,
+	}
+
+	job := NewJob(sqsMsg, conf)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	e := make(chan error)
+	go func() {
+		_, err := job.Run(ctx)
+		e <- err
+	}()
+	cancel()
+	if err := <-e; err == nil {
+		t.Error("error not found")
 	}
 }
 
