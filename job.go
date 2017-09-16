@@ -11,7 +11,7 @@ import (
 )
 
 type SQSJob struct {
-	msg         *sqs.Message
+	Msg         *sqs.Message
 	StartAt     time.Time
 	URL         string
 	ContentType string
@@ -20,7 +20,7 @@ type SQSJob struct {
 
 func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 	return &SQSJob{
-		msg:         msg,
+		Msg:         msg,
 		StartAt:     time.Now(),
 		URL:         conf.URL,
 		ContentType: conf.RequestContentType,
@@ -29,15 +29,11 @@ func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 }
 
 func (j *SQSJob) ID() string {
-	return *j.Msg().MessageId
-}
-
-func (j *SQSJob) Msg() *sqs.Message {
-	return j.msg
+	return *j.Msg.MessageId
 }
 
 func (j *SQSJob) Run(ctx context.Context) (bool, error) {
-	req, err := http.NewRequest("POST", j.URL, strings.NewReader(*j.msg.Body))
+	req, err := http.NewRequest("POST", j.URL, strings.NewReader(*j.Msg.Body))
 	if err != nil {
 		return false, err
 	}

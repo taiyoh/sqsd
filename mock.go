@@ -14,11 +14,20 @@ type SQSMockClient struct {
 	Resp             *sqs.ReceiveMessageOutput
 	RecvRequestCount int
 	DelRequestCount  int
+	Err              error
+}
+
+func NewMockClient() *SQSMockClient {
+	return &SQSMockClient{
+		Resp: &sqs.ReceiveMessageOutput{
+			Messages: []*sqs.Message{},
+		},
+	}
 }
 
 func (c *SQSMockClient) ReceiveMessage(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
 	c.RecvRequestCount++
-	return c.Resp, nil
+	return c.Resp, c.Err
 }
 
 func (c *SQSMockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {

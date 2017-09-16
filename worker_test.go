@@ -1,6 +1,8 @@
 package sqsd
 
 import (
+	"io"
+	"errors"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -13,6 +15,22 @@ import (
 	"testing"
 	"time"
 )
+
+
+type JobPayloadForTest struct {
+	ID string
+}
+func (p *JobPayloadForTest) String() string {
+	buf, _ := json.Marshal(p)
+	return bytes.NewBuffer(buf).String()
+}
+func DecodePayload(body io.ReadCloser) *JobPayloadForTest {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(body)
+	var p JobPayloadForTest
+	json.Unmarshal(buf.Bytes(), &p)
+	return &p
+}
 
 func TestNewWorker(t *testing.T) {
 	c := &SQSDConf{}
@@ -163,27 +181,20 @@ func TestHandleMessage(t *testing.T) {
 }
 
 func TestHandleMessages(t *testing.T) {
-	type JobPayload struct {
-		ID string
-	}
 	msgs := []*sqs.Message{}
 	for i := 1; i <= 10; i++ {
 		idxStr := strconv.Itoa(i)
-		p := &JobPayload{ID: "msgid:" + strconv.Itoa(i)}
-		buf, _ := json.Marshal(p)
+		p := &JobPayloadForTest{ID: "msgid:" + strconv.Itoa(i)}
 		msgs = append(msgs, &sqs.Message{
 			MessageId:     aws.String(p.ID),
-			Body:          aws.String(bytes.NewBuffer(buf).String()),
+			Body:          aws.String(p.String()),
 			ReceiptHandle: aws.String("receithandle-" + idxStr),
 		})
 	}
 	caughtIds := map[string]bool{}
 	ts := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(r.Body)
-			var p JobPayload
-			json.Unmarshal(buf.Bytes(), &p)
+			p := DecodePayload(r.Body)
 			caughtIds[p.ID] = true
 			w.Header().Set("content-Type", "text")
 			fmt.Fprintf(w, "goood")
@@ -215,44 +226,112 @@ func TestHandleMessages(t *testing.T) {
 
 func TestWorkerRun(t *testing.T) {
 	c := &SQSDConf{ProcessCount: 5, SleepSeconds: 1}
-	r := &SQSResource{Client: &SQSMockClient{}}
+	mc := NewMockClient()
+	r := &SQSResource{Client: mc}
 	w := NewWorker(r, c)
 
-	w.Runnable = false
-
 	funcEnds := make(chan bool)
-	run := func (ctx context.Context) {
+	run := func(ctx context.Context) {
 		w.Run(ctx)
 		funcEnds <- true
 	}
 
-	t.Run("context cancelled", func(t *testing.T) {
+	t.Run("Pause cancel -> context cancel", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		go run(ctx)
+		time.Sleep(50 * time.Millisecond)
 
-		time.Sleep(1 * time.Millisecond)
-		cancel()
-
-		if _, ok := <-funcEnds; !ok {
-			t.Error("Run method not ends...")
-		}
-	})
-
-	/*
-	t.Run("Pause cancelled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		w.Pause() <- false
-		if !w.Runnable {
+		w.Pause() <- true
+		if w.Runnable {
 			t.Error("Runnable not changed")
 		}
-		go run(ctx)
 
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		cancel()
+		<-funcEnds
 
-		if _, ok := <-funcEnds; !ok {
-			t.Error("Run method not ends...")
+		if mc.RecvRequestCount != 1 {
+			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
+		}
+		if mc.DelRequestCount > 0 {
+			t.Errorf("delete request count exists: %d", mc.RecvRequestCount)
 		}
 	})
-	*/
+
+	mc.RecvRequestCount = 0
+	mc.Err = errors.New("fugafuga")
+	w.Runnable = true
+
+	t.Run("error received", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		go run(ctx)
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+		<-funcEnds
+
+		if mc.RecvRequestCount != 1 {
+			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
+		}
+		if mc.DelRequestCount > 0 {
+			t.Errorf("delete request count exists: %d", mc.RecvRequestCount)
+		}
+	})
+
+	mc.RecvRequestCount = 0
+	mc.Err = nil
+	for i := 1; i <= 3; i++ {
+		idxStr := strconv.Itoa(i)
+		p := &JobPayloadForTest{ID: "msgid:" + strconv.Itoa(i)}
+		mc.Resp.Messages = append(mc.Resp.Messages, &sqs.Message{
+			MessageId:     aws.String(p.ID),
+			Body:          aws.String(p.String()),
+			ReceiptHandle: aws.String("receithandle-" + idxStr),
+		})
+	}
+	t.Run("request success", func(t *testing.T) {
+		caughtIds := map[string]int{}
+		ts := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				p := DecodePayload(r.Body)
+				if _, exists := caughtIds[p.ID]; exists {
+					caughtIds[p.ID]++
+				} else {
+					caughtIds[p.ID] = 1
+				}
+				w.Header().Set("content-Type", "text")
+				fmt.Fprintf(w, "goood")
+				return
+			},
+		))
+		defer ts.Close()
+
+		c.HTTPWorker.URL = ts.URL
+
+		ctx, cancel := context.WithCancel(context.Background())
+		go run(ctx)
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+		<-funcEnds
+
+		if len(caughtIds) != 3 {
+			t.Error("other request comes...")
+		}
+		for i := 1; i <= 3; i++ {
+			id := "msgid:" + strconv.Itoa(i)
+			v, exists := caughtIds[id]
+			if !exists {
+				t.Errorf("id: %s not requested", id)
+			}
+			if v != 1 {
+				t.Errorf("id: %s over request: %d", id, v)
+			}
+		}
+		if mc.RecvRequestCount != 1 {
+			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
+		}
+		if mc.DelRequestCount != 3 {
+			t.Errorf("delete request count wrong: %d", mc.RecvRequestCount)
+		}
+	})
+
 }

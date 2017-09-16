@@ -51,14 +51,13 @@ func (w *SQSWorker) Run(ctx context.Context) {
 			results, err := w.Resource.GetMessages()
 			if err != nil {
 				log.Println("Error", err)
-				time.Sleep(w.SleepSeconds * time.Second)
 			} else if len(results) == 0 {
 				log.Println("received no messages")
-				time.Sleep(w.SleepSeconds * time.Second)
 			} else {
-				log.Printf("received %d messages. run jobs", len(results))
+				log.Printf("received %d messages. run jobs.\n", len(results))
 				w.HandleMessages(ctx, results)
 			}
+			time.Sleep(w.SleepSeconds * time.Second)
 		}
 	}
 }
@@ -85,7 +84,7 @@ func (w *SQSWorker) HandleMessage(ctx context.Context, job *SQSJob) {
 		log.Printf("job[%s] HandleMessage request error: %s\n", job.ID(), err)
 	}
 	if ok {
-		w.Resource.DeleteMessage(job.Msg())
+		w.Resource.DeleteMessage(job.Msg)
 	}
 	delete(w.CurrentWorkings, job.ID())
 	job.Done() <- struct{}{}
