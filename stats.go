@@ -55,7 +55,22 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 			fmt.Fprint(w, "Method Not Allowed")
 			return
 		}
+		tracker.Pause() <- true
+		w.Header().Set("Content-Type", "tapplication/json")
+		fmt.Fprint(w, `{"status":true}`)
 	})
+	mux.HandleFunc("/worker/resume", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			fmt.Fprint(w, "Method Not Allowed")
+			return
+		}
+		tracker.Pause() <- false
+		w.Header().Set("Content-Type", "tapplication/json")
+		fmt.Fprint(w, `{"status":true}`)
+	})
+
 
 	return &SQSStat{
 		Port:    conf.Stat.Port,
