@@ -1,10 +1,10 @@
 package sqsd
 
 import (
-	"testing"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
+	"testing"
 )
 
 func TestJobTracker(t *testing.T) {
@@ -16,7 +16,7 @@ func TestJobTracker(t *testing.T) {
 	job := &SQSJob{
 		Msg: &sqs.Message{
 			MessageId: aws.String("foobar"),
-			Body: aws.String("hoge"),
+			Body:      aws.String("hoge"),
 		},
 	}
 	ok := tracker.Add(job)
@@ -35,7 +35,7 @@ func TestJobTracker(t *testing.T) {
 		j := &SQSJob{
 			Msg: &sqs.Message{
 				MessageId: aws.String("id:" + strconv.Itoa(i)),
-				Body: aws.String(`foobar`),
+				Body:      aws.String(`foobar`),
 			},
 		}
 		tracker.Add(j)
@@ -44,7 +44,7 @@ func TestJobTracker(t *testing.T) {
 	untrackedJob := &SQSJob{
 		Msg: &sqs.Message{
 			MessageId: aws.String("id:6"),
-			Body: aws.String("foobar"),
+			Body:      aws.String("foobar"),
 		},
 	}
 	if ok := tracker.Add(untrackedJob); ok {
