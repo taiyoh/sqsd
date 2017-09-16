@@ -39,13 +39,13 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 	mux.HandleFunc("/worker/current/list", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, ResponseToJson(&SQSStatCurrentListResponse{
-			CurrentList: tracker.CurrentList(),
+			CurrentList: tracker.CurrentSummaries(),
 		}))
 	})
 	mux.HandleFunc("/worker/current/size", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, ResponseToJson(&SQSStatCurrentSizeResponse{
-			Size: len(tracker.CurrentList()),
+			Size: len(tracker.CurrentSummaries()),
 		}))
 	})
 	mux.HandleFunc("/worker/pause", func(w http.ResponseWriter, r *http.Request) {
