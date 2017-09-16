@@ -174,7 +174,26 @@ func TestWorkerRun(t *testing.T) {
 		funcEnds <- true
 	}
 
+	t.Run("tracker is not working", func(t *testing.T) {
+		tr.Pause()
+		ctx, cancel := context.WithCancel(context.Background())
+		go run(ctx)
+
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+		<-funcEnds
+
+		if mc.RecvRequestCount > 0 {
+			t.Errorf("receive request count exists: %d", mc.RecvRequestCount)
+		}
+		if mc.DelRequestCount > 0 {
+			t.Errorf("delete request count exists: %d", mc.RecvRequestCount)
+		}
+
+	})
+
 	t.Run("received but empty messages -> context cancel", func(t *testing.T) {
+		tr.Resume()
 		ctx, cancel := context.WithCancel(context.Background())
 		go run(ctx)
 

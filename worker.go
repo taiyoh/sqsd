@@ -67,9 +67,6 @@ func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
 
 func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message) {
 	for _, msg := range messages {
-		if !w.Tracker.IsWorking() {
-			continue
-		}
 		job := w.SetupJob(msg)
 		if job == nil {
 			continue
