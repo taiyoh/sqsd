@@ -8,12 +8,16 @@ import (
 
 type SQSStat struct {
 	Port int
+	Mux *http.ServeMux
 }
 
 func NewStat(conf *SQSDConf) *SQSStat {
-	s := &SQSStat{conf.Stat.Port}
-	http.HandleFunc("/stats", stats_api.Handler)
-	return s
+	mux := http.NewServeMux()
+	mux.HandleFunc("/stats", stats_api.Handler)
+	return &SQSStat{
+		Port: conf.Stat.Port,
+		Mux: mux,
+	}
 }
 
 func (s *SQSStat) Stop() {
@@ -21,5 +25,5 @@ func (s *SQSStat) Stop() {
 }
 
 func (s *SQSStat) Run() {
-	http.ListenAndServe(":"+strconv.Itoa(s.Port), nil)
+	http.ListenAndServe(":"+strconv.Itoa(s.Port), s.Mux)
 }
