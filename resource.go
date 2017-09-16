@@ -15,20 +15,19 @@ func NewResource(client sqsiface.SQSAPI, url string) *SQSResource {
 	return &SQSResource{client, url}
 }
 
-func (r *SQSResource) GetMessages(waitTimeout int64) ([]*sqs.Message, error) {
-	params := sqs.ReceiveMessageInput{
-		QueueUrl: aws.String(r.URL),
+func (r *SQSResource) GetMessages() ([]*sqs.Message, error) {
+	params := &sqs.ReceiveMessageInput{
+		QueueUrl:        aws.String(r.URL),
+		WaitTimeSeconds: aws.Int64(5),
 	}
-	if waitTimeout > 0 {
-		params.WaitTimeSeconds = aws.Int64(waitTimeout)
-	}
-	resp, err := r.Client.ReceiveMessage(&params)
+	resp, err := r.Client.ReceiveMessage(params)
 	return resp.Messages, err
 }
 
-func (r *SQSResource) DeleteMessage(msg *sqs.Message) {
-	r.Client.DeleteMessageRequest(&sqs.DeleteMessageInput{
+func (r *SQSResource) DeleteMessage(msg *sqs.Message) error {
+	_, err := r.Client.DeleteMessage(&sqs.DeleteMessageInput{
 		QueueUrl:      aws.String(r.URL),
 		ReceiptHandle: aws.String(*msg.ReceiptHandle),
 	})
+	return err
 }

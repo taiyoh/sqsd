@@ -39,7 +39,7 @@ func (w *SQSWorker) Run(ctx context.Context) {
 			w.Runnable = shouldStop == false
 		default:
 			if w.IsWorkerAvailable() {
-				results, err := w.Resource.GetMessages(5)
+				results, err := w.Resource.GetMessages()
 				if err != nil {
 					log.Println("Error", err)
 				} else if len(results) == 0 {
