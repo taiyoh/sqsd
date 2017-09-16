@@ -36,8 +36,12 @@ func (t *SQSJobTracker) CurrentSummaries() []*SQSJobSummary {
 	return currentList
 }
 
-func (t *SQSJobTracker) Pause() chan bool {
-	return t.pauseChan
+func (t *SQSJobTracker) Pause() {
+	t.JobWorking = false
+}
+
+func (t *SQSJobTracker) Resume() {
+	t.JobWorking = true
 }
 
 func (t *SQSJobTracker) IsWorking() bool {

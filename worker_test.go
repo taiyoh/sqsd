@@ -174,20 +174,11 @@ func TestWorkerRun(t *testing.T) {
 		funcEnds <- true
 	}
 
-	t.Run("Pause cancel -> context cancel", func(t *testing.T) {
+	t.Run("received but empty messages -> context cancel", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		go run(ctx)
 
-		if !tr.JobWorking {
-			t.Error("JobWorking status is wrong")
-		}
-
-		tr.Pause() <- true
-		if tr.JobWorking {
-			t.Error("JobWorking not changed")
-		}
-
-		time.Sleep(1 * time.Second)
+		time.Sleep(50 * time.Millisecond)
 		cancel()
 		<-funcEnds
 

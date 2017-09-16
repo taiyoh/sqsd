@@ -55,7 +55,7 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 			fmt.Fprint(w, "Method Not Allowed")
 			return
 		}
-		tracker.Pause() <- true
+		tracker.Pause()
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, `{"status":true}`)
 	})
@@ -66,7 +66,7 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 			fmt.Fprint(w, "Method Not Allowed")
 			return
 		}
-		tracker.Pause() <- false
+		tracker.Resume()
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, `{"status":true}`)
 	})

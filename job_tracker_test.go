@@ -62,26 +62,17 @@ func TestJobWorking(t *testing.T) {
 
 	tr := NewJobTracker(5)
 
-	go func() {
-		for {
-			select {
-			case shouldStop := <- tr.Pause():
-				tr.JobWorking = shouldStop == false
-			}
-		}
-	}()
-
 	if !tr.JobWorking {
 		t.Error("JobWorking false")
 	}
 
-	tr.Pause() <- true
+	tr.Pause()
 	if tr.JobWorking {
 		t.Error("JobWorking not changed to true")
 	}
 
-	tr.Pause() <- false
-	if tr.JobWorking {
+	tr.Resume()
+	if !tr.JobWorking {
 		t.Error("JobWorking not changed to false")
 	}
 }

@@ -33,8 +33,6 @@ func (w *SQSWorker) Run(ctx context.Context) {
 			case <-ctx.Done():
 				cancelled = true
 				return
-			case shouldStop := <-w.Tracker.Pause():
-				w.Tracker.JobWorking = shouldStop == false
 			}
 		}
 	}()
