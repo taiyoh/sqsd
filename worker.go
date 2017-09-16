@@ -36,29 +36,36 @@ func (w *SQSWorker) Pause() chan bool {
 
 func (w *SQSWorker) Run(ctx context.Context) {
 	log.Println("SQSWorker start.")
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("context cancel signal caught. Run ends.")
-			return
-		case shouldStop := <-w.Pause():
-			w.Runnable = shouldStop == false
-		default:
-			if !w.IsWorkerAvailable() {
-				time.Sleep(w.SleepSeconds * time.Second)
-				continue
+	cancelled := false
+	go func() {
+		for {
+			select {
+			case <- ctx.Done():
+				cancelled = true
+				return
+			case shouldStop := <- w.Pause():
+				w.Runnable = shouldStop == false
 			}
-			results, err := w.Resource.GetMessages()
-			if err != nil {
-				log.Println("Error", err)
-			} else if len(results) == 0 {
-				log.Println("received no messages")
-			} else {
-				log.Printf("received %d messages. run jobs.\n", len(results))
-				w.HandleMessages(ctx, results)
-			}
-			time.Sleep(w.SleepSeconds * time.Second)
 		}
+	}()
+	for {
+		if cancelled {
+			break
+		}
+		if !w.IsWorkerAvailable() {
+			time.Sleep(w.SleepSeconds * time.Second)
+			continue
+		}
+		results, err := w.Resource.GetMessages()
+		if err != nil {
+			log.Println("Error", err)
+		} else if len(results) == 0 {
+			log.Println("received no messages")
+		} else {
+			log.Printf("received %d messages. run jobs.\n", len(results))
+			w.HandleMessages(ctx, results)
+		}
+		time.Sleep(w.SleepSeconds * time.Second)
 	}
 }
 
