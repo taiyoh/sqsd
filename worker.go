@@ -15,7 +15,7 @@ type SQSWorker struct {
 	Conf            *SQSDHttpWorkerConf
 	QueueURL        string
 	Runnable        bool
-	Pause           chan bool
+	pauseChan       chan bool
 }
 
 func NewWorker(resource *SQSResource, conf *SQSDConf) *SQSWorker {
@@ -26,8 +26,12 @@ func NewWorker(resource *SQSResource, conf *SQSDConf) *SQSWorker {
 		CurrentWorkings: make(map[string]*SQSJob),
 		Conf:            &conf.HTTPWorker,
 		Runnable:        true,
-		Pause:           make(chan bool),
+		pauseChan:       make(chan bool),
 	}
+}
+
+func (w *SQSWorker) Pause() chan bool {
+	return w.pauseChan
 }
 
 func (w *SQSWorker) Run(ctx context.Context) {
@@ -35,7 +39,7 @@ func (w *SQSWorker) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			break
-		case shouldStop := <-w.Pause:
+		case shouldStop := <-w.Pause():
 			w.Runnable = shouldStop == false
 		default:
 			if !w.IsWorkerAvailable() {
@@ -76,7 +80,7 @@ func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message)
 func (w *SQSWorker) HandleMessage(ctx context.Context, job *SQSJob) {
 	ok, err := job.Run(ctx)
 	if err != nil {
-		log.Printf("HandleMessage request error: %s\n", err.Error())
+		log.Printf("job[%s] HandleMessage request error: %s\n", job.ID(), err)
 	}
 	if ok {
 		w.Resource.DeleteMessage(job.Msg())
