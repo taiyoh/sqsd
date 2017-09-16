@@ -1,6 +1,7 @@
 package sqsd
 
 import (
+	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -47,8 +48,13 @@ func TestJobFailed(t *testing.T) {
 
 	job := NewJob(sqsMsg, conf)
 
-	ok := job.Run()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	ok, err := job.Run(ctx)
+	if err != nil {
+		t.Error("request error found")
+	}
 	if ok {
 		t.Error("job request failed but finish status")
 	}
@@ -76,7 +82,13 @@ func TestJobSucceed(t *testing.T) {
 
 	job := NewJob(sqsMsg, conf)
 
-	ok := job.Run()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ok, err := job.Run(ctx)
+	if err != nil {
+		t.Error("request error founds")
+	}
 
 	if !ok {
 		t.Error("job request finished but fail status")

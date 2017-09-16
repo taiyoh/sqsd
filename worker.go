@@ -71,7 +71,13 @@ func (w *SQSWorker) HandleMessages(messages []*sqs.Message) {
 }
 
 func (w *SQSWorker) HandleMessage(job *SQSJob) {
-	ok := job.Run()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ok, err := job.Run(ctx)
+	if err != nil {
+		log.Printf("HandleMessage request error: %s", err.Error())
+		return
+	}
 	if ok {
 		w.Resource.DeleteMessage(job.Msg)
 	}
