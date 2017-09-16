@@ -2,6 +2,7 @@ package sqsd
 
 import (
 	"context"
+	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
@@ -102,22 +103,55 @@ func TestCanWork(t *testing.T) {
 
 func TestHandleMessage(t *testing.T) {
 	c := &SQSDConf{ProcessCount: 5}
-	r := &SQSResource{}
+	r := &SQSResource{Client: &SQSMockClient{}}
 	w := NewWorker(r, c)
 
+	ctx := context.Background()
+
+	sqsMsg := &sqs.Message{
+		MessageId:     aws.String("foobar"),
+		Body:          aws.String(`{"hoge":"fuga"}`),
+		ReceiptHandle: aws.String("aaaaaaaaaa"),
+	}
+
 	dummyJobNG := &SQSMockJob{
-		msg: &sqs.Message{
-			MessageId: aws.String("foobar"),
-			Body:      aws.String(`{"hoge":"fuga"}`),
-		},
+		msg:      sqsMsg,
 		status:   false,
 		doneChan: make(chan struct{}),
 	}
 	w.CurrentWorkings[dummyJobNG.ID()] = dummyJobNG
-	ctx := context.Background()
 	go w.HandleMessage(ctx, dummyJobNG)
 	<-dummyJobNG.Done()
 	if _, exists := w.CurrentWorkings[dummyJobNG.ID()]; exists {
 		t.Error("working job yet exists")
+	}
+
+	dummyJobOK := &SQSMockJob{
+		msg:      sqsMsg,
+		status:   true,
+		doneChan: make(chan struct{}),
+	}
+	w.CurrentWorkings[dummyJobOK.ID()] = dummyJobOK
+	go w.HandleMessage(ctx, dummyJobOK)
+	<-dummyJobOK.Done()
+	if _, exists := w.CurrentWorkings[dummyJobOK.ID()]; exists {
+		t.Error("working job yet exists")
+	}
+
+	dummyJobErr := &SQSMockJob{
+		msg:      sqsMsg,
+		status:   false,
+		doneChan: make(chan struct{}),
+		err:      errors.New("fugaaa"),
+	}
+	w.CurrentWorkings[dummyJobErr.ID()] = dummyJobErr
+	go w.HandleMessage(ctx, dummyJobErr)
+	<-dummyJobErr.Done()
+	if _, exists := w.CurrentWorkings[dummyJobErr.ID()]; exists {
+		t.Error("working job yet exists")
+	}
+
+	if len(w.CurrentWorkings) > 0 {
+		t.Error("job exists")
 	}
 }
