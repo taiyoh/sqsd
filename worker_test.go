@@ -193,7 +193,10 @@ func TestWorkerRun(t *testing.T) {
 	t.Run("Pause cancel -> context cancel", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		go run(ctx)
-		time.Sleep(50 * time.Millisecond)
+
+		if !w.Runnable {
+			t.Error("Runnable status is wrong")
+		}
 
 		w.Pause() <- true
 		if w.Runnable {
