@@ -11,7 +11,7 @@ type SQSWorker struct {
 	Resource        *SQSResource
 	SleepSeconds    time.Duration
 	ProcessCount    int
-	CurrentWorkings map[string]SQSJobIFace
+	CurrentWorkings map[string]*SQSJob
 	Conf            *SQSDHttpWorkerConf
 	QueueURL        string
 	Runnable        bool
@@ -23,7 +23,7 @@ func NewWorker(resource *SQSResource, conf *SQSDConf) *SQSWorker {
 		Resource:        resource,
 		SleepSeconds:    time.Duration(conf.SleepSeconds),
 		ProcessCount:    conf.ProcessCount,
-		CurrentWorkings: make(map[string]SQSJobIFace),
+		CurrentWorkings: make(map[string]*SQSJob),
 		Conf:            &conf.HTTPWorker,
 		Runnable:        true,
 		Pause:           make(chan bool),
@@ -57,7 +57,7 @@ func (w *SQSWorker) Run(ctx context.Context) {
 	}
 }
 
-func (w *SQSWorker) SetupJob(msg *sqs.Message) SQSJobIFace {
+func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
 	job := NewJob(msg, w.Conf)
 	w.CurrentWorkings[job.ID()] = job
 	return job
@@ -73,7 +73,7 @@ func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message)
 	}
 }
 
-func (w *SQSWorker) HandleMessage(ctx context.Context, job SQSJobIFace) {
+func (w *SQSWorker) HandleMessage(ctx context.Context, job *SQSJob) {
 	ok, err := job.Run(ctx)
 	if err != nil {
 		log.Printf("HandleMessage request error: %s\n", err.Error())

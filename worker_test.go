@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"context"
-	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
@@ -108,50 +107,51 @@ func TestHandleMessage(t *testing.T) {
 
 	ctx := context.Background()
 
-	sqsMsg := &sqs.Message{
-		MessageId:     aws.String("foobar"),
-		Body:          aws.String(`{"hoge":"fuga"}`),
-		ReceiptHandle: aws.String("aaaaaaaaaa"),
-	}
+	ts := MockJobServer()
+	defer ts.Close()
 
-	dummyJobNG := &SQSMockJob{
-		msg:      sqsMsg,
-		status:   false,
-		doneChan: make(chan struct{}),
-	}
-	w.CurrentWorkings[dummyJobNG.ID()] = dummyJobNG
-	go w.HandleMessage(ctx, dummyJobNG)
-	<-dummyJobNG.Done()
-	if _, exists := w.CurrentWorkings[dummyJobNG.ID()]; exists {
-		t.Error("working job yet exists")
-	}
+	t.Run("job failed", func(t *testing.T) {
+		job := w.SetupJob(&sqs.Message{
+			MessageId:     aws.String("TestHandleMessageNG"),
+			Body:          aws.String(`{"hoge":"fuga"}`),
+			ReceiptHandle: aws.String("aaaaaaaaaa"),
+		})
+		job.URL = ts.URL + "/error"
 
-	dummyJobOK := &SQSMockJob{
-		msg:      sqsMsg,
-		status:   true,
-		doneChan: make(chan struct{}),
-	}
-	w.CurrentWorkings[dummyJobOK.ID()] = dummyJobOK
-	go w.HandleMessage(ctx, dummyJobOK)
-	<-dummyJobOK.Done()
-	if _, exists := w.CurrentWorkings[dummyJobOK.ID()]; exists {
-		t.Error("working job yet exists")
-	}
+		go w.HandleMessage(ctx, job)
+		<-job.Done()
+		if _, exists := w.CurrentWorkings[job.ID()]; exists {
+			t.Error("working job yet exists")
+		}
+	})
 
-	dummyJobErr := &SQSMockJob{
-		msg:      sqsMsg,
-		status:   false,
-		doneChan: make(chan struct{}),
-		err:      errors.New("fugaaa"),
-	}
-	w.CurrentWorkings[dummyJobErr.ID()] = dummyJobErr
-	go w.HandleMessage(ctx, dummyJobErr)
-	<-dummyJobErr.Done()
-	if _, exists := w.CurrentWorkings[dummyJobErr.ID()]; exists {
-		t.Error("working job yet exists")
-	}
+	t.Run("context cancelled", func(t *testing.T) {
+		job := w.SetupJob(&sqs.Message{
+			MessageId:     aws.String("TestHandleMessageErr"),
+			Body:          aws.String(`{"hoge":"fuga"}`),
+			ReceiptHandle: aws.String("aaaaaaaaaa"),
+		})
+		job.URL = ts.URL + "/long"
+		parent, cancel := context.WithCancel(ctx)
+		go w.HandleMessage(parent, job)
+		cancel()
+		<-job.Done()
+		if _, exists := w.CurrentWorkings[job.ID()]; exists {
+			t.Error("working job yet exists")
+		}
+	})
 
-	if len(w.CurrentWorkings) > 0 {
-		t.Error("job exists")
-	}
+	t.Run("success", func(t *testing.T) {
+		job := w.SetupJob(&sqs.Message{
+			MessageId:     aws.String("TestHandleMessageOK"),
+			Body:          aws.String(`{"hoge":"fuga"}`),
+			ReceiptHandle: aws.String("aaaaaaaaaa"),
+		})
+		job.URL = ts.URL + "/ok"
+		go w.HandleMessage(ctx, job)
+		<-job.Done()
+		if _, exists := w.CurrentWorkings[job.ID()]; exists {
+			t.Error("working job yet exists")
+		}
+	})
 }

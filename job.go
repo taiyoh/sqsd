@@ -10,15 +10,7 @@ import (
 	"time"
 )
 
-type SQSJobIFace interface {
-	ID() string
-	Run(ctx context.Context) (bool, error)
-	Msg() *sqs.Message
-	Done() chan struct{}
-}
-
 type SQSJob struct {
-	SQSJobIFace
 	msg         *sqs.Message
 	StartAt     time.Time
 	URL         string
@@ -37,7 +29,7 @@ func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 }
 
 func (j *SQSJob) ID() string {
-	return *j.msg.MessageId
+	return *j.Msg().MessageId
 }
 
 func (j *SQSJob) Msg() *sqs.Message {
