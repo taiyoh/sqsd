@@ -1,14 +1,14 @@
 package sqsd
 
 import (
-	"io"
-	"errors"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -16,10 +16,10 @@ import (
 	"time"
 )
 
-
 type JobPayloadForTest struct {
 	ID string
 }
+
 func (p *JobPayloadForTest) String() string {
 	buf, _ := json.Marshal(p)
 	return bytes.NewBuffer(buf).String()
@@ -35,7 +35,8 @@ func DecodePayload(body io.ReadCloser) *JobPayloadForTest {
 func TestNewWorker(t *testing.T) {
 	c := &SQSDConf{}
 	r := &SQSResource{}
-	w := NewWorker(r, c)
+	tr := NewJobTracker(5)
+	w := NewWorker(r, tr, c)
 	if w == nil {
 		t.Error("worker not loaded")
 	}
@@ -44,7 +45,8 @@ func TestNewWorker(t *testing.T) {
 func TestSetupJob(t *testing.T) {
 	c := &SQSDConf{}
 	r := &SQSResource{}
-	w := NewWorker(r, c)
+	tr := NewJobTracker(5)
+	w := NewWorker(r, tr, c)
 
 	sqsMsg := &sqs.Message{
 		MessageId: aws.String("foobar"),
@@ -55,21 +57,13 @@ func TestSetupJob(t *testing.T) {
 	if job == nil {
 		t.Error("job not created")
 	}
-
-	if _, exists := w.CurrentWorkings[job.ID()]; !exists {
-		t.Error("job not registered")
-	}
-
-	delete(w.CurrentWorkings, job.ID())
-	if _, exists := w.CurrentWorkings[job.ID()]; exists {
-		t.Error("job not deleted")
-	}
 }
 
 func TestIsRunnable(t *testing.T) {
-	c := &SQSDConf{ProcessCount: 5}
+	c := &SQSDConf{}
 	r := &SQSResource{}
-	w := NewWorker(r, c)
+	tr := NewJobTracker(5)
+	w := NewWorker(r, tr, c)
 
 	w.Runnable = false
 	if w.IsWorkerAvailable() {
@@ -79,55 +73,13 @@ func TestIsRunnable(t *testing.T) {
 	if !w.IsWorkerAvailable() {
 		t.Error("IsWorkerAvailable flag is wrong")
 	}
-
-	for i := 1; i <= w.ProcessCount-1; i++ {
-		w.SetupJob(&sqs.Message{
-			MessageId: aws.String("id:" + strconv.Itoa(i)),
-			Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
-		})
-		if !w.IsWorkerAvailable() {
-			t.Errorf("flag disabled! idx: %d", i)
-		}
-	}
-
-	w.SetupJob(&sqs.Message{
-		MessageId: aws.String("id:" + strconv.Itoa(w.ProcessCount)),
-		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
-	})
-	if w.IsWorkerAvailable() {
-		t.Errorf("flag disabled! idx: %d", w.ProcessCount)
-	}
-}
-
-func TestCanWork(t *testing.T) {
-	c := &SQSDConf{ProcessCount: 5}
-	r := &SQSResource{}
-	w := NewWorker(r, c)
-
-	sqsMsg := &sqs.Message{
-		MessageId: aws.String("id:100000"),
-		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
-	}
-
-	w.Runnable = false
-	if w.CanWork(sqsMsg) {
-		t.Error("CanWork not working")
-	}
-
-	w.Runnable = true
-	if !w.CanWork(sqsMsg) {
-		t.Error("CanWork not working")
-	}
-	w.SetupJob(sqsMsg)
-	if w.CanWork(sqsMsg) {
-		t.Error("Canwork not working")
-	}
 }
 
 func TestHandleMessage(t *testing.T) {
-	c := &SQSDConf{ProcessCount: 5}
+	c := &SQSDConf{}
 	r := &SQSResource{Client: &SQSMockClient{}}
-	w := NewWorker(r, c)
+	tr := NewJobTracker(5)
+	w := NewWorker(r, tr, c)
 
 	ctx := context.Background()
 
@@ -144,7 +96,7 @@ func TestHandleMessage(t *testing.T) {
 
 		go w.HandleMessage(ctx, job)
 		<-job.Done()
-		if _, exists := w.CurrentWorkings[job.ID()]; exists {
+		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
 	})
@@ -160,7 +112,7 @@ func TestHandleMessage(t *testing.T) {
 		go w.HandleMessage(parent, job)
 		cancel()
 		<-job.Done()
-		if _, exists := w.CurrentWorkings[job.ID()]; exists {
+		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
 	})
@@ -174,7 +126,7 @@ func TestHandleMessage(t *testing.T) {
 		job.URL = ts.URL + "/ok"
 		go w.HandleMessage(ctx, job)
 		<-job.Done()
-		if _, exists := w.CurrentWorkings[job.ID()]; exists {
+		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
 	})
@@ -203,16 +155,17 @@ func TestHandleMessages(t *testing.T) {
 	))
 	defer ts.Close()
 
-	c := &SQSDConf{ProcessCount: 5, HTTPWorker: SQSDHttpWorkerConf{URL: ts.URL}}
+	c := &SQSDConf{HTTPWorker: SQSDHttpWorkerConf{URL: ts.URL}}
 	r := &SQSResource{Client: &SQSMockClient{}}
-	w := NewWorker(r, c)
+	tr := NewJobTracker(5)
+	w := NewWorker(r, tr, c)
 
 	ctx := context.Background()
 
 	w.HandleMessages(ctx, msgs)
 	time.Sleep(100 * time.Millisecond)
 
-	if len(caughtIds) != c.ProcessCount {
+	if len(caughtIds) != tr.MaxProcessCount {
 		t.Errorf("requests is wrong: %d", len(caughtIds))
 	}
 
@@ -225,10 +178,11 @@ func TestHandleMessages(t *testing.T) {
 }
 
 func TestWorkerRun(t *testing.T) {
-	c := &SQSDConf{ProcessCount: 5, SleepSeconds: 1}
+	c := &SQSDConf{SleepSeconds: 1}
 	mc := NewMockClient()
 	r := &SQSResource{Client: mc}
-	w := NewWorker(r, c)
+	tr := NewJobTracker(5)
+	w := NewWorker(r, tr, c)
 
 	funcEnds := make(chan bool)
 	run := func(ctx context.Context) {

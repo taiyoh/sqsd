@@ -8,25 +8,23 @@ import (
 )
 
 type SQSWorker struct {
-	Resource        *SQSResource
-	SleepSeconds    time.Duration
-	ProcessCount    int
-	CurrentWorkings map[string]*SQSJob
-	Conf            *SQSDHttpWorkerConf
-	QueueURL        string
-	Runnable        bool
-	pauseChan       chan bool
+	Resource     *SQSResource
+	Tracker      *SQSJobTracker
+	SleepSeconds time.Duration
+	Conf         *SQSDHttpWorkerConf
+	QueueURL     string
+	Runnable     bool
+	pauseChan    chan bool
 }
 
-func NewWorker(resource *SQSResource, conf *SQSDConf) *SQSWorker {
+func NewWorker(resource *SQSResource, tracker *SQSJobTracker, conf *SQSDConf) *SQSWorker {
 	return &SQSWorker{
-		Resource:        resource,
-		SleepSeconds:    time.Duration(conf.SleepSeconds),
-		ProcessCount:    conf.ProcessCount,
-		CurrentWorkings: make(map[string]*SQSJob),
-		Conf:            &conf.HTTPWorker,
-		Runnable:        true,
-		pauseChan:       make(chan bool),
+		Resource:     resource,
+		Tracker:      tracker,
+		SleepSeconds: time.Duration(conf.SleepSeconds),
+		Conf:         &conf.HTTPWorker,
+		Runnable:     true,
+		pauseChan:    make(chan bool),
 	}
 }
 
@@ -40,10 +38,10 @@ func (w *SQSWorker) Run(ctx context.Context) {
 	go func() {
 		for {
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				cancelled = true
 				return
-			case shouldStop := <- w.Pause():
+			case shouldStop := <-w.Pause():
 				w.Runnable = shouldStop == false
 			}
 		}
@@ -71,16 +69,21 @@ func (w *SQSWorker) Run(ctx context.Context) {
 
 func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
 	job := NewJob(msg, w.Conf)
-	w.CurrentWorkings[job.ID()] = job
+	if ok := w.Tracker.Add(job); !ok {
+		return nil
+	}
 	return job
 }
 
 func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message) {
 	for _, msg := range messages {
-		if !w.CanWork(msg) {
+		if !w.IsWorkerAvailable() {
 			continue
 		}
 		job := w.SetupJob(msg)
+		if job == nil {
+			continue
+		}
 		go w.HandleMessage(ctx, job)
 	}
 }
@@ -93,24 +96,10 @@ func (w *SQSWorker) HandleMessage(ctx context.Context, job *SQSJob) {
 	if ok {
 		w.Resource.DeleteMessage(job.Msg)
 	}
-	delete(w.CurrentWorkings, job.ID())
+	w.Tracker.Delete(job)
 	job.Done() <- struct{}{}
 }
 
 func (w *SQSWorker) IsWorkerAvailable() bool {
-	if !w.Runnable {
-		return false
-	}
-	if len(w.CurrentWorkings) >= w.ProcessCount {
-		return false
-	}
-	return true
-}
-
-func (w *SQSWorker) CanWork(msg *sqs.Message) bool {
-	if !w.IsWorkerAvailable() {
-		return false
-	}
-	_, exists := w.CurrentWorkings[*msg.MessageId]
-	return exists == false
+	return w.Runnable
 }

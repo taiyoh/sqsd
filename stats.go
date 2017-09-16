@@ -8,7 +8,7 @@ import (
 
 type SQSStat struct {
 	Port int
-	Mux *http.ServeMux
+	Mux  *http.ServeMux
 }
 
 func NewStat(conf *SQSDConf) *SQSStat {
@@ -16,7 +16,7 @@ func NewStat(conf *SQSDConf) *SQSStat {
 	mux.HandleFunc("/stats", stats_api.Handler)
 	return &SQSStat{
 		Port: conf.Stat.Port,
-		Mux: mux,
+		Mux:  mux,
 	}
 }
 
