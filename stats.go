@@ -56,7 +56,7 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 			return
 		}
 		tracker.Pause() <- true
-		w.Header().Set("Content-Type", "tapplication/json")
+		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, `{"status":true}`)
 	})
 	mux.HandleFunc("/worker/resume", func(w http.ResponseWriter, r *http.Request) {
@@ -67,10 +67,9 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 			return
 		}
 		tracker.Pause() <- false
-		w.Header().Set("Content-Type", "tapplication/json")
+		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, `{"status":true}`)
 	})
-
 
 	return &SQSStat{
 		Port:    conf.Stat.Port,
