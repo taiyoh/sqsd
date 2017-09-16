@@ -11,7 +11,7 @@ type SQSWorker struct {
 	Resource        *SQSResource
 	SleepSeconds    time.Duration
 	ProcessCount    int
-	CurrentWorkings map[string]*SQSJob
+	CurrentWorkings map[string]SQSJobIFace
 	Conf            *SQSDHttpWorkerConf
 	QueueURL        string
 	Runnable        bool
@@ -23,7 +23,7 @@ func NewWorker(resource *SQSResource, conf *SQSDConf) *SQSWorker {
 		Resource:        resource,
 		SleepSeconds:    time.Duration(conf.SleepSeconds),
 		ProcessCount:    conf.ProcessCount,
-		CurrentWorkings: make(map[string]*SQSJob),
+		CurrentWorkings: make(map[string]SQSJobIFace),
 		Conf:            &conf.HTTPWorker,
 		Runnable:        true,
 		Pause:           make(chan bool),
@@ -38,50 +38,51 @@ func (w *SQSWorker) Run(ctx context.Context) {
 		case shouldStop := <-w.Pause:
 			w.Runnable = shouldStop == false
 		default:
-			if w.IsWorkerAvailable() {
-				results, err := w.Resource.GetMessages()
-				if err != nil {
-					log.Println("Error", err)
-				} else if len(results) == 0 {
-					log.Println("received no messages")
-				} else {
-					log.Printf("received %d messages. run jobs", len(results))
-					w.HandleMessages(results)
-				}
+			if !w.IsWorkerAvailable() {
+				time.Sleep(w.SleepSeconds * time.Second)
+				continue
 			}
-			time.Sleep(w.SleepSeconds * time.Second)
+			results, err := w.Resource.GetMessages()
+			if err != nil {
+				log.Println("Error", err)
+				time.Sleep(w.SleepSeconds * time.Second)
+			} else if len(results) == 0 {
+				log.Println("received no messages")
+				time.Sleep(w.SleepSeconds * time.Second)
+			} else {
+				log.Printf("received %d messages. run jobs", len(results))
+				w.HandleMessages(ctx, results)
+			}
 		}
 	}
 }
 
-func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
+func (w *SQSWorker) SetupJob(msg *sqs.Message) SQSJobIFace {
 	job := NewJob(msg, w.Conf)
 	w.CurrentWorkings[job.ID()] = job
 	return job
 }
 
-func (w *SQSWorker) HandleMessages(messages []*sqs.Message) {
+func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message) {
 	for _, msg := range messages {
 		if !w.CanWork(msg) {
 			continue
 		}
 		job := w.SetupJob(msg)
-		go w.HandleMessage(job)
+		go w.HandleMessage(ctx, job)
 	}
 }
 
-func (w *SQSWorker) HandleMessage(job *SQSJob) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func (w *SQSWorker) HandleMessage(ctx context.Context, job SQSJobIFace) {
 	ok, err := job.Run(ctx)
 	if err != nil {
-		log.Printf("HandleMessage request error: %s", err.Error())
-		return
+		log.Printf("HandleMessage request error: %s\n", err.Error())
 	}
 	if ok {
-		w.Resource.DeleteMessage(job.Msg)
+		w.Resource.DeleteMessage(job.Msg())
 	}
 	delete(w.CurrentWorkings, job.ID())
+	job.Done() <- struct{}{}
 }
 
 func (w *SQSWorker) IsWorkerAvailable() bool {

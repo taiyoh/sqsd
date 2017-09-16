@@ -3,22 +3,8 @@ package sqsd
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 	"testing"
 )
-
-type SQSMockClient struct {
-	sqsiface.SQSAPI
-	Resp *sqs.ReceiveMessageOutput
-}
-
-func (c *SQSMockClient) ReceiveMessage(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
-	return c.Resp, nil
-}
-
-func (c *SQSMockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
-	return &sqs.DeleteMessageOutput{}, nil
-}
 
 func TestSQSResource(t *testing.T) {
 	c := &SQSMockClient{

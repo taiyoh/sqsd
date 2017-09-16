@@ -10,28 +10,42 @@ import (
 	"time"
 )
 
+type SQSJobIFace interface {
+	ID() string
+	Run(ctx context.Context) (bool, error)
+	Msg() *sqs.Message
+	Done() chan struct{}
+}
+
 type SQSJob struct {
-	Msg         *sqs.Message
+	SQSJobIFace
+	msg         *sqs.Message
 	StartAt     time.Time
 	URL         string
 	ContentType string
+	doneChan    chan struct{}
 }
 
 func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 	return &SQSJob{
-		Msg:         msg,
+		msg:         msg,
 		StartAt:     time.Now(),
 		URL:         conf.URL,
 		ContentType: conf.RequestContentType,
+		doneChan:    make(chan struct{}),
 	}
 }
 
 func (j *SQSJob) ID() string {
-	return *j.Msg.MessageId
+	return *j.msg.MessageId
+}
+
+func (j *SQSJob) Msg() *sqs.Message {
+	return j.msg
 }
 
 func (j *SQSJob) Run(ctx context.Context) (bool, error) {
-	req, err := http.NewRequest("POST", j.URL, strings.NewReader(*j.Msg.Body))
+	req, err := http.NewRequest("POST", j.URL, strings.NewReader(*j.msg.Body))
 	if err != nil {
 		return false, err
 	}
@@ -52,4 +66,8 @@ func (j *SQSJob) Run(ctx context.Context) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (j *SQSJob) Done() chan struct{} {
+	return j.doneChan
 }
