@@ -46,9 +46,7 @@ func (j *SQSJob) Run(ctx context.Context) (bool, error) {
 	buf.ReadFrom(resp.Body)
 	statusCode := resp.StatusCode
 	defer resp.Body.Close()
-	if err != nil {
-		return false, err
-	} else if statusCode != 200 {
+	if statusCode != 200 {
 		log.Printf("job[%s] failed. status: %d, response: %s", j.ID(), statusCode, buf.String())
 		return false, nil
 	}
