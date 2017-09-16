@@ -59,22 +59,6 @@ func TestSetupJob(t *testing.T) {
 	}
 }
 
-func TestIsRunnable(t *testing.T) {
-	c := &SQSDConf{}
-	r := &SQSResource{}
-	tr := NewJobTracker(5)
-	w := NewWorker(r, tr, c)
-
-	w.Runnable = false
-	if w.IsWorkerAvailable() {
-		t.Error("IsWorkerAvailable flag is wrong")
-	}
-	w.Runnable = true
-	if !w.IsWorkerAvailable() {
-		t.Error("IsWorkerAvailable flag is wrong")
-	}
-}
-
 func TestHandleMessage(t *testing.T) {
 	c := &SQSDConf{}
 	r := &SQSResource{Client: &SQSMockClient{}}
@@ -194,13 +178,13 @@ func TestWorkerRun(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		go run(ctx)
 
-		if !w.Runnable {
-			t.Error("Runnable status is wrong")
+		if !tr.JobWorking {
+			t.Error("JobWorking status is wrong")
 		}
 
-		w.Pause() <- true
-		if w.Runnable {
-			t.Error("Runnable not changed")
+		tr.Pause() <- true
+		if tr.JobWorking {
+			t.Error("JobWorking not changed")
 		}
 
 		time.Sleep(1 * time.Second)
@@ -217,7 +201,7 @@ func TestWorkerRun(t *testing.T) {
 
 	mc.RecvRequestCount = 0
 	mc.Err = errors.New("fugafuga")
-	w.Runnable = true
+	tr.JobWorking = true
 
 	t.Run("error received", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())

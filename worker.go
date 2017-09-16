@@ -13,8 +13,6 @@ type SQSWorker struct {
 	SleepSeconds time.Duration
 	Conf         *SQSDHttpWorkerConf
 	QueueURL     string
-	Runnable     bool
-	pauseChan    chan bool
 }
 
 func NewWorker(resource *SQSResource, tracker *SQSJobTracker, conf *SQSDConf) *SQSWorker {
@@ -23,13 +21,7 @@ func NewWorker(resource *SQSResource, tracker *SQSJobTracker, conf *SQSDConf) *S
 		Tracker:      tracker,
 		SleepSeconds: time.Duration(conf.SleepSeconds),
 		Conf:         &conf.HTTPWorker,
-		Runnable:     true,
-		pauseChan:    make(chan bool),
 	}
-}
-
-func (w *SQSWorker) Pause() chan bool {
-	return w.pauseChan
 }
 
 func (w *SQSWorker) Run(ctx context.Context) {
@@ -41,8 +33,8 @@ func (w *SQSWorker) Run(ctx context.Context) {
 			case <-ctx.Done():
 				cancelled = true
 				return
-			case shouldStop := <-w.Pause():
-				w.Runnable = shouldStop == false
+			case shouldStop := <-w.Tracker.Pause():
+				w.Tracker.JobWorking = shouldStop == false
 			}
 		}
 	}()
@@ -50,7 +42,7 @@ func (w *SQSWorker) Run(ctx context.Context) {
 		if cancelled {
 			break
 		}
-		if !w.IsWorkerAvailable() {
+		if !w.Tracker.IsWorking() {
 			time.Sleep(w.SleepSeconds * time.Second)
 			continue
 		}
@@ -77,7 +69,7 @@ func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
 
 func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message) {
 	for _, msg := range messages {
-		if !w.IsWorkerAvailable() {
+		if !w.Tracker.IsWorking() {
 			continue
 		}
 		job := w.SetupJob(msg)
@@ -98,8 +90,4 @@ func (w *SQSWorker) HandleMessage(ctx context.Context, job *SQSJob) {
 	}
 	w.Tracker.Delete(job)
 	job.Done() <- struct{}{}
-}
-
-func (w *SQSWorker) IsWorkerAvailable() bool {
-	return w.Runnable
 }

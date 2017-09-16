@@ -3,12 +3,16 @@ package sqsd
 type SQSJobTracker struct {
 	CurrentWorkings map[string]*SQSJob
 	MaxProcessCount int
+	JobWorking      bool
+	pauseChan       chan bool
 }
 
 func NewJobTracker(maxProcCount int) *SQSJobTracker {
 	return &SQSJobTracker{
 		CurrentWorkings: make(map[string]*SQSJob),
 		MaxProcessCount: maxProcCount,
+		JobWorking: true,
+		pauseChan: make(chan bool),
 	}
 }
 
@@ -30,4 +34,12 @@ func (t *SQSJobTracker) CurrentSummaries() []*SQSJobSummary {
 		currentList = append(currentList, job.Summary())
 	}
 	return currentList
+}
+
+func (t *SQSJobTracker) Pause() chan bool {
+	return t.pauseChan
+}
+
+func (t *SQSJobTracker) IsWorking() bool {
+	return t.JobWorking
 }

@@ -1,6 +1,7 @@
 package sqsd
 
 import (
+	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
@@ -52,5 +53,35 @@ func TestJobTracker(t *testing.T) {
 	}
 	if _, exists := tracker.CurrentWorkings[untrackedJob.ID()]; exists {
 		t.Error("job registered ...")
+	}
+}
+
+func TestJobWorking(t *testing.T) {
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tr := NewJobTracker(5)
+
+	go func() {
+		for {
+			select {
+			case shouldStop := <- tr.Pause():
+				tr.JobWorking = shouldStop == false
+			}
+		}
+	}()
+
+	if !tr.JobWorking {
+		t.Error("JobWorking false")
+	}
+
+	tr.Pause() <- true
+	if tr.JobWorking {
+		t.Error("JobWorking not changed to true")
+	}
+
+	tr.Pause() <- false
+	if tr.JobWorking {
+		t.Error("JobWorking not changed to false")
 	}
 }
