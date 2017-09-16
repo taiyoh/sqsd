@@ -50,10 +50,7 @@ func (c *SQSDConf) Validate() error {
 	if c.SleepSeconds < 0 {
 		return errors.New("SleepSeconds requires natural number")
 	}
-	if c.QueueURL == "" {
-		return errors.New("require queue_url")
-	}
-	uri, err := url.Parse(c.QueueURL)
+	uri, err := url.ParseRequestURI(c.QueueURL)
 	if err != nil {
 		return err
 	}

@@ -77,7 +77,7 @@ func TestValidateConf(t *testing.T) {
 	if err := c.Validate(); err == nil {
 		t.Error("QueueURL not found")
 	}
-	c.QueueURL = "hoge"
+	c.QueueURL = "hoge://fuga/piyo"
 	if err := c.Validate(); err == nil {
 		t.Error("QueueURL is invalid")
 	}
@@ -85,6 +85,9 @@ func TestValidateConf(t *testing.T) {
 
 func TestNewConf(t *testing.T) {
 	d, _ := os.Getwd()
+	if _, err := NewConf(filepath.Join(d, "test", "conf", "hoge.toml")); err == nil {
+		t.Error("file not found")
+	}
 	if _, err := NewConf(filepath.Join(d, "test", "conf", "config1.toml")); err == nil {
 		t.Error("invalid config but passed")
 	}
