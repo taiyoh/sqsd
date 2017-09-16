@@ -23,3 +23,11 @@ func (t *SQSJobTracker) Add(job *SQSJob) bool {
 func (t *SQSJobTracker) Delete(job *SQSJob) {
 	delete(t.CurrentWorkings, job.ID())
 }
+
+func (t *SQSJobTracker) CurrentList() []*SQSJobSummary {
+	currentList := []*SQSJobSummary{}
+	for _, job := range t.CurrentWorkings {
+		currentList = append(currentList, job.Summary())
+	}
+	return currentList
+}

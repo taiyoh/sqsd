@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"log"
@@ -14,11 +15,14 @@ func main() {
 		log.Fatalf("config file not loaded. %s, err: %s\n", filepath.Join(d, "config.toml"), err.Error())
 	}
 
-//	stat := NewStat(config)
-//	defer stat.Stop()
-//	go stat.Run()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	worker := sqsd.NewWorker(config)
-	defer worker.Stop()
-	go worker.Run()
+	tracker := sqsd.NewJobTracker(config.ProcessCount)
+
+	stat := sqsd.NewStat(tracker, config)
+	go stat.Run(ctx)
+
+	worker := sqsd.NewWorker(tracker, config)
+	go worker.Run(ctx)
 }

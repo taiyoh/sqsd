@@ -18,6 +18,11 @@ type SQSJob struct {
 	doneChan    chan struct{}
 }
 
+type SQSJobSummary struct {
+	ID      string
+	StartAt time.Time
+}
+
 func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 	return &SQSJob{
 		Msg:         msg,
@@ -58,4 +63,11 @@ func (j *SQSJob) Run(ctx context.Context) (bool, error) {
 
 func (j *SQSJob) Done() chan struct{} {
 	return j.doneChan
+}
+
+func (j *SQSJob) Summary() *SQSJobSummary {
+	return &SQSJobSummary{
+		ID:      j.ID(),
+		StartAt: j.StartAt,
+	}
 }
