@@ -81,3 +81,25 @@ func TestJobFunc(t *testing.T) {
 		}
 	})
 }
+
+func TestJobSummary(t *testing.T) {
+	sqsMsg := &sqs.Message{
+		MessageId: aws.String("foobar"),
+		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
+	}
+	conf := &SQSDHttpWorkerConf{
+		RequestContentType: "application/json",
+		URL:                "http://example.com/foo/bar",
+	}
+	job := NewJob(sqsMsg, conf)
+	summary := job.Summary()
+	if summary.ID != job.ID() {
+		t.Error("different id")
+	}
+	if summary.StartAt != job.StartAt {
+		t.Error("different start_at")
+	}
+	if summary.Payload != *job.Msg.Body {
+		t.Error("different payload")
+	}
+}

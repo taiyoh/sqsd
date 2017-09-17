@@ -276,7 +276,7 @@ func TestWorkerRun(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		wg.Add(1)
 		go run(ctx)
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 		cancel()
 		<-funcEnds
 

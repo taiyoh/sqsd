@@ -20,6 +20,7 @@ type SQSJob struct {
 type SQSJobSummary struct {
 	ID      string
 	StartAt time.Time
+	Payload string
 }
 
 func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
@@ -63,5 +64,6 @@ func (j *SQSJob) Summary() *SQSJobSummary {
 	return &SQSJobSummary{
 		ID:      j.ID(),
 		StartAt: j.StartAt,
+		Payload: *j.Msg.Body,
 	}
 }
