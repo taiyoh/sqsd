@@ -11,8 +11,8 @@ func NewJobTracker(maxProcCount int) *SQSJobTracker {
 	return &SQSJobTracker{
 		CurrentWorkings: make(map[string]*SQSJob),
 		MaxProcessCount: maxProcCount,
-		JobWorking: true,
-		pauseChan: make(chan bool),
+		JobWorking:      true,
+		pauseChan:       make(chan bool),
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/fukata/golang-stats-api-handler"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -33,20 +34,18 @@ type SQSStatSuccessResponse struct {
 	Success bool `json:"success"`
 }
 
-func ReqMethodValidate(wp *http.ResponseWriter, r *http.Request, m string) bool {
+func ReqMethodValidate(w http.ResponseWriter, r *http.Request, m string) bool {
 	if r.Method == m {
 		return true
 	}
-	w := *wp
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusMethodNotAllowed)
 	fmt.Fprint(w, "Method Not Allowed")
 	return false
 }
 
-func RenderJSON(wp *http.ResponseWriter, res SQSStatResponseIFace) {
+func RenderJSON(w http.ResponseWriter, res SQSStatResponseIFace) {
 	buf, _ := json.Marshal(res)
-	w := *wp
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprint(w, bytes.NewBuffer(buf).String())
 }
@@ -55,36 +54,36 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stats", stats_api.Handler)
 	mux.HandleFunc("/worker/current/list", func(w http.ResponseWriter, r *http.Request) {
-		if !ReqMethodValidate(&w, r, "GET") {
+		if !ReqMethodValidate(w, r, "GET") {
 			return
 		}
-		RenderJSON(&w, &SQSStatCurrentListResponse{
+		RenderJSON(w, &SQSStatCurrentListResponse{
 			CurrentList: tracker.CurrentSummaries(),
 		})
 	})
 	mux.HandleFunc("/worker/current/size", func(w http.ResponseWriter, r *http.Request) {
-		if !ReqMethodValidate(&w, r, "GET") {
+		if !ReqMethodValidate(w, r, "GET") {
 			return
 		}
-		RenderJSON(&w, &SQSStatCurrentSizeResponse{
+		RenderJSON(w, &SQSStatCurrentSizeResponse{
 			Size: len(tracker.CurrentSummaries()),
 		})
 	})
 	mux.HandleFunc("/worker/pause", func(w http.ResponseWriter, r *http.Request) {
-		if !ReqMethodValidate(&w, r, "POST") {
+		if !ReqMethodValidate(w, r, "POST") {
 			return
 		}
 		tracker.Pause()
-		RenderJSON(&w, &SQSStatSuccessResponse{
+		RenderJSON(w, &SQSStatSuccessResponse{
 			Success: true,
 		})
 	})
 	mux.HandleFunc("/worker/resume", func(w http.ResponseWriter, r *http.Request) {
-		if !ReqMethodValidate(&w, r, "POST") {
+		if !ReqMethodValidate(w, r, "POST") {
 			return
 		}
 		tracker.Resume()
-		RenderJSON(&w, &SQSStatSuccessResponse{
+		RenderJSON(w, &SQSStatSuccessResponse{
 			Success: true,
 		})
 	})
@@ -97,12 +96,20 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 }
 
 func (s *SQSStat) Run(ctx context.Context) {
-	go func () {
-		for {
-			select {
-			case <- ctx.Done():
-			}
+	srv := &http.Server{
+		Addr:    ":" + strconv.Itoa(s.Port),
+		Handler: s.Mux,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatal(err)
 		}
 	}()
-	http.ListenAndServe(":"+strconv.Itoa(s.Port), s.Mux)
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal(err)
+    }
+
+    log.Println("stat server closed.")
 }
