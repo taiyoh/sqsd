@@ -99,7 +99,7 @@ func TestCurrentSummaries(t *testing.T) {
 			t.Errorf("job not found: %s", summary.ID)
 		}
 		if summary.Payload != *job.Msg.Body {
-			t.Error("job payload is wrong: %s", summary.Payload)
+			t.Errorf("job payload is wrong: %s", summary.Payload)
 		}
 	}
 }
