@@ -153,5 +153,72 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestWorkerPauseAndResumeHandler(t *testing.T) {
+	tr := NewJobTracker(5)
+	h := NewStatHandler(tr)
+
+	pauseController := h.WorkerPauseHandler()
+
+	req := &http.Request{}
+
+	req.Method = "GET"	
+	t.Run("pause failed", func(t *testing.T) {
+		w := NewSQSMockResponseWriter()
+		pauseController(w, req)
+
+		if w.StatusCode != http.StatusMethodNotAllowed {
+			t.Error("response code invalid")
+		}
+
+		if !tr.IsWorking() {
+			t.Error("IsWorking changed")
+		}
+	})
+
+	req.Method = "POST"
+	t.Run("pause success", func(t *testing.T) {
+		w := NewSQSMockResponseWriter()
+		pauseController(w, req)
+
+		if w.StatusCode != http.StatusOK {
+			t.Error("response code invalid")
+		}
+
+		if tr.IsWorking() {
+			t.Error("IsWorking not changed")
+		}
+	})
+
+	resumeController := h.WorkerResumeHandler()
+
+	req.Method = "GET"	
+	t.Run("resume failed", func(t *testing.T) {
+		w := NewSQSMockResponseWriter()
+		resumeController(w, req)
+
+		if w.StatusCode != http.StatusMethodNotAllowed {
+			t.Error("response code invalid")
+		}
+
+		if tr.IsWorking() {
+			t.Error("IsWorking changed")
+		}
+	})
+
+	req.Method = "POST"
+	t.Run("resume success", func(t *testing.T) {
+		w := NewSQSMockResponseWriter()
+		resumeController(w, req)
+
+		if w.StatusCode != http.StatusOK {
+			t.Error("response code invalid")
+		}
+
+		if !tr.IsWorking() {
+			t.Error("IsWorking not changed")
+		}
+	})
 
 }
