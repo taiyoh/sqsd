@@ -1,14 +1,14 @@
 package main
 
 import (
+	"context"
+	"github.com/taiyoh/sqsd"
+	"log"
+	"os"
+	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
-	"os/signal"
-	"context"
-	"os"
-	"path/filepath"
-	"log"
-	"github.com/taiyoh/sqsd"
 )
 
 func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
@@ -24,7 +24,7 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 	for {
 		select {
 		case sig := <-sigCh:
-			switch(sig) {
+			switch sig {
 			case syscall.SIGTERM:
 				log.Println("SIGTERM caught. shutdown process...")
 				cancel()
@@ -58,7 +58,9 @@ func main() {
 
 	tracker := sqsd.NewJobTracker(config.ProcessCount)
 
-	stat := sqsd.NewStat(tracker, config)
+	handler := sqsd.NewStatHandler(tracker)
+
+	stat := sqsd.NewStatServer(handler, config)
 	wg.Add(1)
 	go stat.Run(ctx, wg)
 

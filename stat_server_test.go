@@ -1,13 +1,13 @@
 package sqsd
 
 import (
+	"context"
+	"net"
 	"strconv"
 	"strings"
-	"net"
-	"time"
 	"sync"
-	"context"
 	"testing"
+	"time"
 )
 
 func TestStatServer(t *testing.T) {
