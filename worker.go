@@ -61,6 +61,7 @@ func (w *SQSWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 		time.Sleep(w.SleepSeconds * time.Second)
 	}
 	syncWait.Wait()
+	log.Println("SQSWorker closed.")
 }
 
 func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {

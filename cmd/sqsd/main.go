@@ -13,6 +13,7 @@ import (
 
 func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer cancel()
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh,
 		syscall.SIGTERM,
