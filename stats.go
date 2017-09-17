@@ -28,47 +28,65 @@ type SQSStatCurrentSizeResponse struct {
 	Size int `json:"size"`
 }
 
-func ResponseToJson(res SQSStatResponseIFace) string {
+type SQSStatSuccessResponse struct {
+	SQSStatResponseIFace
+	Success bool `json:"success"`
+}
+
+func ReqMethodValidate(wp *http.ResponseWriter, r *http.Request, m string) bool {
+	if r.Method == m {
+		return true
+	}
+	w := *wp
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusMethodNotAllowed)
+	fmt.Fprint(w, "Method Not Allowed")
+	return false
+}
+
+func RenderJSON(wp *http.ResponseWriter, res SQSStatResponseIFace) {
 	buf, _ := json.Marshal(res)
-	return bytes.NewBuffer(buf).String()
+	w := *wp
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprint(w, bytes.NewBuffer(buf).String())
 }
 
 func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stats", stats_api.Handler)
 	mux.HandleFunc("/worker/current/list", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, ResponseToJson(&SQSStatCurrentListResponse{
+		if !ReqMethodValidate(&w, r, "GET") {
+			return
+		}
+		RenderJSON(&w, &SQSStatCurrentListResponse{
 			CurrentList: tracker.CurrentSummaries(),
-		}))
+		})
 	})
 	mux.HandleFunc("/worker/current/size", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, ResponseToJson(&SQSStatCurrentSizeResponse{
+		if !ReqMethodValidate(&w, r, "GET") {
+			return
+		}
+		RenderJSON(&w, &SQSStatCurrentSizeResponse{
 			Size: len(tracker.CurrentSummaries()),
-		}))
+		})
 	})
 	mux.HandleFunc("/worker/pause", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			fmt.Fprint(w, "Method Not Allowed")
+		if !ReqMethodValidate(&w, r, "POST") {
 			return
 		}
 		tracker.Pause()
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"status":true}`)
+		RenderJSON(&w, &SQSStatSuccessResponse{
+			Success: true,
+		})
 	})
 	mux.HandleFunc("/worker/resume", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			fmt.Fprint(w, "Method Not Allowed")
+		if !ReqMethodValidate(&w, r, "POST") {
 			return
 		}
 		tracker.Resume()
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"status":true}`)
+		RenderJSON(&w, &SQSStatSuccessResponse{
+			Success: true,
+		})
 	})
 
 	return &SQSStat{
@@ -79,5 +97,12 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 }
 
 func (s *SQSStat) Run(ctx context.Context) {
+	go func () {
+		for {
+			select {
+			case <- ctx.Done():
+			}
+		}
+	}()
 	http.ListenAndServe(":"+strconv.Itoa(s.Port), s.Mux)
 }
