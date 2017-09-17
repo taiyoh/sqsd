@@ -1,7 +1,6 @@
 package sqsd
 
 import (
-	"sync"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 )
 
 type SQSStat struct {
@@ -113,7 +113,7 @@ func (s *SQSStat) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal(err)
-    }
+	}
 
-    log.Println("stat server closed.")
+	log.Println("stat server closed.")
 }

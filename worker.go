@@ -1,10 +1,10 @@
 package sqsd
 
 import (
-	"sync"
 	"context"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"log"
+	"sync"
 	"time"
 )
 
