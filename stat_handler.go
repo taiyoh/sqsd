@@ -31,6 +31,15 @@ func (r *SQSStatSuccessResponse) JSONString() string {
 	return string(buf)
 }
 
+type SQSStatCurrentSummaryResponse struct {
+	JobsCount int `json:"jobs_count"`
+	RestCount int `json:"rest_count"`
+}
+func (r *SQSStatCurrentSummaryResponse) JSONString() string {
+	buf, _ := json.Marshal(r)
+	return string(buf)
+}
+
 func ReqMethodValidate(w http.ResponseWriter, r *http.Request, m string) bool {
 	if r.Method == m {
 		return true
@@ -46,7 +55,20 @@ func RenderJSON(w http.ResponseWriter, res SQSStatResponseIFace) {
 	fmt.Fprint(w, res.JSONString())
 }
 
-func (h *SQSStatHandler) WorkerCurrentListHandler() func(http.ResponseWriter, *http.Request) {
+func (h *SQSStatHandler) WorkerCurrentSummaryHandler() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !ReqMethodValidate(w, r, "GET") {
+			return
+		}
+		jobsCount := len(h.Tracker.CurrentSummaries())
+		RenderJSON(w, &SQSStatCurrentSummaryResponse{
+			JobsCount: jobsCount,
+			RestCount: h.Tracker.MaxProcessCount - jobsCount,
+		})
+	}
+}
+
+func (h *SQSStatHandler) WorkerCurrentJobsHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !ReqMethodValidate(w, r, "GET") {
 			return

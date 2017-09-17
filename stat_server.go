@@ -17,7 +17,8 @@ type SQSStatServer struct {
 func NewStatServer(handler *SQSStatHandler, conf *SQSDConf) *SQSStatServer {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stats", stats_api.Handler)
-	mux.HandleFunc("/worker/current/list", handler.WorkerCurrentListHandler())
+	mux.HandleFunc("/worker/current", handler.WorkerCurrentSummaryHandler())
+	mux.HandleFunc("/worker/current/jobs", handler.WorkerCurrentJobsHandler())
 	mux.HandleFunc("/worker/pause", handler.WorkerPauseHandler())
 	mux.HandleFunc("/worker/resume", handler.WorkerResumeHandler())
 	return &SQSStatServer{
