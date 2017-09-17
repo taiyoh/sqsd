@@ -1,6 +1,7 @@
 package sqsd
 
 import (
+	"sync"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -95,7 +96,8 @@ func NewStat(tracker *SQSJobTracker, conf *SQSDConf) *SQSStat {
 	}
 }
 
-func (s *SQSStat) Run(ctx context.Context) {
+func (s *SQSStat) Run(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 	srv := &http.Server{
 		Addr:    ":" + strconv.Itoa(s.Port),
 		Handler: s.Mux,
