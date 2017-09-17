@@ -76,3 +76,30 @@ func TestJobWorking(t *testing.T) {
 		t.Error("JobWorking not changed to false")
 	}
 }
+
+func TestCurrentSummaries(t *testing.T) {
+	tr := NewJobTracker(5)
+	conf := &SQSDHttpWorkerConf{
+		URL: "http://example.com/foo/bar",
+	}
+	for i := 1; i <= 2; i++ {
+		iStr := strconv.Itoa(i)
+		msg := &sqs.Message{
+			MessageId: aws.String("foo" + iStr),
+			Body: aws.String("bar" + iStr),
+			ReceiptHandle: aws.String("baz" + iStr),
+		}
+		tr.Add(NewJob(msg, conf))
+	}
+
+	summaries := tr.CurrentSummaries()
+	for _, summary := range summaries {
+		job, exists := tr.CurrentWorkings[summary.ID]
+		if !exists {
+			t.Errorf("job not found: %s", summary.ID)
+		}
+		if summary.Payload != *job.Msg.Body {
+			t.Error("job payload is wrong: %s", summary.Payload)
+		}
+	}
+}
