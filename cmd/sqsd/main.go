@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"log"
-	"sqsd"
+	"github.com/taiyoh/sqsd"
 )
 
 func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
