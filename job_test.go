@@ -96,7 +96,7 @@ func TestJobSummary(t *testing.T) {
 	if summary.ID != job.ID() {
 		t.Error("different id")
 	}
-	if summary.StartAt != job.StartAt {
+	if summary.StartAt != job.StartAt.Unix() {
 		t.Error("different start_at")
 	}
 	if summary.Payload != *job.Msg.Body {

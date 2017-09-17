@@ -1,7 +1,6 @@
 package sqsd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,21 +10,25 @@ type SQSStatHandler struct {
 	Tracker *SQSJobTracker
 }
 
-type SQSStatResponseIFace interface{}
-
-type SQSStatCurrentListResponse struct {
-	SQSStatResponseIFace
-	CurrentList []*SQSJobSummary `json:"current_list"`
+type SQSStatResponseIFace interface{
+	JSONString() string
 }
 
-type SQSStatCurrentSizeResponse struct {
-	SQSStatResponseIFace
-	Size int `json:"size"`
+type SQSStatCurrentJobsResponse struct {
+	CurrentJobs []*SQSJobSummary `json:"current_jobs"`
+}
+func (r *SQSStatCurrentJobsResponse) JSONString() string {
+	buf, _ := json.Marshal(r)
+	return string(buf)
 }
 
 type SQSStatSuccessResponse struct {
-	SQSStatResponseIFace
 	Success bool `json:"success"`
+}
+
+func (r *SQSStatSuccessResponse) JSONString() string {
+	buf, _ := json.Marshal(r)
+	return string(buf)
 }
 
 func ReqMethodValidate(w http.ResponseWriter, r *http.Request, m string) bool {
@@ -39,9 +42,8 @@ func ReqMethodValidate(w http.ResponseWriter, r *http.Request, m string) bool {
 }
 
 func RenderJSON(w http.ResponseWriter, res SQSStatResponseIFace) {
-	buf, _ := json.Marshal(res)
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(w, bytes.NewBuffer(buf).String())
+	fmt.Fprint(w, res.JSONString())
 }
 
 func (h *SQSStatHandler) WorkerCurrentListHandler() func(http.ResponseWriter, *http.Request) {
@@ -49,8 +51,8 @@ func (h *SQSStatHandler) WorkerCurrentListHandler() func(http.ResponseWriter, *h
 		if !ReqMethodValidate(w, r, "GET") {
 			return
 		}
-		RenderJSON(w, &SQSStatCurrentListResponse{
-			CurrentList: h.Tracker.CurrentSummaries(),
+		RenderJSON(w, &SQSStatCurrentJobsResponse{
+			CurrentJobs: h.Tracker.CurrentSummaries(),
 		})
 	}
 }

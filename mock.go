@@ -1,6 +1,7 @@
 package sqsd
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
@@ -52,4 +53,37 @@ func MockJobServer() *httptest.Server {
 		fmt.Fprintf(w, "goood")
 	})
 	return httptest.NewServer(mux)
+}
+
+type SQSMockResponseWriter struct {
+	http.ResponseWriter
+	header http.Header
+	ResBytes []byte
+	StatusCode int
+	Err      error
+}
+
+func NewSQSMockResponseWriter() *SQSMockResponseWriter {
+	return &SQSMockResponseWriter{
+		header: http.Header{},
+		ResBytes: []byte{},
+		StatusCode: http.StatusOK,
+	}
+}
+
+func (w *SQSMockResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *SQSMockResponseWriter) Write(b []byte) (int, error) {
+	w.ResBytes = b
+	return len(b), w.Err
+}
+
+func (w *SQSMockResponseWriter) WriteHeader(s int) {
+	w.StatusCode = s
+}
+
+func (w *SQSMockResponseWriter) ResponseString() string {
+	return bytes.NewBuffer(w.ResBytes).String()
 }
