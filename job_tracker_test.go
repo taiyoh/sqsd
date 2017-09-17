@@ -85,8 +85,8 @@ func TestCurrentSummaries(t *testing.T) {
 	for i := 1; i <= 2; i++ {
 		iStr := strconv.Itoa(i)
 		msg := &sqs.Message{
-			MessageId: aws.String("foo" + iStr),
-			Body: aws.String("bar" + iStr),
+			MessageId:     aws.String("foo" + iStr),
+			Body:          aws.String("bar" + iStr),
 			ReceiptHandle: aws.String("baz" + iStr),
 		}
 		tr.Add(NewJob(msg, conf))

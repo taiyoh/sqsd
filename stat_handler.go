@@ -10,13 +10,14 @@ type SQSStatHandler struct {
 	Tracker *SQSJobTracker
 }
 
-type SQSStatResponseIFace interface{
+type SQSStatResponseIFace interface {
 	JSONString() string
 }
 
 type SQSStatCurrentJobsResponse struct {
 	CurrentJobs []*SQSJobSummary `json:"current_jobs"`
 }
+
 func (r *SQSStatCurrentJobsResponse) JSONString() string {
 	buf, _ := json.Marshal(r)
 	return string(buf)
@@ -35,6 +36,7 @@ type SQSStatCurrentSummaryResponse struct {
 	JobsCount int `json:"jobs_count"`
 	RestCount int `json:"rest_count"`
 }
+
 func (r *SQSStatCurrentSummaryResponse) JSONString() string {
 	buf, _ := json.Marshal(r)
 	return string(buf)

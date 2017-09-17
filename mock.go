@@ -57,16 +57,16 @@ func MockJobServer() *httptest.Server {
 
 type SQSMockResponseWriter struct {
 	http.ResponseWriter
-	header http.Header
-	ResBytes []byte
+	header     http.Header
+	ResBytes   []byte
 	StatusCode int
-	Err      error
+	Err        error
 }
 
 func NewSQSMockResponseWriter() *SQSMockResponseWriter {
 	return &SQSMockResponseWriter{
-		header: http.Header{},
-		ResBytes: []byte{},
+		header:     http.Header{},
+		ResBytes:   []byte{},
 		StatusCode: http.StatusOK,
 	}
 }

@@ -2,11 +2,11 @@ package sqsd
 
 import (
 	"encoding/json"
-	"strconv"
-	"net/http"
-	"testing"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sqs"
+	"net/http"
+	"strconv"
+	"testing"
 )
 
 func TestReqMethodValidate(t *testing.T) {
@@ -45,7 +45,7 @@ func TestRenderJSON(t *testing.T) {
 	w.ResBytes = []byte{} // clear
 	RenderJSON(w, &SQSStatCurrentJobsResponse{
 		CurrentJobs: []*SQSJobSummary{
-			&SQSJobSummary{ID:"1",Payload:"p1",StartAt:10},
+			&SQSJobSummary{ID: "1", Payload: "p1", StartAt: 10},
 		},
 	})
 	var r SQSStatCurrentJobsResponse
@@ -83,7 +83,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 
 	summaryController := h.WorkerCurrentSummaryHandler()
 	req := &http.Request{}
-	req.Method = "POST"	
+	req.Method = "POST"
 
 	t.Run("invalid Method for summary", func(t *testing.T) {
 		w := NewSQSMockResponseWriter()
@@ -163,7 +163,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req := &http.Request{}
 
-	req.Method = "GET"	
+	req.Method = "GET"
 	t.Run("pause failed", func(t *testing.T) {
 		w := NewSQSMockResponseWriter()
 		pauseController(w, req)
@@ -193,7 +193,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	resumeController := h.WorkerResumeHandler()
 
-	req.Method = "GET"	
+	req.Method = "GET"
 	t.Run("resume failed", func(t *testing.T) {
 		w := NewSQSMockResponseWriter()
 		resumeController(w, req)
