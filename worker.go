@@ -65,7 +65,7 @@ func (w *SQSWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
 	job := NewJob(msg, w.Conf)
-	if ok := w.Tracker.Add(job); !ok {
+	if !w.Tracker.Add(job) {
 		return nil
 	}
 	return job
@@ -82,6 +82,7 @@ func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message,
 
 func (w *SQSWorker) HandleMessage(ctx context.Context, job *SQSJob, wg *sync.WaitGroup) {
 	defer wg.Done()
+	log.Printf("job[%s] HandleMessage start.\n", job.ID())
 	ok, err := job.Run(ctx)
 	if err != nil {
 		log.Printf("job[%s] HandleMessage request error: %s\n", job.ID(), err)
@@ -90,5 +91,5 @@ func (w *SQSWorker) HandleMessage(ctx context.Context, job *SQSJob, wg *sync.Wai
 		w.Resource.DeleteMessage(job.Msg)
 	}
 	w.Tracker.Delete(job)
-	job.Done() <- struct{}{}
+	log.Printf("job[%s] HandleMessage finished.\n", job.ID())
 }

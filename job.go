@@ -15,7 +15,6 @@ type SQSJob struct {
 	StartAt     time.Time
 	URL         string
 	ContentType string
-	doneChan    chan struct{}
 }
 
 type SQSJobSummary struct {
@@ -29,7 +28,6 @@ func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 		StartAt:     time.Now(),
 		URL:         conf.URL,
 		ContentType: conf.RequestContentType,
-		doneChan:    make(chan struct{}),
 	}
 }
 
@@ -59,10 +57,6 @@ func (j *SQSJob) Run(ctx context.Context) (bool, error) {
 	}
 
 	return true, nil
-}
-
-func (j *SQSJob) Done() chan struct{} {
-	return j.doneChan
 }
 
 func (j *SQSJob) Summary() *SQSJobSummary {

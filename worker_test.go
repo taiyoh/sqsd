@@ -1,6 +1,7 @@
 package sqsd
 
 import (
+	"sync"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -70,6 +71,8 @@ func TestHandleMessage(t *testing.T) {
 	ts := MockJobServer()
 	defer ts.Close()
 
+	wg := &sync.WaitGroup{}
+
 	t.Run("job failed", func(t *testing.T) {
 		job := w.SetupJob(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageNG"),
@@ -78,8 +81,9 @@ func TestHandleMessage(t *testing.T) {
 		})
 		job.URL = ts.URL + "/error"
 
-		go w.HandleMessage(ctx, job)
-		<-job.Done()
+		wg.Add(1)
+		go w.HandleMessage(ctx, job, wg)
+		wg.Wait()
 		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
@@ -93,9 +97,11 @@ func TestHandleMessage(t *testing.T) {
 		})
 		job.URL = ts.URL + "/long"
 		parent, cancel := context.WithCancel(ctx)
-		go w.HandleMessage(parent, job)
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		go w.HandleMessage(parent, job, wg)
 		cancel()
-		<-job.Done()
+		wg.Wait()
 		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
@@ -108,12 +114,16 @@ func TestHandleMessage(t *testing.T) {
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		})
 		job.URL = ts.URL + "/ok"
-		go w.HandleMessage(ctx, job)
-		<-job.Done()
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		go w.HandleMessage(ctx, job, wg)
+		wg.Wait()
 		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
 	})
+
+	wg.Wait()
 }
 
 func TestHandleMessages(t *testing.T) {
@@ -146,8 +156,9 @@ func TestHandleMessages(t *testing.T) {
 
 	ctx := context.Background()
 
-	w.HandleMessages(ctx, msgs)
-	time.Sleep(100 * time.Millisecond)
+	wg := &sync.WaitGroup{}
+	w.HandleMessages(ctx, msgs, wg)
+	wg.Wait()
 
 	if len(caughtIds) != tr.MaxProcessCount {
 		t.Errorf("requests is wrong: %d", len(caughtIds))
@@ -169,14 +180,16 @@ func TestWorkerRun(t *testing.T) {
 	w := NewWorker(r, tr, c)
 
 	funcEnds := make(chan bool)
+	wg := &sync.WaitGroup{}
 	run := func(ctx context.Context) {
-		w.Run(ctx)
+		w.Run(ctx, wg)
 		funcEnds <- true
 	}
 
 	t.Run("tracker is not working", func(t *testing.T) {
 		tr.Pause()
 		ctx, cancel := context.WithCancel(context.Background())
+		wg.Add(1)
 		go run(ctx)
 
 		time.Sleep(50 * time.Millisecond)
@@ -195,6 +208,7 @@ func TestWorkerRun(t *testing.T) {
 	t.Run("received but empty messages -> context cancel", func(t *testing.T) {
 		tr.Resume()
 		ctx, cancel := context.WithCancel(context.Background())
+		wg.Add(1)
 		go run(ctx)
 
 		time.Sleep(50 * time.Millisecond)
@@ -215,6 +229,7 @@ func TestWorkerRun(t *testing.T) {
 
 	t.Run("error received", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
+		wg.Add(1)
 		go run(ctx)
 		time.Sleep(50 * time.Millisecond)
 		cancel()
@@ -259,6 +274,7 @@ func TestWorkerRun(t *testing.T) {
 		c.HTTPWorker.URL = ts.URL
 
 		ctx, cancel := context.WithCancel(context.Background())
+		wg.Add(1)
 		go run(ctx)
 		time.Sleep(50 * time.Millisecond)
 		cancel()
@@ -285,4 +301,5 @@ func TestWorkerRun(t *testing.T) {
 		}
 	})
 
+	wg.Wait()
 }
