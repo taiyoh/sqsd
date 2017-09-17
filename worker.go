@@ -29,7 +29,9 @@ func (w *SQSWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("SQSWorker start.")
 	defer wg.Done()
 	cancelled := false
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			select {
 			case <-ctx.Done():

@@ -103,7 +103,9 @@ func (s *SQSStat) Run(ctx context.Context, wg *sync.WaitGroup) {
 		Handler: s.Mux,
 	}
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
