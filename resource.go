@@ -11,10 +11,6 @@ type SQSResource struct {
 	URL    string
 }
 
-func NewResource(client sqsiface.SQSAPI, url string) *SQSResource {
-	return &SQSResource{client, url}
-}
-
 func (r *SQSResource) GetMessages() ([]*sqs.Message, error) {
 	params := &sqs.ReceiveMessageInput{
 		QueueUrl:        aws.String(r.URL),

@@ -18,7 +18,7 @@ func TestSQSResource(t *testing.T) {
 			},
 		},
 	}
-	r := NewResource(c, "http://example.com/foo")
+	r := &SQSResource{c, "http://example.com/foo"}
 	if r == nil {
 		t.Error("Resource object not created")
 	}
