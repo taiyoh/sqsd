@@ -1,7 +1,7 @@
 package sqsd
 
 type JobTracker struct {
-	CurrentWorkings map[string]*SQSJob
+	CurrentWorkings map[string]*Job
 	MaxProcessCount int
 	JobWorking      bool
 	pauseChan       chan bool
@@ -9,14 +9,14 @@ type JobTracker struct {
 
 func NewJobTracker(maxProcCount int) *JobTracker {
 	return &JobTracker{
-		CurrentWorkings: make(map[string]*SQSJob),
+		CurrentWorkings: make(map[string]*Job),
 		MaxProcessCount: maxProcCount,
 		JobWorking:      true,
 		pauseChan:       make(chan bool),
 	}
 }
 
-func (t *JobTracker) Add(job *SQSJob) bool {
+func (t *JobTracker) Add(job *Job) bool {
 	if len(t.CurrentWorkings) >= t.MaxProcessCount {
 		return false
 	}
@@ -24,12 +24,12 @@ func (t *JobTracker) Add(job *SQSJob) bool {
 	return true
 }
 
-func (t *JobTracker) Delete(job *SQSJob) {
+func (t *JobTracker) Delete(job *Job) {
 	delete(t.CurrentWorkings, job.ID())
 }
 
-func (t *JobTracker) CurrentSummaries() []*SQSJobSummary {
-	currentList := []*SQSJobSummary{}
+func (t *JobTracker) CurrentSummaries() []*JobSummary {
+	currentList := []*JobSummary{}
 	for _, job := range t.CurrentWorkings {
 		currentList = append(currentList, job.Summary())
 	}

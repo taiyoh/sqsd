@@ -64,7 +64,7 @@ func (w *SQSWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("SQSWorker closed.")
 }
 
-func (w *SQSWorker) SetupJob(msg *sqs.Message) *SQSJob {
+func (w *SQSWorker) SetupJob(msg *sqs.Message) *Job {
 	job := NewJob(msg, w.Conf)
 	if !w.Tracker.Add(job) {
 		return nil
@@ -81,7 +81,7 @@ func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message,
 	}
 }
 
-func (w *SQSWorker) HandleMessage(ctx context.Context, job *SQSJob, wg *sync.WaitGroup) {
+func (w *SQSWorker) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Printf("job[%s] HandleMessage start.\n", job.ID())
 	ok, err := job.Run(ctx)

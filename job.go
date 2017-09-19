@@ -10,21 +10,21 @@ import (
 	"time"
 )
 
-type SQSJob struct {
+type Job struct {
 	Msg         *sqs.Message
 	StartAt     time.Time
 	URL         string
 	ContentType string
 }
 
-type SQSJobSummary struct {
+type JobSummary struct {
 	ID      string `json:"id"`
 	StartAt int64  `json:"start_at"`
 	Payload string `json:"payload"`
 }
 
-func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
-	return &SQSJob{
+func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *Job {
+	return &Job{
 		Msg:         msg,
 		StartAt:     time.Now(),
 		URL:         conf.URL,
@@ -32,11 +32,11 @@ func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *SQSJob {
 	}
 }
 
-func (j *SQSJob) ID() string {
+func (j *Job) ID() string {
 	return *j.Msg.MessageId
 }
 
-func (j *SQSJob) Run(ctx context.Context) (bool, error) {
+func (j *Job) Run(ctx context.Context) (bool, error) {
 	req, err := http.NewRequest("POST", j.URL, strings.NewReader(*j.Msg.Body))
 	if err != nil {
 		return false, err
@@ -60,8 +60,8 @@ func (j *SQSJob) Run(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (j *SQSJob) Summary() *SQSJobSummary {
-	return &SQSJobSummary{
+func (j *Job) Summary() *JobSummary {
+	return &JobSummary{
 		ID:      j.ID(),
 		StartAt: j.StartAt.Unix(),
 		Payload: *j.Msg.Body,

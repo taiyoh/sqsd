@@ -16,7 +16,7 @@ type StatResponseIFace interface {
 }
 
 type StatCurrentJobsResponse struct {
-	CurrentJobs []*SQSJobSummary `json:"current_jobs"`
+	CurrentJobs []*JobSummary `json:"current_jobs"`
 }
 
 func (r *StatCurrentJobsResponse) JSONString() string {

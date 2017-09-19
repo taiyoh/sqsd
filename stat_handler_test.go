@@ -44,8 +44,8 @@ func TestRenderJSON(t *testing.T) {
 	}
 	w.ResBytes = []byte{} // clear
 	RenderJSON(w, &StatCurrentJobsResponse{
-		CurrentJobs: []*SQSJobSummary{
-			&SQSJobSummary{ID: "1", Payload: "p1", StartAt: 10},
+		CurrentJobs: []*JobSummary{
+			&JobSummary{ID: "1", Payload: "p1", StartAt: 10},
 		},
 	})
 	var r StatCurrentJobsResponse
@@ -65,7 +65,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 	h := &StatHandler{tr}
 
 	for i := 1; i <= tr.MaxProcessCount; i++ {
-		j := &SQSJob{
+		j := &Job{
 			Msg: &sqs.Message{
 				MessageId: aws.String("id:" + strconv.Itoa(i)),
 				Body:      aws.String(`foobar`),

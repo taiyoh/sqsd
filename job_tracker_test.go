@@ -14,7 +14,7 @@ func TestJobTracker(t *testing.T) {
 		t.Error("job tracker not loaded.")
 	}
 
-	job := &SQSJob{
+	job := &Job{
 		Msg: &sqs.Message{
 			MessageId: aws.String("foobar"),
 			Body:      aws.String("hoge"),
@@ -33,7 +33,7 @@ func TestJobTracker(t *testing.T) {
 	}
 
 	for i := 0; i < tracker.MaxProcessCount; i++ {
-		j := &SQSJob{
+		j := &Job{
 			Msg: &sqs.Message{
 				MessageId: aws.String("id:" + strconv.Itoa(i)),
 				Body:      aws.String(`foobar`),
@@ -42,7 +42,7 @@ func TestJobTracker(t *testing.T) {
 		tracker.Add(j)
 	}
 
-	untrackedJob := &SQSJob{
+	untrackedJob := &Job{
 		Msg: &sqs.Message{
 			MessageId: aws.String("id:6"),
 			Body:      aws.String("foobar"),
