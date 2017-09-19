@@ -35,7 +35,7 @@ func DecodePayload(body io.ReadCloser) *JobPayloadForTest {
 
 func TestNewWorker(t *testing.T) {
 	c := &SQSDConf{}
-	r := &SQSResource{}
+	r := &Resource{}
 	tr := NewJobTracker(5)
 	w := NewWorker(r, tr, c)
 	if w == nil {
@@ -45,7 +45,7 @@ func TestNewWorker(t *testing.T) {
 
 func TestSetupJob(t *testing.T) {
 	c := &SQSDConf{}
-	r := &SQSResource{}
+	r := &Resource{}
 	tr := NewJobTracker(5)
 	w := NewWorker(r, tr, c)
 
@@ -62,7 +62,7 @@ func TestSetupJob(t *testing.T) {
 
 func TestHandleMessage(t *testing.T) {
 	c := &SQSDConf{}
-	r := &SQSResource{Client: &SQSMockClient{}}
+	r := &Resource{Client: &SQSMockClient{}}
 	tr := NewJobTracker(5)
 	w := NewWorker(r, tr, c)
 
@@ -150,7 +150,7 @@ func TestHandleMessages(t *testing.T) {
 	defer ts.Close()
 
 	c := &SQSDConf{HTTPWorker: SQSDHttpWorkerConf{URL: ts.URL}}
-	r := &SQSResource{Client: &SQSMockClient{}}
+	r := &Resource{Client: &SQSMockClient{}}
 	tr := NewJobTracker(5)
 	w := NewWorker(r, tr, c)
 
@@ -175,7 +175,7 @@ func TestHandleMessages(t *testing.T) {
 func TestWorkerRun(t *testing.T) {
 	c := &SQSDConf{SleepSeconds: 1}
 	mc := NewMockClient()
-	r := &SQSResource{Client: mc}
+	r := &Resource{Client: mc}
 	tr := NewJobTracker(5)
 	w := NewWorker(r, tr, c)
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestSQSResource(t *testing.T) {
+func TestResource(t *testing.T) {
 	c := &SQSMockClient{
 		Resp: &sqs.ReceiveMessageOutput{
 			Messages: []*sqs.Message{
@@ -18,7 +18,7 @@ func TestSQSResource(t *testing.T) {
 			},
 		},
 	}
-	r := &SQSResource{c, "http://example.com/foo"}
+	r := &Resource{c, "http://example.com/foo"}
 	if r == nil {
 		t.Error("Resource object not created")
 	}

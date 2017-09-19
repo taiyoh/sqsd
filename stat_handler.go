@@ -7,39 +7,39 @@ import (
 	"net/http"
 )
 
-type SQSStatHandler struct {
+type StatHandler struct {
 	Tracker *SQSJobTracker
 }
 
-type SQSStatResponseIFace interface {
+type StatResponseIFace interface {
 	JSONString() string
 }
 
-type SQSStatCurrentJobsResponse struct {
+type StatCurrentJobsResponse struct {
 	CurrentJobs []*SQSJobSummary `json:"current_jobs"`
 }
 
-func (r *SQSStatCurrentJobsResponse) JSONString() string {
+func (r *StatCurrentJobsResponse) JSONString() string {
 	buf, _ := json.Marshal(r)
 	return string(buf)
 }
 
-type SQSStatSuccessResponse struct {
+type StatSuccessResponse struct {
 	Success bool `json:"success"`
 }
 
-func (r *SQSStatSuccessResponse) JSONString() string {
+func (r *StatSuccessResponse) JSONString() string {
 	buf, _ := json.Marshal(r)
 	return string(buf)
 }
 
-type SQSStatCurrentSummaryResponse struct {
+type StatCurrentSummaryResponse struct {
 	JobsCount int `json:"jobs_count"`
 	RestCount int `json:"rest_count"`
 	IsWorking bool `json:"is_working"`
 }
 
-func (r *SQSStatCurrentSummaryResponse) JSONString() string {
+func (r *StatCurrentSummaryResponse) JSONString() string {
 	buf, _ := json.Marshal(r)
 	return string(buf)
 }
@@ -54,18 +54,18 @@ func ReqMethodValidate(w http.ResponseWriter, r *http.Request, m string) bool {
 	return false
 }
 
-func RenderJSON(w http.ResponseWriter, res SQSStatResponseIFace) {
+func RenderJSON(w http.ResponseWriter, res StatResponseIFace) {
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprint(w, res.JSONString())
 }
 
-func (h *SQSStatHandler) WorkerCurrentSummaryHandler() func(http.ResponseWriter, *http.Request) {
+func (h *StatHandler) WorkerCurrentSummaryHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !ReqMethodValidate(w, r, "GET") {
 			return
 		}
 		jobsCount := len(h.Tracker.CurrentSummaries())
-		RenderJSON(w, &SQSStatCurrentSummaryResponse{
+		RenderJSON(w, &StatCurrentSummaryResponse{
 			JobsCount: jobsCount,
 			RestCount: h.Tracker.MaxProcessCount - jobsCount,
 			IsWorking: h.Tracker.IsWorking(),
@@ -73,42 +73,42 @@ func (h *SQSStatHandler) WorkerCurrentSummaryHandler() func(http.ResponseWriter,
 	}
 }
 
-func (h *SQSStatHandler) WorkerCurrentJobsHandler() func(http.ResponseWriter, *http.Request) {
+func (h *StatHandler) WorkerCurrentJobsHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !ReqMethodValidate(w, r, "GET") {
 			return
 		}
-		RenderJSON(w, &SQSStatCurrentJobsResponse{
+		RenderJSON(w, &StatCurrentJobsResponse{
 			CurrentJobs: h.Tracker.CurrentSummaries(),
 		})
 	}
 }
 
-func (h *SQSStatHandler) WorkerPauseHandler() func(http.ResponseWriter, *http.Request) {
+func (h *StatHandler) WorkerPauseHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !ReqMethodValidate(w, r, "POST") {
 			return
 		}
 		h.Tracker.Pause()
-		RenderJSON(w, &SQSStatSuccessResponse{
+		RenderJSON(w, &StatSuccessResponse{
 			Success: true,
 		})
 	}
 }
 
-func (h *SQSStatHandler) WorkerResumeHandler() func(http.ResponseWriter, *http.Request) {
+func (h *StatHandler) WorkerResumeHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !ReqMethodValidate(w, r, "POST") {
 			return
 		}
 		h.Tracker.Resume()
-		RenderJSON(w, &SQSStatSuccessResponse{
+		RenderJSON(w, &StatSuccessResponse{
 			Success: true,
 		})
 	}
 }
 
-func (h *SQSStatHandler) BuildServeMux() *http.ServeMux {
+func (h *StatHandler) BuildServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/stats", stats_api.Handler)

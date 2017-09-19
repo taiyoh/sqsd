@@ -61,7 +61,7 @@ func main() {
 
 	tracker := sqsd.NewJobTracker(config.ProcessCount)
 
-	handler := &sqsd.SQSStatHandler{tracker}
+	handler := &sqsd.StatHandler{tracker}
 	srv := sqsd.NewStatServer(handler.BuildServeMux(), config.Stat.Port)
 	wg.Add(1)
 	go srv.Run(ctx, wg)
@@ -69,7 +69,7 @@ func main() {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	resource := &sqsd.SQSResource{sqs.New(sess), config.QueueURL}
+	resource := &sqsd.Resource{sqs.New(sess), config.QueueURL}
 
 	worker := sqsd.NewWorker(resource, tracker, config)
 	wg.Add(1)

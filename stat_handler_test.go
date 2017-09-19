@@ -33,7 +33,7 @@ func TestReqMethodValidate(t *testing.T) {
 
 func TestRenderJSON(t *testing.T) {
 	w := NewSQSMockResponseWriter()
-	RenderJSON(w, &SQSStatSuccessResponse{
+	RenderJSON(w, &StatSuccessResponse{
 		Success: true,
 	})
 	if w.ResponseString() != `{"success":true}` {
@@ -43,12 +43,12 @@ func TestRenderJSON(t *testing.T) {
 		t.Error("response type failed")
 	}
 	w.ResBytes = []byte{} // clear
-	RenderJSON(w, &SQSStatCurrentJobsResponse{
+	RenderJSON(w, &StatCurrentJobsResponse{
 		CurrentJobs: []*SQSJobSummary{
 			&SQSJobSummary{ID: "1", Payload: "p1", StartAt: 10},
 		},
 	})
-	var r SQSStatCurrentJobsResponse
+	var r StatCurrentJobsResponse
 	if err := json.Unmarshal(w.ResBytes, &r); err != nil {
 		t.Error("json unmarshal error", err)
 	}
@@ -62,7 +62,7 @@ func TestRenderJSON(t *testing.T) {
 
 func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 	tr := NewJobTracker(5)
-	h := &SQSStatHandler{tr}
+	h := &StatHandler{tr}
 
 	for i := 1; i <= tr.MaxProcessCount; i++ {
 		j := &SQSJob{
@@ -96,7 +96,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 			t.Error("response error found")
 		}
 
-		var r SQSStatCurrentSummaryResponse
+		var r StatCurrentSummaryResponse
 		if err := json.Unmarshal(w.ResBytes, &r); err != nil {
 			t.Error("json unmarshal error", err)
 		}
@@ -135,7 +135,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 			t.Error("response error found")
 		}
 
-		var r SQSStatCurrentJobsResponse
+		var r StatCurrentJobsResponse
 		if err := json.Unmarshal(w.ResBytes, &r); err != nil {
 			t.Error("json unmarshal error", err)
 		}
@@ -154,7 +154,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 
 func TestWorkerPauseAndResumeHandler(t *testing.T) {
 	tr := NewJobTracker(5)
-	h := &SQSStatHandler{tr}
+	h := &StatHandler{tr}
 
 	pauseController := h.WorkerPauseHandler()
 
