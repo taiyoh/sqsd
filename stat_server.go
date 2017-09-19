@@ -12,11 +12,12 @@ type StatServer struct {
 	Srv *http.Server
 }
 
-func NewStatServer(m *http.ServeMux, p int) *StatServer {
+func NewStatServer(tr *JobTracker, p int) *StatServer {
+	handler := StatHandler{Tracker: tr}
 	return &StatServer{
 		Srv: &http.Server{
 			Addr:    ":" + strconv.Itoa(p),
-			Handler: m,
+			Handler: handler.BuildServeMux(),
 		},
 	}
 }

@@ -61,17 +61,16 @@ func main() {
 	wg.Add(1)
 	go waitSignal(cancel, wg)
 
-	tracker := sqsd.NewJobTracker(config.ProcessCount)
+	tracker := sqsd.NewJobTracker(config.Worker.MaxProcessCount)
 
-	handler := &sqsd.StatHandler{Tracker: tracker}
-	srv := sqsd.NewStatServer(handler.BuildServeMux(), config.Stat.ServerPort)
+	srv := sqsd.NewStatServer(tracker, config.Stat.ServerPort)
 	wg.Add(1)
 	go srv.Run(ctx, wg)
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	resource := &sqsd.Resource{Client: sqs.New(sess), URL: config.QueueURL}
+	resource := &sqsd.Resource{Client: sqs.New(sess), URL: config.SQS.QueueURL}
 
 	worker := sqsd.NewWorker(resource, tracker, config)
 	wg.Add(1)

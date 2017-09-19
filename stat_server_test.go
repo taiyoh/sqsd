@@ -3,7 +3,6 @@ package sqsd
 import (
 	"context"
 	"net"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,8 +14,9 @@ func TestStatServer(t *testing.T) {
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	hostport := strings.Split(l.Addr().String(), ":")
 	port, _ := strconv.Atoi(hostport[1])
+	tr := NewJobTracker(3)
 
-	s := NewStatServer(http.NewServeMux(), port)
+	s := NewStatServer(tr, port)
 	if s == nil {
 		t.Error("stat server not loaded")
 	}

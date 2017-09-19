@@ -4,15 +4,13 @@ type JobTracker struct {
 	CurrentWorkings map[string]*Job
 	MaxProcessCount int
 	JobWorking      bool
-	pauseChan       chan bool
 }
 
-func NewJobTracker(maxProcCount int) *JobTracker {
+func NewJobTracker(maxProcCount uint) *JobTracker {
 	return &JobTracker{
 		CurrentWorkings: make(map[string]*Job),
-		MaxProcessCount: maxProcCount,
+		MaxProcessCount: int(maxProcCount),
 		JobWorking:      true,
-		pauseChan:       make(chan bool),
 	}
 }
 
