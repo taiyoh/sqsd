@@ -1,0 +1,55 @@
+@startuml
+
+title "sequence about sqsd stat"
+hide footbox
+
+actor User
+
+participant StatServer
+participant JobTracker
+
+User -> StatServer : /worker/pause
+activate StatServer
+StatServer -> JobTracker : Pause()
+activate JobTracker
+JobTracker -> JobTracker : JobWorking = false
+StatServer <-- JobTracker
+deactivate JobTracker
+User <-- StatServer : response
+deactivate StatServer
+
+User -> StatServer : /worker/resume
+activate StatServer
+StatServer -> JobTracker : Resume()
+activate JobTracker
+JobTracker -> JobTracker : JobWorking = true
+StatServer <-- JobTracker
+deactivate JobTracker
+User <-- StatServer : response
+deactivate StatServer
+
+User -> StatServer : /worker/current
+activate StatServer
+StatServer -> JobTracker : CurrentSummary()
+activate JobTracker
+StatServer <-- JobTracker : *StatResponseCurrentSummary
+deactivate JobTracker
+User <-- StatServer : response
+deactivate StatServer
+
+User -> StatServer : /worker/current/jobs
+activate StatServer
+StatServer -> JobTracker : CurrentJobs()
+activate JobTracker
+StatServer <-- JobTracker : *StatResponseCurrentJobs
+deactivate JobTracker
+User <-- StatServer : response
+deactivate StatServer
+
+User -> StatServer : /stats
+activate StatServer
+User <-- StatServer : response
+deactivate StatServer
+
+
+@enduml

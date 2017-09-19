@@ -1,0 +1,54 @@
+@startuml
+
+title "sequence about sqsd handler"
+hide footbox
+
+participant MsgHandler
+participant SQS
+participant GoRoutine
+participant JobTracker
+participant Worker
+
+MsgHandler -> MsgHandler : Run()
+activate MsgHandler
+
+MsgHandler -> JobTracker : IsWorking()
+activate JobTracker
+MsgHandler <-- JobTracker : bool
+deactivate JobTracker
+
+MsgHandler -> SQS : GetMessages()
+activate SQS
+MsgHandler <-- SQS : []*sqs.Message
+deactivate SQS
+
+MsgHandler -> MsgHandler : HandleMessages([]*sqs.Message)
+MsgHandler -> MsgHandler : Newjob(*sqs.Message) *Job
+MsgHandler -> JobTracker : AddJob(*job)
+activate JobTracker
+
+JobTracker -> JobTracker : CurrentWorkings[job.ID()] = job
+MsgHandler <-- JobTracker : bool
+deactivate JobTracker
+
+MsgHandler ->> GoRoutine : HandleMessage(*Job)
+activate GoRoutine
+deactivate MsgHandler
+
+GoRoutine -> Worker : <POST Request>
+activate Worker
+Worker -> Worker : work hard!
+GoRoutine <-- Worker : response
+deactivate Worker
+GoRoutine -> SQS : DeleteMessage(*sqs.Message)
+activate SQS
+GoRoutine <-- SQS
+deactivate SQS
+GoRoutine -> JobTracker : Delete(*Job)
+activate JobTracker
+JobTracker -> JobTracker : delete(CurrentWorkings, job.ID())
+GoRoutine <-- JobTracker
+deactivate JobTracker
+deactivate GoRoutine
+
+@enduml
