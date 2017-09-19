@@ -61,7 +61,7 @@ func main() {
 
 	tracker := sqsd.NewJobTracker(config.ProcessCount)
 
-	handler := sqsd.NewStatHandler(tracker)
+	handler := &sqsd.SQSStatHandler{tracker}
 	srv := sqsd.NewStatServer(handler.BuildServeMux(), config.Stat.Port)
 	wg.Add(1)
 	go srv.Run(ctx, wg)

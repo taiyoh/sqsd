@@ -36,6 +36,7 @@ func (r *SQSStatSuccessResponse) JSONString() string {
 type SQSStatCurrentSummaryResponse struct {
 	JobsCount int `json:"jobs_count"`
 	RestCount int `json:"rest_count"`
+	IsWorking bool `json:"is_working"`
 }
 
 func (r *SQSStatCurrentSummaryResponse) JSONString() string {
@@ -67,6 +68,7 @@ func (h *SQSStatHandler) WorkerCurrentSummaryHandler() func(http.ResponseWriter,
 		RenderJSON(w, &SQSStatCurrentSummaryResponse{
 			JobsCount: jobsCount,
 			RestCount: h.Tracker.MaxProcessCount - jobsCount,
+			IsWorking: h.Tracker.IsWorking(),
 		})
 	}
 }
@@ -103,12 +105,6 @@ func (h *SQSStatHandler) WorkerResumeHandler() func(http.ResponseWriter, *http.R
 		RenderJSON(w, &SQSStatSuccessResponse{
 			Success: true,
 		})
-	}
-}
-
-func NewStatHandler(tracker *SQSJobTracker) *SQSStatHandler {
-	return &SQSStatHandler{
-		Tracker: tracker,
 	}
 }
 

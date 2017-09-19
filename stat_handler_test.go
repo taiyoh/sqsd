@@ -60,16 +60,9 @@ func TestRenderJSON(t *testing.T) {
 	}
 }
 
-func TestNewStatHandler(t *testing.T) {
-	h := NewStatHandler(&SQSJobTracker{})
-	if h == nil {
-		t.Error("stat handler not loaded.")
-	}
-}
-
 func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 	tr := NewJobTracker(5)
-	h := NewStatHandler(tr)
+	h := &SQSStatHandler{tr}
 
 	for i := 1; i <= tr.MaxProcessCount; i++ {
 		j := &SQSJob{
@@ -89,7 +82,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 		w := NewSQSMockResponseWriter()
 		summaryController(w, req)
 
-		if w.StatusCode == http.StatusOK {
+		if w.StatusCode != http.StatusMethodNotAllowed {
 			t.Error("response error found")
 		}
 	})
@@ -114,6 +107,10 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 
 		if r.RestCount != 0 {
 			t.Error("rest count invalid")
+		}
+
+		if !r.IsWorking {
+			t.Error("is_working invalid")
 		}
 	})
 
@@ -157,7 +154,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 
 func TestWorkerPauseAndResumeHandler(t *testing.T) {
 	tr := NewJobTracker(5)
-	h := NewStatHandler(tr)
+	h := &SQSStatHandler{tr}
 
 	pauseController := h.WorkerPauseHandler()
 
