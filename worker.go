@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type SQSWorker struct {
+type Worker struct {
 	Resource     *Resource
 	Tracker      *JobTracker
 	SleepSeconds time.Duration
@@ -16,8 +16,8 @@ type SQSWorker struct {
 	QueueURL     string
 }
 
-func NewWorker(resource *Resource, tracker *JobTracker, conf *SQSDConf) *SQSWorker {
-	return &SQSWorker{
+func NewWorker(resource *Resource, tracker *JobTracker, conf *SQSDConf) *Worker {
+	return &Worker{
 		Resource:     resource,
 		Tracker:      tracker,
 		SleepSeconds: time.Duration(conf.SleepSeconds),
@@ -25,8 +25,8 @@ func NewWorker(resource *Resource, tracker *JobTracker, conf *SQSDConf) *SQSWork
 	}
 }
 
-func (w *SQSWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
-	log.Println("SQSWorker start.")
+func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup) {
+	log.Println("Worker start.")
 	defer wg.Done()
 	cancelled := false
 	wg.Add(1)
@@ -61,10 +61,10 @@ func (w *SQSWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 		time.Sleep(w.SleepSeconds * time.Second)
 	}
 	syncWait.Wait()
-	log.Println("SQSWorker closed.")
+	log.Println("Worker closed.")
 }
 
-func (w *SQSWorker) SetupJob(msg *sqs.Message) *Job {
+func (w *Worker) SetupJob(msg *sqs.Message) *Job {
 	job := NewJob(msg, w.Conf)
 	if !w.Tracker.Add(job) {
 		return nil
@@ -72,7 +72,7 @@ func (w *SQSWorker) SetupJob(msg *sqs.Message) *Job {
 	return job
 }
 
-func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
+func (w *Worker) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
 	for _, msg := range messages {
 		if job := w.SetupJob(msg); job != nil {
 			wg.Add(1)
@@ -81,7 +81,7 @@ func (w *SQSWorker) HandleMessages(ctx context.Context, messages []*sqs.Message,
 	}
 }
 
-func (w *SQSWorker) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {
+func (w *Worker) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Printf("job[%s] HandleMessage start.\n", job.ID())
 	ok, err := job.Run(ctx)
