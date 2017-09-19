@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/aws/aws-sdk-go/service/sqs"
-	//"github.com/aws/aws-sdk-go/aws"
 	"context"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/taiyoh/sqsd"
@@ -30,15 +29,12 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 			switch sig {
 			case syscall.SIGTERM:
 				log.Println("SIGTERM caught. shutdown process...")
-				cancel()
 				return
 			case syscall.SIGINT:
 				log.Println("SIGINT caught. shutdown process...")
-				cancel()
 				return
 			case os.Interrupt:
 				log.Println("os.Interrupt caught. shutdown process...")
-				cancel()
 				return
 			}
 		}
@@ -61,7 +57,7 @@ func main() {
 
 	tracker := sqsd.NewJobTracker(config.ProcessCount)
 
-	handler := &sqsd.StatHandler{tracker}
+	handler := &sqsd.StatHandler{Tracker: tracker}
 	srv := sqsd.NewStatServer(handler.BuildServeMux(), config.Stat.Port)
 	wg.Add(1)
 	go srv.Run(ctx, wg)
@@ -69,7 +65,7 @@ func main() {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	resource := &sqsd.Resource{sqs.New(sess), config.QueueURL}
+	resource := &sqsd.Resource{Client: sqs.New(sess), URL: config.QueueURL}
 
 	worker := sqsd.NewWorker(resource, tracker, config)
 	wg.Add(1)
