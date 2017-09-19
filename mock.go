@@ -55,7 +55,7 @@ func MockJobServer() *httptest.Server {
 	return httptest.NewServer(mux)
 }
 
-type SQSMockResponseWriter struct {
+type MockResponseWriter struct {
 	http.ResponseWriter
 	header     http.Header
 	ResBytes   []byte
@@ -63,27 +63,27 @@ type SQSMockResponseWriter struct {
 	Err        error
 }
 
-func NewSQSMockResponseWriter() *SQSMockResponseWriter {
-	return &SQSMockResponseWriter{
+func NewMockResponseWriter() *MockResponseWriter {
+	return &MockResponseWriter{
 		header:     http.Header{},
 		ResBytes:   []byte{},
 		StatusCode: http.StatusOK,
 	}
 }
 
-func (w *SQSMockResponseWriter) Header() http.Header {
+func (w *MockResponseWriter) Header() http.Header {
 	return w.header
 }
 
-func (w *SQSMockResponseWriter) Write(b []byte) (int, error) {
+func (w *MockResponseWriter) Write(b []byte) (int, error) {
 	w.ResBytes = b
 	return len(b), w.Err
 }
 
-func (w *SQSMockResponseWriter) WriteHeader(s int) {
+func (w *MockResponseWriter) WriteHeader(s int) {
 	w.StatusCode = s
 }
 
-func (w *SQSMockResponseWriter) ResponseString() string {
+func (w *MockResponseWriter) ResponseString() string {
 	return bytes.NewBuffer(w.ResBytes).String()
 }
