@@ -70,9 +70,11 @@ func main() {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	resource := &sqsd.Resource{Client: sqs.New(sess), URL: config.SQS.QueueURL}
-
-	worker := sqsd.NewWorker(resource, tracker, config)
+	worker := sqsd.NewWorker(
+		&sqsd.Resource{Client: sqs.New(sess), URL: config.SQS.QueueURL},
+		tracker,
+		config,
+	)
 	wg.Add(1)
 	go worker.Run(ctx, wg)
 
