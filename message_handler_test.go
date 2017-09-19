@@ -37,8 +37,8 @@ func TestNewWorker(t *testing.T) {
 	c := &Conf{}
 	r := &Resource{}
 	tr := NewJobTracker(5)
-	w := NewWorker(r, tr, c)
-	if w == nil {
+	h := NewMessageHandler(r, tr, c)
+	if h == nil {
 		t.Error("worker not loaded")
 	}
 }
@@ -47,14 +47,14 @@ func TestSetupJob(t *testing.T) {
 	c := &Conf{}
 	r := &Resource{}
 	tr := NewJobTracker(5)
-	w := NewWorker(r, tr, c)
+	h := NewMessageHandler(r, tr, c)
 
 	sqsMsg := &sqs.Message{
 		MessageId: aws.String("foobar"),
 		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
 	}
 
-	job := w.SetupJob(sqsMsg)
+	job := h.SetupJob(sqsMsg)
 	if job == nil {
 		t.Error("job not created")
 	}
@@ -64,7 +64,7 @@ func TestHandleMessage(t *testing.T) {
 	c := &Conf{}
 	r := &Resource{Client: &MockClient{}}
 	tr := NewJobTracker(5)
-	w := NewWorker(r, tr, c)
+	h := NewMessageHandler(r, tr, c)
 
 	ctx := context.Background()
 
@@ -74,7 +74,7 @@ func TestHandleMessage(t *testing.T) {
 	wg := &sync.WaitGroup{}
 
 	t.Run("job failed", func(t *testing.T) {
-		job := w.SetupJob(&sqs.Message{
+		job := h.SetupJob(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageNG"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
@@ -82,15 +82,15 @@ func TestHandleMessage(t *testing.T) {
 		job.URL = ts.URL + "/error"
 
 		wg.Add(1)
-		go w.HandleMessage(ctx, job, wg)
+		go h.HandleMessage(ctx, job, wg)
 		wg.Wait()
-		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
+		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
 	})
 
 	t.Run("context cancelled", func(t *testing.T) {
-		job := w.SetupJob(&sqs.Message{
+		job := h.SetupJob(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageErr"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
@@ -99,16 +99,16 @@ func TestHandleMessage(t *testing.T) {
 		parent, cancel := context.WithCancel(ctx)
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		go w.HandleMessage(parent, job, wg)
+		go h.HandleMessage(parent, job, wg)
 		cancel()
 		wg.Wait()
-		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
+		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
 	})
 
 	t.Run("success", func(t *testing.T) {
-		job := w.SetupJob(&sqs.Message{
+		job := h.SetupJob(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageOK"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
@@ -116,9 +116,9 @@ func TestHandleMessage(t *testing.T) {
 		job.URL = ts.URL + "/ok"
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		go w.HandleMessage(ctx, job, wg)
+		go h.HandleMessage(ctx, job, wg)
 		wg.Wait()
-		if _, exists := w.Tracker.CurrentWorkings[job.ID()]; exists {
+		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
 		}
 	})
@@ -152,12 +152,12 @@ func TestHandleMessages(t *testing.T) {
 	c := &Conf{Worker: WorkerConf{JobURL: ts.URL}}
 	r := &Resource{Client: &MockClient{}}
 	tr := NewJobTracker(5)
-	w := NewWorker(r, tr, c)
+	h := NewMessageHandler(r, tr, c)
 
 	ctx := context.Background()
 
 	wg := &sync.WaitGroup{}
-	w.HandleMessages(ctx, msgs, wg)
+	h.HandleMessages(ctx, msgs, wg)
 	wg.Wait()
 
 	if len(caughtIds) != tr.MaxProcessCount {
@@ -177,12 +177,12 @@ func TestWorkerRun(t *testing.T) {
 	mc := NewMockClient()
 	r := &Resource{Client: mc}
 	tr := NewJobTracker(5)
-	w := NewWorker(r, tr, c)
+	h := NewMessageHandler(r, tr, c)
 
 	funcEnds := make(chan bool)
 	wg := &sync.WaitGroup{}
 	run := func(ctx context.Context) {
-		w.Run(ctx, wg)
+		h.Run(ctx, wg)
 		funcEnds <- true
 	}
 

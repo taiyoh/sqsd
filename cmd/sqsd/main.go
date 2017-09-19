@@ -70,13 +70,13 @@ func main() {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	worker := sqsd.NewWorker(
+	msgHandler := sqsd.NewMessageHandler(
 		&sqsd.Resource{Client: sqs.New(sess), URL: config.SQS.QueueURL},
 		tracker,
 		config,
 	)
 	wg.Add(1)
-	go worker.Run(ctx, wg)
+	go msgHandler.Run(ctx, wg)
 
 	wg.Wait()
 	log.Println("sqsd ends.")

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type Worker struct {
+type MessageHandler struct {
 	Resource     *Resource
 	Tracker      *JobTracker
 	SleepSeconds time.Duration
@@ -16,15 +16,15 @@ type Worker struct {
 	QueueURL     string
 }
 
-func NewWorker(resource *Resource, tracker *JobTracker, conf *Conf) *Worker {
-	return &Worker{
+func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *MessageHandler {
+	return &MessageHandler{
 		Resource: resource,
 		Tracker:  tracker,
 		Conf:     &conf.Worker,
 	}
 }
 
-func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup) {
+func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("Worker start.")
 	defer wg.Done()
 	cancelled := false
@@ -44,18 +44,18 @@ func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup) {
 		if cancelled {
 			break
 		}
-		if !w.Tracker.IsWorking() {
+		if !h.Tracker.IsWorking() {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		results, err := w.Resource.GetMessages()
+		results, err := h.Resource.GetMessages()
 		if err != nil {
 			log.Println("Error", err)
 		} else if len(results) == 0 {
 			log.Println("received no messages")
 		} else {
 			log.Printf("received %d messages. run jobs.\n", len(results))
-			w.HandleMessages(ctx, results, syncWait)
+			h.HandleMessages(ctx, results, syncWait)
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -63,24 +63,24 @@ func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("Worker closed.")
 }
 
-func (w *Worker) SetupJob(msg *sqs.Message) *Job {
-	job := NewJob(msg, w.Conf)
-	if !w.Tracker.Add(job) {
+func (h *MessageHandler) SetupJob(msg *sqs.Message) *Job {
+	job := NewJob(msg, h.Conf)
+	if !h.Tracker.Add(job) {
 		return nil
 	}
 	return job
 }
 
-func (w *Worker) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
+func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
 	for _, msg := range messages {
-		if job := w.SetupJob(msg); job != nil {
+		if job := h.SetupJob(msg); job != nil {
 			wg.Add(1)
-			go w.HandleMessage(ctx, job, wg)
+			go h.HandleMessage(ctx, job, wg)
 		}
 	}
 }
 
-func (w *Worker) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {
+func (h *MessageHandler) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Printf("job[%s] HandleMessage start.\n", job.ID())
 	ok, err := job.Run(ctx)
@@ -88,8 +88,8 @@ func (w *Worker) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup
 		log.Printf("job[%s] HandleMessage request error: %s\n", job.ID(), err)
 	}
 	if ok {
-		w.Resource.DeleteMessage(job.Msg)
+		h.Resource.DeleteMessage(job.Msg)
 	}
-	w.Tracker.Delete(job)
+	h.Tracker.Delete(job)
 	log.Printf("job[%s] HandleMessage finished.\n", job.ID())
 }
