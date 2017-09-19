@@ -12,11 +12,11 @@ type Worker struct {
 	Resource     *Resource
 	Tracker      *JobTracker
 	SleepSeconds time.Duration
-	Conf         *SQSDHttpWorkerConf
+	Conf         *HttpWorkerConf
 	QueueURL     string
 }
 
-func NewWorker(resource *Resource, tracker *JobTracker, conf *SQSDConf) *Worker {
+func NewWorker(resource *Resource, tracker *JobTracker, conf *Conf) *Worker {
 	return &Worker{
 		Resource:     resource,
 		Tracker:      tracker,

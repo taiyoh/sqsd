@@ -7,7 +7,7 @@ import (
 )
 
 func TestResource(t *testing.T) {
-	c := &SQSMockClient{
+	c := &MockClient{
 		Resp: &sqs.ReceiveMessageOutput{
 			Messages: []*sqs.Message{
 				&sqs.Message{

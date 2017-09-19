@@ -8,27 +8,27 @@ import (
 	"strings"
 )
 
-type SQSDConf struct {
+type Conf struct {
 	QueueURL              string             `toml:"queue_url"`
-	HTTPWorker            SQSDHttpWorkerConf `toml:"http_worker"`
-	Stat                  SQSDStatConf       `toml:"stat"`
+	HTTPWorker            HttpWorkerConf `toml:"http_worker"`
+	Stat                  StatConf       `toml:"stat"`
 	MaxMessagesPerRequest int64              `toml:"max_message_per_request"`
 	SleepSeconds          int64              `toml:"sleep_seconds"`
 	WaitTimeSeconds       int64              `toml:"wait_time_seconds"`
 	ProcessCount          int                `toml:"process_count"`
 }
 
-type SQSDHttpWorkerConf struct {
+type HttpWorkerConf struct {
 	URL                string `toml:"url"`
 	RequestContentType string `toml:"request_content_type"`
 }
 
-type SQSDStatConf struct {
+type StatConf struct {
 	Port int `toml:"port"`
 }
 
 // Init : confのデフォルト値はここで埋める
-func (c *SQSDConf) Init() {
+func (c *Conf) Init() {
 	if c.HTTPWorker.RequestContentType == "" {
 		c.HTTPWorker.RequestContentType = "application/json"
 	}
@@ -38,7 +38,7 @@ func (c *SQSDConf) Init() {
 }
 
 // Validate : confのバリデーションはここで行う
-func (c *SQSDConf) Validate() error {
+func (c *Conf) Validate() error {
 	if c.MaxMessagesPerRequest > 10 || c.MaxMessagesPerRequest < 1 {
 		return errors.New("MaxMessagesPerRequest limit is 10")
 	}
@@ -61,7 +61,7 @@ func (c *SQSDConf) Validate() error {
 }
 
 // NewConf : confのオブジェクトを返す
-func NewConf(filepath string) (*SQSDConf, error) {
+func NewConf(filepath string) (*Conf, error) {
 	config, err := toml.LoadFile(filepath)
 	if err != nil {
 		fmt.Println("filepath: " + filepath)
@@ -69,7 +69,7 @@ func NewConf(filepath string) (*SQSDConf, error) {
 		return nil, err
 	}
 
-	sqsdConf := &SQSDConf{}
+	sqsdConf := &Conf{}
 	config.Unmarshal(sqsdConf)
 	sqsdConf.Init()
 

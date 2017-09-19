@@ -8,12 +8,12 @@ import (
 	"sync"
 )
 
-type SQSStatServer struct {
+type StatServer struct {
 	Srv *http.Server
 }
 
-func NewStatServer(m *http.ServeMux, p int) *SQSStatServer {
-	return &SQSStatServer{
+func NewStatServer(m *http.ServeMux, p int) *StatServer {
+	return &StatServer{
 		Srv: &http.Server{
 			Addr:    ":" + strconv.Itoa(p),
 			Handler: m,
@@ -21,7 +21,7 @@ func NewStatServer(m *http.ServeMux, p int) *SQSStatServer {
 	}
 }
 
-func (s *SQSStatServer) Run(ctx context.Context, wg *sync.WaitGroup) {
+func (s *StatServer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Println("stat server start.")
 

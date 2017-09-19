@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type SQSMockClient struct {
+type MockClient struct {
 	sqsiface.SQSAPI
 	Resp             *sqs.ReceiveMessageOutput
 	RecvRequestCount int
@@ -18,20 +18,20 @@ type SQSMockClient struct {
 	Err              error
 }
 
-func NewMockClient() *SQSMockClient {
-	return &SQSMockClient{
+func NewMockClient() *MockClient {
+	return &MockClient{
 		Resp: &sqs.ReceiveMessageOutput{
 			Messages: []*sqs.Message{},
 		},
 	}
 }
 
-func (c *SQSMockClient) ReceiveMessage(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+func (c *MockClient) ReceiveMessage(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
 	c.RecvRequestCount++
 	return c.Resp, c.Err
 }
 
-func (c *SQSMockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
+func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
 	c.DelRequestCount++
 	return &sqs.DeleteMessageOutput{}, nil
 }

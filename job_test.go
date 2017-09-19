@@ -12,7 +12,7 @@ func TestNewJob(t *testing.T) {
 		MessageId: aws.String("foobar"),
 		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
 	}
-	conf := &SQSDHttpWorkerConf{
+	conf := &HttpWorkerConf{
 		RequestContentType: "application/json",
 		URL:                "http://example.com/foo/bar",
 	}
@@ -31,7 +31,7 @@ func TestJobFunc(t *testing.T) {
 	defer ts.Close()
 
 	t.Run("job failed", func(t *testing.T) {
-		conf := &SQSDHttpWorkerConf{
+		conf := &HttpWorkerConf{
 			RequestContentType: "application/json",
 			URL:                ts.URL + "/error",
 		}
@@ -47,7 +47,7 @@ func TestJobFunc(t *testing.T) {
 	})
 
 	t.Run("context cancelled", func(t *testing.T) {
-		conf := &SQSDHttpWorkerConf{
+		conf := &HttpWorkerConf{
 			RequestContentType: "application/json",
 			URL:                ts.URL + "/long",
 		}
@@ -65,7 +65,7 @@ func TestJobFunc(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		conf := &SQSDHttpWorkerConf{
+		conf := &HttpWorkerConf{
 			RequestContentType: "application/json",
 			URL:                ts.URL + "/ok",
 		}
@@ -87,7 +87,7 @@ func TestJobSummary(t *testing.T) {
 		MessageId: aws.String("foobar"),
 		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
 	}
-	conf := &SQSDHttpWorkerConf{
+	conf := &HttpWorkerConf{
 		RequestContentType: "application/json",
 		URL:                "http://example.com/foo/bar",
 	}

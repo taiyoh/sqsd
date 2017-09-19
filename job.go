@@ -23,7 +23,7 @@ type JobSummary struct {
 	Payload string `json:"payload"`
 }
 
-func NewJob(msg *sqs.Message, conf *SQSDHttpWorkerConf) *Job {
+func NewJob(msg *sqs.Message, conf *HttpWorkerConf) *Job {
 	return &Job{
 		Msg:         msg,
 		StartAt:     time.Now(),

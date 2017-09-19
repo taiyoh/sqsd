@@ -79,7 +79,7 @@ func TestJobWorking(t *testing.T) {
 
 func TestCurrentSummaries(t *testing.T) {
 	tr := NewJobTracker(5)
-	conf := &SQSDHttpWorkerConf{
+	conf := &HttpWorkerConf{
 		URL: "http://example.com/foo/bar",
 	}
 	for i := 1; i <= 2; i++ {

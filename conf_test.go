@@ -6,7 +6,7 @@ import "path/filepath"
 import "strconv"
 
 func TestInitConf(t *testing.T) {
-	c := &SQSDConf{}
+	c := &Conf{}
 	if c.MaxMessagesPerRequest != 0 {
 		t.Error("MaxMessagesPerRequest not 0")
 	}
@@ -23,7 +23,7 @@ func TestInitConf(t *testing.T) {
 }
 
 func TestValidateConf(t *testing.T) {
-	c := &SQSDConf{}
+	c := &Conf{}
 	c.QueueURL = "https://example.com/queue/hoge"
 	c.MaxMessagesPerRequest = 11
 	if err := c.Validate(); err == nil {
