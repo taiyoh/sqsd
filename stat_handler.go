@@ -8,7 +8,7 @@ import (
 )
 
 type StatHandler struct {
-	Tracker *SQSJobTracker
+	Tracker *JobTracker
 }
 
 type StatResponseIFace interface {

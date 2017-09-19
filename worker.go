@@ -10,13 +10,13 @@ import (
 
 type SQSWorker struct {
 	Resource     *Resource
-	Tracker      *SQSJobTracker
+	Tracker      *JobTracker
 	SleepSeconds time.Duration
 	Conf         *SQSDHttpWorkerConf
 	QueueURL     string
 }
 
-func NewWorker(resource *Resource, tracker *SQSJobTracker, conf *SQSDConf) *SQSWorker {
+func NewWorker(resource *Resource, tracker *JobTracker, conf *SQSDConf) *SQSWorker {
 	return &SQSWorker{
 		Resource:     resource,
 		Tracker:      tracker,
