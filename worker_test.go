@@ -149,7 +149,7 @@ func TestHandleMessages(t *testing.T) {
 	))
 	defer ts.Close()
 
-	c := &Conf{HTTPWorker: HttpWorkerConf{URL: ts.URL}}
+	c := &Conf{Worker: WorkerConf{JobURL: ts.URL}}
 	r := &Resource{Client: &MockClient{}}
 	tr := NewJobTracker(5)
 	w := NewWorker(r, tr, c)
@@ -173,7 +173,7 @@ func TestHandleMessages(t *testing.T) {
 }
 
 func TestWorkerRun(t *testing.T) {
-	c := &Conf{SleepSeconds: 1}
+	c := &Conf{}
 	mc := NewMockClient()
 	r := &Resource{Client: mc}
 	tr := NewJobTracker(5)
@@ -271,7 +271,7 @@ func TestWorkerRun(t *testing.T) {
 		))
 		defer ts.Close()
 
-		c.HTTPWorker.URL = ts.URL
+		c.Worker.JobURL = ts.URL
 
 		ctx, cancel := context.WithCancel(context.Background())
 		wg.Add(1)

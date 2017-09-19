@@ -1,12 +1,10 @@
-queue_url="http://example.com/queue/hoge"
-max_message_per_request=10
-sleep_seconds=1
-wait_time_seconds=0
-process_count=40
+[worker]
+interval_seconds=1
+max_process_count=40
+job_url="http://127.0.0.1:8080/run_job"
 
 [stat]
-port=4080
+server_port=4080
 
-[http_worker]
-url="http://127.0.0.1/run_job"
-request_content_type="application/json"
+[sqs]
+queue_url="http://example.com/queue/hoge"

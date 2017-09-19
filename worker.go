@@ -12,16 +12,15 @@ type Worker struct {
 	Resource     *Resource
 	Tracker      *JobTracker
 	SleepSeconds time.Duration
-	Conf         *HttpWorkerConf
+	Conf         *WorkerConf
 	QueueURL     string
 }
 
 func NewWorker(resource *Resource, tracker *JobTracker, conf *Conf) *Worker {
 	return &Worker{
-		Resource:     resource,
-		Tracker:      tracker,
-		SleepSeconds: time.Duration(conf.SleepSeconds),
-		Conf:         &conf.HTTPWorker,
+		Resource: resource,
+		Tracker:  tracker,
+		Conf:     &conf.Worker,
 	}
 }
 
@@ -46,7 +45,7 @@ func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			break
 		}
 		if !w.Tracker.IsWorking() {
-			time.Sleep(w.SleepSeconds * time.Second)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 		results, err := w.Resource.GetMessages()
@@ -58,7 +57,7 @@ func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			log.Printf("received %d messages. run jobs.\n", len(results))
 			w.HandleMessages(ctx, results, syncWait)
 		}
-		time.Sleep(w.SleepSeconds * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	syncWait.Wait()
 	log.Println("Worker closed.")

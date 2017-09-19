@@ -11,10 +11,9 @@ import (
 )
 
 type Job struct {
-	Msg         *sqs.Message
-	StartAt     time.Time
-	URL         string
-	ContentType string
+	Msg     *sqs.Message
+	StartAt time.Time
+	URL     string
 }
 
 type JobSummary struct {
@@ -23,12 +22,11 @@ type JobSummary struct {
 	Payload string `json:"payload"`
 }
 
-func NewJob(msg *sqs.Message, conf *HttpWorkerConf) *Job {
+func NewJob(msg *sqs.Message, conf *WorkerConf) *Job {
 	return &Job{
-		Msg:         msg,
-		StartAt:     time.Now(),
-		URL:         conf.URL,
-		ContentType: conf.RequestContentType,
+		Msg:     msg,
+		StartAt: time.Now(),
+		URL:     conf.JobURL,
 	}
 }
 
@@ -42,7 +40,7 @@ func (j *Job) Run(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	req = req.WithContext(ctx)
-	req.Header.Set("Content-Type", j.ContentType)
+	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

@@ -12,9 +12,8 @@ func TestNewJob(t *testing.T) {
 		MessageId: aws.String("foobar"),
 		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
 	}
-	conf := &HttpWorkerConf{
-		RequestContentType: "application/json",
-		URL:                "http://example.com/foo/bar",
+	conf := &WorkerConf{
+		JobURL: "http://example.com/foo/bar",
 	}
 	job := NewJob(sqsMsg, conf)
 	if job == nil {
@@ -31,9 +30,8 @@ func TestJobFunc(t *testing.T) {
 	defer ts.Close()
 
 	t.Run("job failed", func(t *testing.T) {
-		conf := &HttpWorkerConf{
-			RequestContentType: "application/json",
-			URL:                ts.URL + "/error",
+		conf := &WorkerConf{
+			JobURL: ts.URL + "/error",
 		}
 		job := NewJob(sqsMsg, conf)
 		ctx := context.Background()
@@ -47,9 +45,8 @@ func TestJobFunc(t *testing.T) {
 	})
 
 	t.Run("context cancelled", func(t *testing.T) {
-		conf := &HttpWorkerConf{
-			RequestContentType: "application/json",
-			URL:                ts.URL + "/long",
+		conf := &WorkerConf{
+			JobURL: ts.URL + "/long",
 		}
 		job := NewJob(sqsMsg, conf)
 		ctx, cancel := context.WithCancel(context.Background())
@@ -65,9 +62,8 @@ func TestJobFunc(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		conf := &HttpWorkerConf{
-			RequestContentType: "application/json",
-			URL:                ts.URL + "/ok",
+		conf := &WorkerConf{
+			JobURL: ts.URL + "/ok",
 		}
 		job := NewJob(sqsMsg, conf)
 		ctx, cancel := context.WithCancel(context.Background())
@@ -87,9 +83,8 @@ func TestJobSummary(t *testing.T) {
 		MessageId: aws.String("foobar"),
 		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
 	}
-	conf := &HttpWorkerConf{
-		RequestContentType: "application/json",
-		URL:                "http://example.com/foo/bar",
+	conf := &WorkerConf{
+		JobURL: "http://example.com/foo/bar",
 	}
 	job := NewJob(sqsMsg, conf)
 	summary := job.Summary()

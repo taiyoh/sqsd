@@ -1,85 +1,63 @@
 package sqsd
 
-import "testing"
-import "os"
-import "path/filepath"
-import "strconv"
+import (
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+)
 
 func TestInitConf(t *testing.T) {
 	c := &Conf{}
-	if c.MaxMessagesPerRequest != 0 {
-		t.Error("MaxMessagesPerRequest not 0")
+	if c.Worker.MaxProcessCount != 0 {
+		t.Error("MaxProcessCount is invalid")
 	}
-	if c.HTTPWorker.RequestContentType != "" {
-		t.Error("contentType is already set!")
+	if c.Worker.IntervalSeconds != 0 {
+		t.Error("IntervalSeconds is invalid")
 	}
 	c.Init()
-	if c.MaxMessagesPerRequest != 1 {
-		t.Error("MaxMessagesPerRequest is yet 0")
+	if c.Worker.MaxProcessCount != 1 {
+		t.Error("MaxProcessCount is yet 0")
 	}
-	if c.HTTPWorker.RequestContentType != "application/json" {
-		t.Error("contentType is not set!")
+	if c.Worker.IntervalSeconds != 1 {
+		t.Error("IntervalSeconds not set!")
 	}
 }
 
 func TestValidateConf(t *testing.T) {
 	c := &Conf{}
-	c.QueueURL = "https://example.com/queue/hoge"
-	c.MaxMessagesPerRequest = 11
-	if err := c.Validate(); err == nil {
-		t.Error("MaxMessagesPerRequest = 11")
-	}
-	c.MaxMessagesPerRequest = 10
+	c.Init()
+	c.SQS.QueueURL = "https://example.com/queue/hoge"
+	c.Worker.JobURL = "http://localhost:1080/run_job"
+	c.Stat.ServerPort = 10000
+
 	if err := c.Validate(); err != nil {
-		t.Error("MaxMessagesPerRequest = 10")
-	}
-	c.MaxMessagesPerRequest = 1
-	if err := c.Validate(); err != nil {
-		t.Error("MaxMessagesPerRequest = 1")
-	}
-	c.MaxMessagesPerRequest = 0
-	if err := c.Validate(); err == nil {
-		t.Error("MaxMessagesPerRequest = 0")
-	}
-	c.MaxMessagesPerRequest = 10
-	c.WaitTimeSeconds = 21
-	if err := c.Validate(); err == nil {
-		t.Error("WaitTimeSeconds = 21")
-	}
-	c.WaitTimeSeconds = 20
-	if err := c.Validate(); err != nil {
-		t.Error("WaitTimeSeconds = 20")
-	}
-	c.WaitTimeSeconds = 0
-	if err := c.Validate(); err != nil {
-		t.Error("WaitTimeSeconds = 0")
-	}
-	c.WaitTimeSeconds = -1
-	if err := c.Validate(); err == nil {
-		t.Error("WaitTimeSeconds = -1")
-	}
-	c.WaitTimeSeconds = 0
-	c.SleepSeconds = 1
-	if err := c.Validate(); err != nil {
-		t.Error("SleepSeconds = 1")
-	}
-	c.SleepSeconds = 0
-	if err := c.Validate(); err != nil {
-		t.Error("SleepSeconds = 0")
-	}
-	c.SleepSeconds = -1
-	if err := c.Validate(); err == nil {
-		t.Error("SleepSeconds = -1")
+		t.Error("valid conf but error found", err)
 	}
 
-	c.SleepSeconds = 1
-	c.QueueURL = ""
+	c.Stat.ServerPort = 0
 	if err := c.Validate(); err == nil {
-		t.Error("QueueURL not found")
+		t.Error("stat.server_port is 0, but no error")
 	}
-	c.QueueURL = "hoge://fuga/piyo"
+
+	c.Stat.ServerPort = 10000
+	c.SQS.QueueURL = ""
 	if err := c.Validate(); err == nil {
-		t.Error("QueueURL is invalid")
+		t.Error("SQS.QueueURL is empty, but no error")
+	}
+	c.SQS.QueueURL = "foo://bar/baz"
+	if err := c.Validate(); err == nil {
+		t.Error("SQS.QueueURL is not HTTP url, but no error")
+	}
+	c.SQS.QueueURL = "https://example.com/queue/hoge"
+
+	c.Worker.JobURL = ""
+	if err := c.Validate(); err == nil {
+		t.Error("Worker.JobURL is empty, but no error")
+	}
+	c.Worker.JobURL = "foo://bar/baz"
+	if err := c.Validate(); err == nil {
+		t.Error("Worker.JobURL is not HTTP url, but no error")
 	}
 }
 
@@ -93,12 +71,12 @@ func TestNewConf(t *testing.T) {
 	}
 	conf, err := NewConf(filepath.Join(d, "test", "conf", "config_valid.toml"))
 	if err != nil {
-		t.Error("invalid config??? " + err.Error())
+		t.Error("invalid config??? ", err)
 	}
-	if conf.QueueURL != "http://example.com/queue/hoge" {
-		t.Error("QueueURL not loaded correctly. " + conf.QueueURL)
+	if conf.SQS.QueueURL != "http://example.com/queue/hoge" {
+		t.Error("QueueURL not loaded correctly. " + conf.SQS.QueueURL)
 	}
-	if conf.Stat.Port != 4080 {
-		t.Error("Stat.Port not loaded correctly. " + strconv.Itoa(conf.Stat.Port))
+	if conf.Stat.ServerPort != 4080 {
+		t.Error("Stat.ServerPort not loaded correctly. " + strconv.Itoa(conf.Stat.ServerPort))
 	}
 }

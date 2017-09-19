@@ -8,54 +8,51 @@ import (
 )
 
 type Conf struct {
-	QueueURL              string         `toml:"queue_url"`
-	HTTPWorker            HttpWorkerConf `toml:"http_worker"`
-	Stat                  StatConf       `toml:"stat"`
-	MaxMessagesPerRequest int64          `toml:"max_message_per_request"`
-	SleepSeconds          int64          `toml:"sleep_seconds"`
-	WaitTimeSeconds       int64          `toml:"wait_time_seconds"`
-	ProcessCount          int            `toml:"process_count"`
+	Worker WorkerConf `toml:"worker"`
+	Stat   StatConf   `toml:"stat"`
+	SQS    SQSConf    `toml:"sqs"`
 }
 
-type HttpWorkerConf struct {
-	URL                string `toml:"url"`
-	RequestContentType string `toml:"request_content_type"`
+type WorkerConf struct {
+	IntervalSeconds uint64 `toml:"interval_seconds"`
+	MaxProcessCount uint   `toml:"max_process_count"`
+	JobURL          string `toml:"job_url"`
 }
 
 type StatConf struct {
-	Port int `toml:"port"`
+	ServerPort int `toml:"server_port"`
 }
 
-// Init : confのデフォルト値はここで埋める
+type SQSConf struct {
+	QueueURL string `toml:"queue_url"`
+}
+
+// Init confのデフォルト値はここで埋める
 func (c *Conf) Init() {
-	if c.HTTPWorker.RequestContentType == "" {
-		c.HTTPWorker.RequestContentType = "application/json"
+	if c.Worker.IntervalSeconds == 0 {
+		c.Worker.IntervalSeconds = 1
 	}
-	if c.MaxMessagesPerRequest == 0 {
-		c.MaxMessagesPerRequest = 1
+	if c.Worker.MaxProcessCount == 0 {
+		c.Worker.MaxProcessCount = 1
 	}
 }
 
-// Validate : confのバリデーションはここで行う
+// Validate confのバリデーションはここで行う
 func (c *Conf) Validate() error {
-	if c.MaxMessagesPerRequest > 10 || c.MaxMessagesPerRequest < 1 {
-		return errors.New("MaxMessagesPerRequest limit is 10")
+	for k, urlstr := range map[string]string{
+		"sqs.queue_url":  c.SQS.QueueURL,
+		"worker.job_url": c.Worker.JobURL,
+	} {
+		uri, err := url.ParseRequestURI(urlstr)
+		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+			return errors.New(k + " is not HTTP URL: " + urlstr)
+		}
 	}
 
-	if c.WaitTimeSeconds > 20 || c.WaitTimeSeconds < 0 {
-		return errors.New("WaitTimeSeconds range: 0 - 20")
+	if c.Stat.ServerPort == 0 {
+		return errors.New("stat.server_port is required")
 	}
 
-	if c.SleepSeconds < 0 {
-		return errors.New("SleepSeconds requires natural number")
-	}
-	uri, err := url.ParseRequestURI(c.QueueURL)
-	if err != nil {
-		return err
-	}
-	if !strings.HasPrefix(uri.Scheme, "http") {
-		return errors.New("QueueURL is not URL")
-	}
 	return nil
 }
 
