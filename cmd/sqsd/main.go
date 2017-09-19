@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"context"
+	"flag"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
 	"log"
 	"os"
@@ -42,10 +43,15 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 }
 
 func main() {
-	d, _ := os.Getwd()
-	config, err := sqsd.NewConf(filepath.Join(d, "config.toml"))
+	var confPath string
+	flag.StringVar(&confPath, "conf", "config.toml", "")
+	if !filepath.IsAbs(confPath) {
+		d, _ := os.Getwd()
+		confPath = filepath.Join(d, confPath)
+	}
+	config, err := sqsd.NewConf(confPath)
 	if err != nil {
-		log.Fatalf("config file not loaded. %s, err: %s\n", filepath.Join(d, "config.toml"), err.Error())
+		log.Fatalf("config file not loaded. %s, err: %s\n", confPath, err.Error())
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

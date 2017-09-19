@@ -1,9 +1,9 @@
 package sqsd
 
 import (
-	"net/http"
 	"context"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"

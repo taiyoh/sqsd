@@ -9,13 +9,13 @@ import (
 )
 
 type Conf struct {
-	QueueURL              string             `toml:"queue_url"`
+	QueueURL              string         `toml:"queue_url"`
 	HTTPWorker            HttpWorkerConf `toml:"http_worker"`
 	Stat                  StatConf       `toml:"stat"`
-	MaxMessagesPerRequest int64              `toml:"max_message_per_request"`
-	SleepSeconds          int64              `toml:"sleep_seconds"`
-	WaitTimeSeconds       int64              `toml:"wait_time_seconds"`
-	ProcessCount          int                `toml:"process_count"`
+	MaxMessagesPerRequest int64          `toml:"max_message_per_request"`
+	SleepSeconds          int64          `toml:"sleep_seconds"`
+	WaitTimeSeconds       int64          `toml:"wait_time_seconds"`
+	ProcessCount          int            `toml:"process_count"`
 }
 
 type HttpWorkerConf struct {

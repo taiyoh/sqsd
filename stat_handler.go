@@ -34,8 +34,8 @@ func (r *StatSuccessResponse) JSONString() string {
 }
 
 type StatCurrentSummaryResponse struct {
-	JobsCount int `json:"jobs_count"`
-	RestCount int `json:"rest_count"`
+	JobsCount int  `json:"jobs_count"`
+	RestCount int  `json:"rest_count"`
 	IsWorking bool `json:"is_working"`
 }
 
