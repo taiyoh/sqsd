@@ -51,7 +51,7 @@ func main() {
 	}
 	config, err := sqsd.NewConf(confPath)
 	if err != nil {
-		log.Fatalf("config file not loaded. %s, err: %s\n", confPath, err.Error())
+		log.Fatalf("config file: %s, err: %s\n", confPath, err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"errors"
-	"fmt"
 	"github.com/pelletier/go-toml"
 	"net/url"
 	"strings"
@@ -64,8 +63,6 @@ func (c *Conf) Validate() error {
 func NewConf(filepath string) (*Conf, error) {
 	config, err := toml.LoadFile(filepath)
 	if err != nil {
-		fmt.Println("filepath: " + filepath)
-		fmt.Println("Error ", err.Error())
 		return nil, err
 	}
 
