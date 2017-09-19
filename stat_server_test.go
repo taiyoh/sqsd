@@ -13,18 +13,13 @@ import (
 func TestStatServer(t *testing.T) {
 	tr := NewJobTracker(5)
 	h := NewStatHandler(tr)
-	c := &SQSDConf{}
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	hostport := strings.Split(l.Addr().String(), ":")
 	port, _ := strconv.Atoi(hostport[1])
-	c.Stat.Port = port
 
-	s := NewStatServer(h, c)
+	s := NewStatServer(h.BuildServeMux(), port)
 	if s == nil {
 		t.Error("stat server not loaded")
-	}
-	if s.Port != c.Stat.Port {
-		t.Error("port invalid")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

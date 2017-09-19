@@ -3,6 +3,7 @@ package sqsd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fukata/golang-stats-api-handler"
 	"net/http"
 )
 
@@ -109,4 +110,16 @@ func NewStatHandler(tracker *SQSJobTracker) *SQSStatHandler {
 	return &SQSStatHandler{
 		Tracker: tracker,
 	}
+}
+
+func (h *SQSStatHandler) BuildServeMux() *http.ServeMux {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/stats", stats_api.Handler)
+	mux.HandleFunc("/worker/current", h.WorkerCurrentSummaryHandler())
+	mux.HandleFunc("/worker/current/jobs", h.WorkerCurrentJobsHandler())
+	mux.HandleFunc("/worker/pause", h.WorkerPauseHandler())
+	mux.HandleFunc("/worker/resume", h.WorkerResumeHandler())
+
+	return mux
 }

@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"context"
-	"github.com/fukata/golang-stats-api-handler"
 	"log"
 	"net/http"
 	"strconv"
@@ -10,40 +9,31 @@ import (
 )
 
 type SQSStatServer struct {
-	Port int
-	Mux  *http.ServeMux
+	Srv *http.Server
 }
 
-func NewStatServer(handler *SQSStatHandler, conf *SQSDConf) *SQSStatServer {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/stats", stats_api.Handler)
-	mux.HandleFunc("/worker/current", handler.WorkerCurrentSummaryHandler())
-	mux.HandleFunc("/worker/current/jobs", handler.WorkerCurrentJobsHandler())
-	mux.HandleFunc("/worker/pause", handler.WorkerPauseHandler())
-	mux.HandleFunc("/worker/resume", handler.WorkerResumeHandler())
+func NewStatServer(m *http.ServeMux, p int) *SQSStatServer {
 	return &SQSStatServer{
-		Port: conf.Stat.Port,
-		Mux:  mux,
+		Srv: &http.Server{
+			Addr:    ":" + strconv.Itoa(p),
+			Handler: m,
+		},
 	}
 }
 
 func (s *SQSStatServer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Println("stat server start.")
-	srv := &http.Server{
-		Addr:    ":" + strconv.Itoa(s.Port),
-		Handler: s.Mux,
-	}
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		if err := s.Srv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := s.Srv.Shutdown(ctx); err != nil {
 		log.Fatal(err)
 	}
 

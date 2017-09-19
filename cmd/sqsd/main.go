@@ -1,7 +1,10 @@
 package main
 
 import (
+	"github.com/aws/aws-sdk-go/service/sqs"
+	//"github.com/aws/aws-sdk-go/aws"
 	"context"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/taiyoh/sqsd"
 	"log"
 	"os"
@@ -59,12 +62,16 @@ func main() {
 	tracker := sqsd.NewJobTracker(config.ProcessCount)
 
 	handler := sqsd.NewStatHandler(tracker)
-
-	stat := sqsd.NewStatServer(handler, config)
+	srv := sqsd.NewStatServer(handler.BuildServeMux(), config.Stat.Port)
 	wg.Add(1)
-	go stat.Run(ctx, wg)
+	go srv.Run(ctx, wg)
 
-	worker := sqsd.NewWorker(tracker, config)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	resource := sqsd.NewResource(sqs.New(sess), config.QueueURL)
+
+	worker := sqsd.NewWorker(resource, tracker, config)
 	wg.Add(1)
 	go worker.Run(ctx, wg)
 
