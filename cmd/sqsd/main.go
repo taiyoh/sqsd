@@ -45,6 +45,7 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 func main() {
 	var confPath string
 	flag.StringVar(&confPath, "config", "config.toml", "config path")
+	flag.Parse()
 	if !filepath.IsAbs(confPath) {
 		d, _ := os.Getwd()
 		confPath = filepath.Join(d, confPath)
