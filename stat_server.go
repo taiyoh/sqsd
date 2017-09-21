@@ -24,7 +24,7 @@ func NewStatServer(tr *JobTracker, p int) *StatServer {
 
 func (s *StatServer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Println("stat server start.")
+	log.Println("stat server start. ", s.Srv.Addr)
 
 	syncWait := &sync.WaitGroup{}
 	syncWait.Add(1)
