@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -63,7 +64,7 @@ func TestSetupJob(t *testing.T) {
 
 func TestHandleMessage(t *testing.T) {
 	c := &Conf{}
-	r := &Resource{Client: &MockClient{}}
+	r := NewResource(NewMockClient(), "http://example.com/foo/bar/queue")
 	tr := NewJobTracker(5)
 	h := NewMessageHandler(r, tr, c)
 
@@ -154,7 +155,7 @@ func TestHandleMessages(t *testing.T) {
 	defer ts.Close()
 
 	c := &Conf{Worker: WorkerConf{JobURL: ts.URL}}
-	r := &Resource{Client: &MockClient{}}
+	r := NewResource(NewMockClient(), "http://example.com/foo/bar/queue")
 	tr := NewJobTracker(5)
 	h := NewMessageHandler(r, tr, c)
 
@@ -179,7 +180,8 @@ func TestHandleMessages(t *testing.T) {
 func TestWorkerRun(t *testing.T) {
 	c := &Conf{}
 	mc := NewMockClient()
-	r := &Resource{Client: mc}
+	r := NewResource(mc, "http://example.com/foo/bar/queue")
+	r.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
 	tr := NewJobTracker(5)
 	h := NewMessageHandler(r, tr, c)
 
@@ -193,27 +195,25 @@ func TestWorkerRun(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		wg.Add(1)
 		go run(ctx)
-
-		time.Sleep(50 * time.Millisecond)
 		cancel()
 		wg.Wait()
 
-		if mc.RecvRequestCount > 0 {
+		if mc.RecvRequestCount != 0 {
 			t.Errorf("receive request count exists: %d", mc.RecvRequestCount)
 		}
 		if mc.DelRequestCount > 0 {
 			t.Errorf("delete request count exists: %d", mc.RecvRequestCount)
 		}
-
 	})
 
+	mc.Err = nil
+	mc.RecvRequestCount = 0
+	tr.Resume()
+
 	t.Run("received but empty messages -> context cancel", func(t *testing.T) {
-		tr.Resume()
 		ctx, cancel := context.WithCancel(context.Background())
 		wg.Add(1)
 		go run(ctx)
-
-		time.Sleep(50 * time.Millisecond)
 		cancel()
 		wg.Wait()
 
@@ -227,13 +227,11 @@ func TestWorkerRun(t *testing.T) {
 
 	mc.RecvRequestCount = 0
 	mc.Err = errors.New("fugafuga")
-	tr.JobWorking = true
 
 	t.Run("error received", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		wg.Add(1)
 		go run(ctx)
-		time.Sleep(50 * time.Millisecond)
 		cancel()
 		wg.Wait()
 
@@ -245,8 +243,6 @@ func TestWorkerRun(t *testing.T) {
 		}
 	})
 
-	mc.RecvRequestCount = 0
-	mc.Err = nil
 	for i := 1; i <= 3; i++ {
 		idxStr := strconv.Itoa(i)
 		p := &JobPayloadForTest{ID: "msgid:" + strconv.Itoa(i)}
@@ -256,12 +252,30 @@ func TestWorkerRun(t *testing.T) {
 			ReceiptHandle: aws.String("receithandle-" + idxStr),
 		})
 	}
+	mc.Err = nil
+	mc.RecvFunc = func(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+		mc.mu.Lock()
+		mc.RecvRequestCount++
+		mc.mu.Unlock()
+		if mc.RecvRequestCount > 1 {
+			mc.Resp.Messages = []*sqs.Message{}
+			param.WaitTimeSeconds = aws.Int64(10)
+		}
+		if len(mc.Resp.Messages) == 0 && *param.WaitTimeSeconds > 0 {
+			dur := time.Duration(*param.WaitTimeSeconds)
+			time.Sleep(dur * time.Second)
+		}
+		return mc.Resp, mc.Err
+	}
+
+	r.ReceiveParams.WaitTimeSeconds = aws.Int64(2)
 	t.Run("request success", func(t *testing.T) {
 		caughtIds := map[string]int{}
 		l := &sync.Mutex{}
 		ts := httptest.NewServer(http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				p := DecodePayload(r.Body)
+				log.Printf("task work: %s\n", p.ID)
 				l.Lock()
 				if _, exists := caughtIds[p.ID]; exists {
 					caughtIds[p.ID]++
@@ -276,13 +290,13 @@ func TestWorkerRun(t *testing.T) {
 		))
 		defer ts.Close()
 
-		c.Worker.JobURL = ts.URL
+		h.Conf.JobURL = ts.URL
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, _ := context.WithTimeout(context.Background(), 1)
+
 		wg.Add(1)
 		go run(ctx)
-		time.Sleep(100 * time.Millisecond)
-		cancel()
+		//cancel()
 		wg.Wait()
 
 		if len(caughtIds) != 3 {
@@ -298,7 +312,7 @@ func TestWorkerRun(t *testing.T) {
 				t.Errorf("id: %s over request: %d", id, v)
 			}
 		}
-		if mc.RecvRequestCount != 1 {
+		if mc.RecvRequestCount != 2 {
 			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
 		}
 		if mc.DelRequestCount != 3 {

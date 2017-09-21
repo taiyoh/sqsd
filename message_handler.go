@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
@@ -26,40 +27,32 @@ func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *Mes
 func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("Worker start.")
 	defer wg.Done()
-	l := &sync.RWMutex{}
-	cancelled := false
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				l.Lock()
-				cancelled = true
-				l.Unlock()
-				return
+	syncWait := &sync.WaitGroup{}
+	stopLoop := false
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("context cancelled. stop worker.")
+			stopLoop = true
+			break
+		default:
+			if !h.Tracker.IsWorking() {
+				time.Sleep(1 * time.Second)
+			} else {
+				results, err := h.Resource.GetMessages()
+				if err != nil {
+					log.Println("Error", err)
+				} else if len(results) == 0 {
+					log.Println("received no messages")
+				} else {
+					log.Printf("received %d messages. run jobs.\n", len(results))
+					h.HandleMessages(ctx, results, syncWait)
+					time.Sleep(100 * time.Millisecond)
+				}
 			}
 		}
-	}()
-	syncWait := &sync.WaitGroup{}
-	for {
-		l.RLock()
-		if cancelled {
-			l.RUnlock()
+		if stopLoop {
 			break
-		}
-		l.RUnlock()
-		if !h.Tracker.IsWorking() {
-			continue
-		}
-		results, err := h.Resource.GetMessages()
-		if err != nil {
-			log.Println("Error", err)
-		} else if len(results) == 0 {
-			log.Println("received no messages")
-		} else {
-			log.Printf("received %d messages. run jobs.\n", len(results))
-			h.HandleMessages(ctx, results, syncWait)
 		}
 	}
 	syncWait.Wait()

@@ -19,26 +19,32 @@ type MockClient struct {
 	DelRequestCount  int
 	Err              error
 	mu               sync.Mutex
+	RecvFunc         func(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error)
 }
 
 func NewMockClient() *MockClient {
-	return &MockClient{
+	c := &MockClient{
 		Resp: &sqs.ReceiveMessageOutput{
 			Messages: []*sqs.Message{},
 		},
 		mu: sync.Mutex{},
 	}
+	c.RecvFunc = func(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+		c.mu.Lock()
+		c.RecvRequestCount++
+		c.mu.Unlock()
+		if len(c.Resp.Messages) == 0 && *param.WaitTimeSeconds > 0 {
+			dur := time.Duration(*param.WaitTimeSeconds)
+			time.Sleep(dur * time.Second)
+		}
+		return c.Resp, c.Err
+	}
+	return c
 }
 
 func (c *MockClient) ReceiveMessage(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
-	c.mu.Lock()
-	c.RecvRequestCount++
-	c.mu.Unlock()
-	if c.Err != nil {
-		dur := time.Duration(*param.WaitTimeSeconds)
-		time.Sleep(dur * time.Second)
-	}
-	return c.Resp, c.Err
+	o, e := c.RecvFunc(param)
+	return o, e
 }
 
 func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
