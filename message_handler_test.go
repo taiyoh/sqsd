@@ -183,11 +183,9 @@ func TestWorkerRun(t *testing.T) {
 	tr := NewJobTracker(5)
 	h := NewMessageHandler(r, tr, c)
 
-	funcEnds := make(chan bool)
 	wg := &sync.WaitGroup{}
 	run := func(ctx context.Context) {
 		h.Run(ctx, wg)
-		funcEnds <- true
 	}
 
 	t.Run("tracker is not working", func(t *testing.T) {
@@ -198,7 +196,7 @@ func TestWorkerRun(t *testing.T) {
 
 		time.Sleep(50 * time.Millisecond)
 		cancel()
-		<-funcEnds
+		wg.Wait()
 
 		if mc.RecvRequestCount > 0 {
 			t.Errorf("receive request count exists: %d", mc.RecvRequestCount)
@@ -217,7 +215,7 @@ func TestWorkerRun(t *testing.T) {
 
 		time.Sleep(50 * time.Millisecond)
 		cancel()
-		<-funcEnds
+		wg.Wait()
 
 		if mc.RecvRequestCount != 1 {
 			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
@@ -237,7 +235,7 @@ func TestWorkerRun(t *testing.T) {
 		go run(ctx)
 		time.Sleep(50 * time.Millisecond)
 		cancel()
-		<-funcEnds
+		wg.Wait()
 
 		if mc.RecvRequestCount != 1 {
 			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
@@ -285,7 +283,7 @@ func TestWorkerRun(t *testing.T) {
 		go run(ctx)
 		time.Sleep(100 * time.Millisecond)
 		cancel()
-		<-funcEnds
+		wg.Wait()
 
 		if len(caughtIds) != 3 {
 			t.Error("other request comes...")
@@ -307,6 +305,4 @@ func TestWorkerRun(t *testing.T) {
 			t.Errorf("delete request count wrong: %d", mc.RecvRequestCount)
 		}
 	})
-
-	wg.Wait()
 }
