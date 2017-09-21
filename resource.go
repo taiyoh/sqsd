@@ -7,22 +7,29 @@ import (
 )
 
 type Resource struct {
-	Client sqsiface.SQSAPI
-	URL    string
+	Client        sqsiface.SQSAPI
+	ReceiveParams *sqs.ReceiveMessageInput
+}
+
+func NewResource(client sqsiface.SQSAPI, url string) *Resource {
+	return &Resource{
+		Client: client,
+		ReceiveParams: &sqs.ReceiveMessageInput{
+			QueueUrl:            aws.String(url),
+			MaxNumberOfMessages: aws.Int64(10),
+			WaitTimeSeconds:     aws.Int64(20),
+		},
+	}
 }
 
 func (r *Resource) GetMessages() ([]*sqs.Message, error) {
-	params := &sqs.ReceiveMessageInput{
-		QueueUrl:        aws.String(r.URL),
-		WaitTimeSeconds: aws.Int64(5),
-	}
-	resp, err := r.Client.ReceiveMessage(params)
+	resp, err := r.Client.ReceiveMessage(r.ReceiveParams)
 	return resp.Messages, err
 }
 
 func (r *Resource) DeleteMessage(msg *sqs.Message) error {
 	_, err := r.Client.DeleteMessage(&sqs.DeleteMessageInput{
-		QueueUrl:      aws.String(r.URL),
+		QueueUrl:      r.ReceiveParams.QueueUrl,
 		ReceiptHandle: aws.String(*msg.ReceiptHandle),
 	})
 	return err

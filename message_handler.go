@@ -4,17 +4,15 @@ import (
 	"context"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
 type MessageHandler struct {
-	Resource     *Resource
-	Tracker      *JobTracker
-	SleepSeconds time.Duration
-	Conf         *WorkerConf
-	QueueURL     string
+	Resource *Resource
+	Tracker  *JobTracker
+	Conf     *WorkerConf
+	QueueURL string
 }
 
 func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *MessageHandler {
@@ -52,7 +50,6 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 		}
 		l.RUnlock()
 		if !h.Tracker.IsWorking() {
-			time.Sleep(1 * time.Second)
 			continue
 		}
 		results, err := h.Resource.GetMessages()
@@ -64,7 +61,6 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 			log.Printf("received %d messages. run jobs.\n", len(results))
 			h.HandleMessages(ctx, results, syncWait)
 		}
-		time.Sleep(1 * time.Second)
 	}
 	syncWait.Wait()
 	log.Println("Worker closed.")

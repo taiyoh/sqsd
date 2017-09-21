@@ -30,10 +30,14 @@ func NewMockClient() *MockClient {
 	}
 }
 
-func (c *MockClient) ReceiveMessage(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+func (c *MockClient) ReceiveMessage(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
 	c.mu.Lock()
 	c.RecvRequestCount++
 	c.mu.Unlock()
+	if c.Err != nil {
+		dur := time.Duration(*param.WaitTimeSeconds)
+		time.Sleep(dur * time.Second)
+	}
 	return c.Resp, c.Err
 }
 
