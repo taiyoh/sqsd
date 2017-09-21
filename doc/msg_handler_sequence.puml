@@ -3,42 +3,43 @@
 title "sequence about sqsd handler"
 hide footbox
 
-participant MsgHandler
+participant MessageHandler
 participant SQS
 participant GoRoutine
 participant JobTracker
 participant Worker
 
-MsgHandler -> MsgHandler : Run()
-activate MsgHandler
+MessageHandler -> MessageHandler : Run()
+activate MessageHandler
 
-MsgHandler -> JobTracker : IsWorking()
+MessageHandler -> JobTracker : IsWorking()
 activate JobTracker
-MsgHandler <-- JobTracker : bool
+MessageHandler <-- JobTracker : bool
 deactivate JobTracker
 
-MsgHandler -> SQS : GetMessages()
+MessageHandler -> SQS : GetMessages()
 activate SQS
-MsgHandler <-- SQS : []*sqs.Message
+MessageHandler <-- SQS : []*sqs.Message
 deactivate SQS
 
-MsgHandler -> MsgHandler : HandleMessages([]*sqs.Message)
-MsgHandler -> MsgHandler : Newjob(*sqs.Message) *Job
-MsgHandler -> JobTracker : AddJob(*job)
-activate JobTracker
+loop HandleMessage([]*sqs.Message)
+  MessageHandler -> MessageHandler : Newjob(*sqs.Message) *Job
+  MessageHandler -> JobTracker : AddJob(*job)
+  activate JobTracker
 
-JobTracker -> JobTracker : CurrentWorkings[job.ID()] = job
-MsgHandler <-- JobTracker : bool
-deactivate JobTracker
+  JobTracker -> JobTracker : CurrentWorkings[job.ID()] = job
+  MessageHandler <-- JobTracker : bool
+  deactivate JobTracker
 
-MsgHandler ->> GoRoutine : HandleMessage(*Job)
-activate GoRoutine
-deactivate MsgHandler
+  MessageHandler ->> GoRoutine : go HandleMessage(*Job)
+  activate GoRoutine
+  deactivate MessageHandler
+end
 
 GoRoutine -> Worker : <POST Request>
 activate Worker
-Worker -> Worker : work hard!
-GoRoutine <-- Worker : response
+Worker -> Worker : <work hard!>
+GoRoutine <-- Worker : <HTTP response>
 deactivate Worker
 GoRoutine -> SQS : DeleteMessage(*sqs.Message)
 activate SQS
