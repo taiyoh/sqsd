@@ -2,9 +2,10 @@ package sqsd
 
 import (
 	"errors"
-	"github.com/pelletier/go-toml"
 	"net/url"
 	"strings"
+
+	"github.com/pelletier/go-toml"
 )
 
 type Conf struct {
@@ -25,6 +26,7 @@ type StatConf struct {
 
 type SQSConf struct {
 	QueueURL string `toml:"queue_url"`
+	Region   string `toml:"region"`
 }
 
 // Init confのデフォルト値はここで埋める
@@ -47,6 +49,10 @@ func (c *Conf) Validate() error {
 		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
 			return errors.New(k + " is not HTTP URL: " + urlstr)
 		}
+	}
+
+	if c.SQS.Region == "" {
+		return errors.New("sqs.region is required")
 	}
 
 	if c.Stat.ServerPort == 0 {

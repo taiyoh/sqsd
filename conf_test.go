@@ -28,11 +28,17 @@ func TestValidateConf(t *testing.T) {
 	c := &Conf{}
 	c.Init()
 	c.SQS.QueueURL = "https://example.com/queue/hoge"
+	c.SQS.Region = "ap-northeast-1"
 	c.Worker.JobURL = "http://localhost:1080/run_job"
 	c.Stat.ServerPort = 10000
 
 	if err := c.Validate(); err != nil {
 		t.Error("valid conf but error found", err)
+	}
+
+	c.SQS.Region = ""
+	if err := c.Validate(); err == nil {
+		t.Error("sqs.region is required but valid config")
 	}
 
 	c.Stat.ServerPort = 0

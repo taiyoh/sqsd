@@ -3,15 +3,17 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/taiyoh/sqsd"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"sync"
 	"syscall"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/taiyoh/sqsd"
 )
 
 func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
@@ -68,11 +70,14 @@ func main() {
 	wg.Add(1)
 	go srv.Run(ctx, wg)
 
+	awsConf := &aws.Config{
+		Region: aws.String(config.SQS.Region),
+	}
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 	msgHandler := sqsd.NewMessageHandler(
-		&sqsd.Resource{Client: sqs.New(sess), URL: config.SQS.QueueURL},
+		&sqsd.Resource{Client: sqs.New(sess, awsConf), URL: config.SQS.QueueURL},
 		tracker,
 		config,
 	)

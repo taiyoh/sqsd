@@ -8,3 +8,4 @@ server_port=4080
 
 [sqs]
 queue_url="http://example.com/queue/hoge"
+region="ap-northeast-1"
