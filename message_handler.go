@@ -2,10 +2,11 @@ package sqsd
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
 type MessageHandler struct {
@@ -27,6 +28,7 @@ func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *Mes
 func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("Worker start.")
 	defer wg.Done()
+	l := &sync.RWMutex{}
 	cancelled := false
 	wg.Add(1)
 	go func() {
@@ -34,16 +36,21 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-ctx.Done():
+				l.Lock()
 				cancelled = true
+				l.Unlock()
 				return
 			}
 		}
 	}()
 	syncWait := &sync.WaitGroup{}
 	for {
+		l.RLock()
 		if cancelled {
+			l.RUnlock()
 			break
 		}
+		l.RUnlock()
 		if !h.Tracker.IsWorking() {
 			time.Sleep(1 * time.Second)
 			continue

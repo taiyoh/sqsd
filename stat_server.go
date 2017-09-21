@@ -35,11 +35,11 @@ func (s *StatServer) Run(ctx context.Context, wg *sync.WaitGroup) {
 		}
 	}()
 	syncWait.Add(1)
-	go func () {
+	go func() {
 		defer syncWait.Done()
 		for {
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				if err := s.Srv.Shutdown(ctx); err != nil {
 					log.Fatal(err)
 				}

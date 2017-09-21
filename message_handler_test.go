@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +13,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
 type JobPayloadForTest struct {
@@ -138,10 +139,13 @@ func TestHandleMessages(t *testing.T) {
 		})
 	}
 	caughtIds := map[string]bool{}
+	l := &sync.Mutex{}
 	ts := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			p := DecodePayload(r.Body)
+			l.Lock()
 			caughtIds[p.ID] = true
+			l.Unlock()
 			w.Header().Set("content-Type", "text")
 			fmt.Fprintf(w, "goood")
 			return
@@ -256,14 +260,17 @@ func TestWorkerRun(t *testing.T) {
 	}
 	t.Run("request success", func(t *testing.T) {
 		caughtIds := map[string]int{}
+		l := &sync.Mutex{}
 		ts := httptest.NewServer(http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				p := DecodePayload(r.Body)
+				l.Lock()
 				if _, exists := caughtIds[p.ID]; exists {
 					caughtIds[p.ID]++
 				} else {
 					caughtIds[p.ID] = 1
 				}
+				l.Unlock()
 				w.Header().Set("content-Type", "text")
 				fmt.Fprintf(w, "goood")
 				return

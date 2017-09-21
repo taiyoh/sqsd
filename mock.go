@@ -3,11 +3,13 @@ package sqsd
 import (
 	"bytes"
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 )
 
 type MockClient struct {
@@ -16,6 +18,7 @@ type MockClient struct {
 	RecvRequestCount int
 	DelRequestCount  int
 	Err              error
+	mu               sync.Mutex
 }
 
 func NewMockClient() *MockClient {
@@ -23,16 +26,21 @@ func NewMockClient() *MockClient {
 		Resp: &sqs.ReceiveMessageOutput{
 			Messages: []*sqs.Message{},
 		},
+		mu: sync.Mutex{},
 	}
 }
 
 func (c *MockClient) ReceiveMessage(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+	c.mu.Lock()
 	c.RecvRequestCount++
+	c.mu.Unlock()
 	return c.Resp, c.Err
 }
 
 func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
+	c.mu.Lock()
 	c.DelRequestCount++
+	c.mu.Unlock()
 	return &sqs.DeleteMessageOutput{}, nil
 }
 
