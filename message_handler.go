@@ -10,10 +10,19 @@ import (
 )
 
 type MessageHandler struct {
+<<<<<<< HEAD
 	Resource *Resource
 	Tracker  *JobTracker
 	Conf     *WorkerConf
 	QueueURL string
+=======
+	Resource     *Resource
+	Tracker      *JobTracker
+	SleepSeconds time.Duration
+	Conf         *WorkerConf
+	QueueURL     string
+	mu           sync.RWMutex
+>>>>>>> race condition等々対策
 }
 
 func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *MessageHandler {
@@ -21,6 +30,7 @@ func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *Mes
 		Resource: resource,
 		Tracker:  tracker,
 		Conf:     &conf.Worker,
+		mu:       sync.RWMutex{},
 	}
 }
 

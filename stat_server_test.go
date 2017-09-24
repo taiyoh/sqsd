@@ -25,9 +25,7 @@ func TestStatServer(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go func() {
-		s.Run(ctx, wg)
-	}()
+	go s.Run(ctx, wg)
 
 	time.Sleep(50 * time.Millisecond)
 

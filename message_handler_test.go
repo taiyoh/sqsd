@@ -139,6 +139,7 @@ func TestHandleMessages(t *testing.T) {
 			ReceiptHandle: aws.String("receithandle-" + idxStr),
 		})
 	}
+	mu := sync.RWMutex{}
 	caughtIds := map[string]bool{}
 	l := &sync.Mutex{}
 	ts := httptest.NewServer(http.HandlerFunc(
