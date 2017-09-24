@@ -59,6 +59,10 @@ func (c *Conf) Validate() error {
 		return errors.New("stat.server_port is required")
 	}
 
+	if c.SQS.Region == "" {
+		return errors.New("sqs.region is required")
+	}
+
 	return nil
 }
 
