@@ -35,7 +35,7 @@ func DecodePayload(body io.ReadCloser) *JobPayloadForTest {
 	return &p
 }
 
-func TestNewWorker(t *testing.T) {
+func TestNewMessageHandler(t *testing.T) {
 	c := &Conf{}
 	r := &Resource{}
 	tr := NewJobTracker(5)
@@ -178,7 +178,7 @@ func TestHandleMessages(t *testing.T) {
 	}
 }
 
-func TestWorkerRun(t *testing.T) {
+func TestMessageHandlerRun(t *testing.T) {
 	c := &Conf{}
 	mc := NewMockClient()
 	r := NewResource(mc, "http://example.com/foo/bar/queue")
@@ -187,17 +187,14 @@ func TestWorkerRun(t *testing.T) {
 	h := NewMessageHandler(r, tr, c)
 
 	wg := &sync.WaitGroup{}
-	run := func(ctx context.Context) {
-		h.Run(ctx, wg)
-	}
 
+	h.HandleEmptyFunc = func() {
+		h.ShouldStop = true
+	}
+	tr.Pause()
 	t.Run("tracker is not working", func(t *testing.T) {
-		tr.Pause()
-		ctx, cancel := context.WithCancel(context.Background())
 		wg.Add(1)
-		go run(ctx)
-		cancel()
-		wg.Wait()
+		h.Run(context.Background(), wg)
 
 		if mc.RecvRequestCount != 0 {
 			t.Errorf("receive request count exists: %d", mc.RecvRequestCount)
@@ -209,14 +206,19 @@ func TestWorkerRun(t *testing.T) {
 
 	mc.Err = nil
 	mc.RecvRequestCount = 0
+	h.ShouldStop = false
 	tr.Resume()
-
 	t.Run("received but empty messages -> context cancel", func(t *testing.T) {
+		h.HandleEmptyFunc = func() {
+			time.Sleep(100 * time.Millisecond)
+		}
 		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			cancel()
+		}()
 		wg.Add(1)
-		go run(ctx)
-		cancel()
-		wg.Wait()
+		h.Run(ctx, wg)
 
 		if mc.RecvRequestCount != 1 {
 			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
@@ -228,13 +230,9 @@ func TestWorkerRun(t *testing.T) {
 
 	mc.RecvRequestCount = 0
 	mc.Err = errors.New("fugafuga")
-
 	t.Run("error received", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
 		wg.Add(1)
-		go run(ctx)
-		cancel()
-		wg.Wait()
+		h.Run(context.Background(), wg)
 
 		if mc.RecvRequestCount != 1 {
 			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
@@ -255,21 +253,14 @@ func TestWorkerRun(t *testing.T) {
 	}
 	mc.Err = nil
 	mc.RecvFunc = func(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
-		mc.mu.Lock()
 		mc.RecvRequestCount++
-		mc.mu.Unlock()
 		if mc.RecvRequestCount > 1 {
-			mc.Resp.Messages = []*sqs.Message{}
-			param.WaitTimeSeconds = aws.Int64(10)
-		}
-		if len(mc.Resp.Messages) == 0 && *param.WaitTimeSeconds > 0 {
-			dur := time.Duration(*param.WaitTimeSeconds)
-			time.Sleep(dur * time.Second)
+			h.ShouldStop = true
 		}
 		return mc.Resp, mc.Err
 	}
 
-	r.ReceiveParams.WaitTimeSeconds = aws.Int64(2)
+	r.ReceiveParams.WaitTimeSeconds = aws.Int64(0)
 	t.Run("request success", func(t *testing.T) {
 		caughtIds := map[string]int{}
 		l := &sync.Mutex{}
@@ -293,12 +284,8 @@ func TestWorkerRun(t *testing.T) {
 
 		h.Conf.JobURL = ts.URL
 
-		ctx, _ := context.WithTimeout(context.Background(), 1)
-
 		wg.Add(1)
-		go run(ctx)
-		//cancel()
-		wg.Wait()
+		h.Run(context.Background(), wg)
 
 		if len(caughtIds) != 3 {
 			t.Error("other request comes...")
@@ -310,7 +297,7 @@ func TestWorkerRun(t *testing.T) {
 				t.Errorf("id: %s not requested", id)
 			}
 			if v != 1 {
-				t.Errorf("id: %s over request: %d", id, v)
+				t.Errorf("id: %s request count wrong: %d", id, v)
 			}
 		}
 		if mc.RecvRequestCount != 2 {

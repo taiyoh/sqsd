@@ -10,63 +10,59 @@ import (
 )
 
 type MessageHandler struct {
-<<<<<<< HEAD
-	Resource *Resource
-	Tracker  *JobTracker
-	Conf     *WorkerConf
-	QueueURL string
-=======
-	Resource     *Resource
-	Tracker      *JobTracker
-	SleepSeconds time.Duration
-	Conf         *WorkerConf
-	QueueURL     string
-	mu           sync.RWMutex
->>>>>>> race condition等々対策
+	Resource        *Resource
+	Tracker         *JobTracker
+	Conf            *WorkerConf
+	QueueURL        string
+	HandleEmptyFunc func()
+	ShouldStop      bool
 }
 
 func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *MessageHandler {
 	return &MessageHandler{
-		Resource: resource,
-		Tracker:  tracker,
-		Conf:     &conf.Worker,
-		mu:       sync.RWMutex{},
+		Resource:   resource,
+		Tracker:    tracker,
+		Conf:       &conf.Worker,
+		ShouldStop: false,
+		HandleEmptyFunc: func() {
+			time.Sleep(1 * time.Second)
+		},
 	}
 }
 
 func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
-	log.Println("Worker start.")
+	log.Println("MessageHandler start.")
 	defer wg.Done()
 	syncWait := &sync.WaitGroup{}
-	stopLoop := false
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("context cancelled. stop worker.")
-			stopLoop = true
+			log.Println("context cancelled. stop MessageHandler.")
+			h.ShouldStop = true
 			break
 		default:
 			if !h.Tracker.IsWorking() {
-				time.Sleep(1 * time.Second)
+				h.HandleEmpty()
 			} else {
 				results, err := h.Resource.GetMessages()
 				if err != nil {
 					log.Println("Error", err)
+					h.HandleEmpty()
 				} else if len(results) == 0 {
 					log.Println("received no messages")
+					h.HandleEmpty()
 				} else {
 					log.Printf("received %d messages. run jobs.\n", len(results))
 					h.HandleMessages(ctx, results, syncWait)
-					time.Sleep(100 * time.Millisecond)
 				}
 			}
 		}
-		if stopLoop {
+		if h.ShouldStop {
 			break
 		}
 	}
 	syncWait.Wait()
-	log.Println("Worker closed.")
+	log.Println("MessageHandler closed.")
 }
 
 func (h *MessageHandler) SetupJob(msg *sqs.Message) *Job {
@@ -84,6 +80,10 @@ func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Mes
 			go h.HandleMessage(ctx, job, wg)
 		}
 	}
+}
+
+func (h *MessageHandler) HandleEmpty() {
+	h.HandleEmptyFunc()
 }
 
 func (h *MessageHandler) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {

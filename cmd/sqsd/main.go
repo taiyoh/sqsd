@@ -77,7 +77,7 @@ func main() {
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 	msgHandler := sqsd.NewMessageHandler(
-		&sqsd.Resource{Client: sqs.New(sess, awsConf), URL: config.SQS.QueueURL},
+		sqsd.NewResource(sqs.New(sess, awsConf), config.SQS.QueueURL),
 		tracker,
 		config,
 	)

@@ -8,15 +8,12 @@ import (
 )
 
 func TestResource(t *testing.T) {
-	c := &MockClient{
-		Resp: &sqs.ReceiveMessageOutput{
-			Messages: []*sqs.Message{
-				&sqs.Message{
-					MessageId:     aws.String("foo"),
-					Body:          aws.String(`{"foo":"bar"}`),
-					ReceiptHandle: aws.String("aaaaaaaaaaaaa"),
-				},
-			},
+	c := NewMockClient()
+	c.Resp.Messages = []*sqs.Message{
+		&sqs.Message{
+			MessageId:     aws.String("foo"),
+			Body:          aws.String(`{"foo":"bar"}`),
+			ReceiptHandle: aws.String("aaaaaaaaaaaaa"),
 		},
 	}
 	r := NewResource(c, "http://example.com/foo")
