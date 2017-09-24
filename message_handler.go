@@ -10,25 +10,24 @@ import (
 )
 
 type MessageHandler struct {
-	Resource *Resource
-	Tracker  *JobTracker
-	Conf     *WorkerConf
-	QueueURL string
+	Resource        *Resource
+	Tracker         *JobTracker
+	Conf            *WorkerConf
+	QueueURL        string
 	HandleEmptyFunc func()
-	ShouldStop bool
+	ShouldStop      bool
 }
 
 func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *MessageHandler {
-	h := &MessageHandler{
-		Resource: resource,
-		Tracker:  tracker,
-		Conf:     &conf.Worker,
+	return &MessageHandler{
+		Resource:   resource,
+		Tracker:    tracker,
+		Conf:       &conf.Worker,
 		ShouldStop: false,
+		HandleEmptyFunc: func() {
+			time.Sleep(1 * time.Second)
+		},
 	}
-	h.HandleEmptyFunc = func() {
-		time.Sleep(1 * time.Second)
-	}
-	return h
 }
 
 func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {

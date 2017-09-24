@@ -212,7 +212,7 @@ func TestMessageHandlerRun(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		go func () {
+		go func() {
 			time.Sleep(50 * time.Millisecond)
 			cancel()
 		}()
