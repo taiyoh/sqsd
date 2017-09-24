@@ -185,30 +185,15 @@ func TestMessageHandlerRun(t *testing.T) {
 	tr := NewJobTracker(5)
 	h := NewMessageHandler(r, tr, c)
 
-	origHandleMessages := h.HandleMessagesFunc
-	runOnece := func() {
-		h.ShouldStop = true
-	}
 	wg := &sync.WaitGroup{}
 
-	doRun := func() {
-		h.HandleMessagesFunc = func(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
-			log.Println("wrapped HandleMessages start")
-			origHandleMessages(ctx, messages, wg)
-			h.ShouldStop = true
-			log.Println("wrapped HandleMessages ends")
-		}
-		wg.Add(1)
-		h.Run(context.Background(), wg)
+	h.HandleEmptyFunc = func() {
+		h.ShouldStop = true
 	}
-
-	h.HandleEmptyFunc = runOnece
 	tr.Pause()
 	t.Run("tracker is not working", func(t *testing.T) {
-		h.HandleEmptyFunc = runOnece
-		ctx := context.Background()
 		wg.Add(1)
-		h.Run(ctx, wg)
+		h.Run(context.Background(), wg)
 
 		if mc.RecvRequestCount != 0 {
 			t.Errorf("receive request count exists: %d", mc.RecvRequestCount)
@@ -245,7 +230,9 @@ func TestMessageHandlerRun(t *testing.T) {
 	mc.RecvRequestCount = 0
 	mc.Err = errors.New("fugafuga")
 	t.Run("error received", func(t *testing.T) {
-		doRun()
+		wg.Add(1)
+		h.Run(context.Background(), wg)
+
 		if mc.RecvRequestCount != 1 {
 			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
 		}
@@ -265,21 +252,14 @@ func TestMessageHandlerRun(t *testing.T) {
 	}
 	mc.Err = nil
 	mc.RecvFunc = func(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
-		mc.mu.Lock()
 		mc.RecvRequestCount++
-		mc.mu.Unlock()
 		if mc.RecvRequestCount > 1 {
-			mc.Resp.Messages = []*sqs.Message{}
-			param.WaitTimeSeconds = aws.Int64(10)
-		}
-		if len(mc.Resp.Messages) == 0 && *param.WaitTimeSeconds > 0 {
-			dur := time.Duration(*param.WaitTimeSeconds)
-			time.Sleep(dur * time.Second)
+			h.ShouldStop = true
 		}
 		return mc.Resp, mc.Err
 	}
 
-	r.ReceiveParams.WaitTimeSeconds = aws.Int64(2)
+	r.ReceiveParams.WaitTimeSeconds = aws.Int64(0)
 	t.Run("request success", func(t *testing.T) {
 		caughtIds := map[string]int{}
 		l := &sync.Mutex{}
@@ -303,7 +283,8 @@ func TestMessageHandlerRun(t *testing.T) {
 
 		h.Conf.JobURL = ts.URL
 
-		doRun()
+		wg.Add(1)
+		h.Run(context.Background(), wg)
 
 		if len(caughtIds) != 3 {
 			t.Error("other request comes...")

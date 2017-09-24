@@ -14,7 +14,6 @@ type MessageHandler struct {
 	Tracker  *JobTracker
 	Conf     *WorkerConf
 	QueueURL string
-	HandleMessagesFunc func(context.Context, []*sqs.Message, *sync.WaitGroup)
 	HandleEmptyFunc func()
 	ShouldStop bool
 }
@@ -25,16 +24,6 @@ func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *Mes
 		Tracker:  tracker,
 		Conf:     &conf.Worker,
 		ShouldStop: false,
-	}
-	h.HandleMessagesFunc = func(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
-		log.Println("original HandleMessages start")
-		for _, msg := range messages {
-			if job := h.SetupJob(msg); job != nil {
-				wg.Add(1)
-				go h.HandleMessage(ctx, job, wg)
-			}
-		}
-		log.Println("original HandleMessages ends")
 	}
 	h.HandleEmptyFunc = func() {
 		time.Sleep(1 * time.Second)
@@ -86,7 +75,12 @@ func (h *MessageHandler) SetupJob(msg *sqs.Message) *Job {
 }
 
 func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
-	h.HandleMessagesFunc(ctx, messages, wg)
+	for _, msg := range messages {
+		if job := h.SetupJob(msg); job != nil {
+			wg.Add(1)
+			go h.HandleMessage(ctx, job, wg)
+		}
+	}
 }
 
 func (h *MessageHandler) HandleEmpty() {
