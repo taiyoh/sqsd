@@ -56,6 +56,11 @@ func TestValidateConf(t *testing.T) {
 		t.Error("SQS.QueueURL is not HTTP url, but no error")
 	}
 	c.SQS.QueueURL = "https://example.com/queue/hoge"
+	c.SQS.Region = ""
+	if err := c.Validate(); err == nil {
+		t.Error("SQS.Region not exists, but no error")
+	}
+	c.SQS.Region = "ap-northeast-1"
 
 	c.Worker.JobURL = ""
 	if err := c.Validate(); err == nil {
