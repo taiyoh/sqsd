@@ -41,7 +41,7 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 			h.ShouldStop = true
 			break
 		default:
-			if !h.Tracker.IsWorking() {
+			if !h.Tracker.Acceptable() {
 				h.HandleEmpty()
 			} else {
 				results, err := h.Resource.GetMessages()

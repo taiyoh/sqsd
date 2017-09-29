@@ -58,3 +58,16 @@ func (t *JobTracker) Resume() {
 func (t *JobTracker) IsWorking() bool {
 	return t.JobWorking
 }
+
+func (t *JobTracker) Acceptable() bool {
+	if !t.JobWorking {
+		return false
+	}
+	t.mu.RLock()
+	l := len(t.CurrentWorkings)
+	t.mu.RUnlock()
+	if l >= t.MaxProcessCount {
+		return false
+	}
+	return true
+}
