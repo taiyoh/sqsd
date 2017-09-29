@@ -54,6 +54,10 @@ func TestJobTracker(t *testing.T) {
 	if _, exists := tracker.CurrentWorkings[untrackedJob.ID()]; exists {
 		t.Error("job registered ...")
 	}
+
+	if tracker.Acceptable() {
+		t.Error("CurrentWorkings is filled but Acceptable() is invalid")
+	}
 }
 
 func TestJobWorking(t *testing.T) {
@@ -65,10 +69,16 @@ func TestJobWorking(t *testing.T) {
 	if !tr.JobWorking {
 		t.Error("JobWorking false")
 	}
+	if !tr.Acceptable() {
+		t.Error("Acceptable() invalid")
+	}
 
 	tr.Pause()
 	if tr.JobWorking {
 		t.Error("JobWorking not changed to true")
+	}
+	if tr.Acceptable() {
+		t.Error("Acceptable() invalid")
 	}
 
 	tr.Resume()
