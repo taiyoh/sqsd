@@ -16,6 +16,7 @@ builds:
 archive:
   format: zip
   name_template: '{{ .Binary }}_{{ .Os }}_{{ .Arch }}'
+  wrap_in_directory: true
 snapshot:
   name_template: SNAPSHOT-{{ .Commit }}
 checksum:
