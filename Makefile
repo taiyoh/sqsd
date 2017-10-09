@@ -12,4 +12,4 @@ get-deps:
 	dep ensure
 
 release:
-	goreleaser 
+	goreleaser --rm-dist
