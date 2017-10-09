@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"context"
 	"flag"
 	"log"
@@ -14,6 +15,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
+)
+
+var (
+	version string
+	commit  string
+	date    string
 )
 
 func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
@@ -46,8 +53,16 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 
 func main() {
 	var confPath string
+	var versionFlg bool
 	flag.StringVar(&confPath, "config", "config.toml", "config path")
+	flag.BoolVar(&versionFlg, "version", false, "version")
 	flag.Parse()
+
+	if versionFlg {
+		fmt.Printf("version: %s\ncommit: %s\nbuild date: %s\n", version, commit, date)
+		return
+	}
+
 	if !filepath.IsAbs(confPath) {
 		d, _ := os.Getwd()
 		confPath = filepath.Join(d, confPath)
