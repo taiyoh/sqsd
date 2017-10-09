@@ -1,8 +1,8 @@
 project_name: sqsd
-release:
-  github:
-    owner: taiyoh
-    name: sqsd
+#release:
+#  github:
+#    owner: taiyoh
+#    name: sqsd
 builds:
 - goos:
   - linux
