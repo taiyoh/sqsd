@@ -16,15 +16,6 @@ builds:
 archive:
   format: zip
   name_template: '{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
-  files:
-  - licence*
-  - LICENCE*
-  - license*
-  - LICENSE*
-  - readme*
-  - README*
-  - changelog*
-  - CHANGELOG*
 snapshot:
   name_template: SNAPSHOT-{{ .Commit }}
 checksum:
