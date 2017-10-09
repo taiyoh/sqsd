@@ -1,8 +1,8 @@
 project_name: sqsd
-#release:
-#  github:
-#    owner: taiyoh
-#    name: sqsd
+release:
+  github:
+    owner: taiyoh
+    name: sqsd
 builds:
 - goos:
   - linux
@@ -14,9 +14,11 @@ builds:
   ldflags: -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
   binary: sqsd
 archive:
-  format: zip
+  format: tar.gz
   name_template: '{{ .Binary }}_{{ .Os }}_{{ .Arch }}'
-  files: []
+  format_overrides:
+  - goos: windows
+    format: zip
 snapshot:
   name_template: SNAPSHOT-{{ .Commit }}
 checksum:
