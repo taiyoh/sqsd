@@ -10,7 +10,7 @@ builds:
   - windows
   goarch:
   - amd64
-  main: cmd/sqsd/
+  main: ./cmd/sqsd/
   ldflags: -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
   binary: sqsd
 archive:
