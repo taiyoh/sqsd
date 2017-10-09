@@ -8,9 +8,9 @@ RUN curl -L https://github.com/tkuchiki/envlate/releases/download/v${envlate_ver
     unzip ${envlate_zip_file} && chmod +x envlate && mv envlate /usr/local/bin && rm ${envlate_zip_file}
 
 ENV SQSD_VERSION=0.0.2
-RUN curl -L https://github.com/taiyoh/sqsd/releases/download/v${SQSD_VERSION}/sqsd_linux_amd64.zip -o sqsd_linux_amd64.zip && \
-    unzip sqsd_linux_amd64.zip && \
-    mv sqsd_linux_amd64/sqsd $GOPATH/bin/sqsd && \
+RUN curl -L https://github.com/taiyoh/sqsd/releases/download/v${SQSD_VERSION}/sqsd_linux_amd64.tar.gz -o sqsd_linux_amd64.tar.gz && \
+    tar xvzf sqsd_linux_amd64.tar.gz && \
+    mv sqsd $GOPATH/bin/sqsd && \
     chmod +x $GOPATH/bin/sqsd
 
 ADD config.toml config.toml.tpl
