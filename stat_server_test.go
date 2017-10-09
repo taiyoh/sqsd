@@ -2,9 +2,9 @@ package sqsd
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,9 +12,16 @@ import (
 
 func TestStatServer(t *testing.T) {
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
-	hostport := strings.Split(l.Addr().String(), ":")
-	port, _ := strconv.Atoi(hostport[1])
+	defer l.Close()
+	addr := l.Addr().String()
+	_, p, err := net.SplitHostPort(addr)
+	if err != nil {
+		fmt.Printf("port error: %s\n", addr)
+	}
 	tr := NewJobTracker(3)
+	port, _ := strconv.Atoi(p)
+
+	time.Sleep(500 * time.Millisecond)
 
 	s := NewStatServer(tr, port)
 	if s == nil {
