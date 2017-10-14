@@ -1,13 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
 
@@ -51,6 +53,42 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 	}
 }
 
+func RunStatServer(tr *sqsd.JobTracker, port Int, ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	handler := &sqsd.StatHandler{Tracker: tr}
+
+	srv := &http.Server{
+		Addr:    ":" + strconv.Itoa(port),
+		Handler: handler.BuildServeMux(),
+	}
+
+	syncWait := &sync.WaitGroup{}
+	syncWait.Add(1)
+	go func() {
+		defer syncWait.Done()
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	syncWait.Add(1)
+	go func() {
+		defer syncWait.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				if err := srv.Shutdown(ctx); err != nil {
+					log.Fatal(err)
+				}
+				return
+			}
+		}
+	}()
+	syncWait.Wait()
+
+	log.Println("stat server closed.")
+
+}
+
 func main() {
 	var confPath string
 	var versionFlg bool
@@ -81,9 +119,8 @@ func main() {
 
 	tracker := sqsd.NewJobTracker(config.Worker.MaxProcessCount)
 
-	srv := sqsd.NewStatServer(tracker, config.Stat.ServerPort)
 	wg.Add(1)
-	go srv.Run(ctx, wg)
+	go RunStatServer(tracker, config.Stat.ServerPort, ctx, wg)
 
 	awsConf := &aws.Config{
 		Region: aws.String(config.SQS.Region),
