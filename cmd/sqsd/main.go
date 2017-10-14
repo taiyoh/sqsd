@@ -53,7 +53,7 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 	}
 }
 
-func RunStatServer(tr *sqsd.JobTracker, port Int, ctx context.Context, wg *sync.WaitGroup) {
+func RunStatServer(tr *sqsd.JobTracker, port int, ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	handler := &sqsd.StatHandler{Tracker: tr}
 
