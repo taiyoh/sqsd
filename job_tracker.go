@@ -9,6 +9,7 @@ type JobTracker struct {
 	MaxProcessCount int
 	JobWorking      bool
 	mu              *sync.RWMutex
+	Throttle        []chan struct{}
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
@@ -31,10 +32,25 @@ func (t *JobTracker) Add(job *Job) bool {
 	return true
 }
 
+func (t *JobTracker) AddToThrottle(c chan struct{}) {
+	t.Throttle = append(t.Throttle, c)
+}
+
 func (t *JobTracker) Delete(job *Job) {
 	t.mu.Lock()
 	delete(t.CurrentWorkings, job.ID())
+	diff := t.MaxProcessCount - len(t.CurrentWorkings)
 	t.mu.Unlock()
+
+	if diff > 0 {
+		t.mu.Lock()
+		for _, v := range t.Throttle[:diff] {
+			v <- struct{}{}
+			close(v)
+		}
+		t.Throttle = t.Throttle[diff:]
+		t.mu.Unlock()
+	}
 }
 
 func (t *JobTracker) CurrentSummaries() []*JobSummary {
