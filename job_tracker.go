@@ -42,7 +42,7 @@ func (t *JobTracker) AddToWaitings(j *Job) {
 func (t *JobTracker) Delete(job *Job) {
 	t.mu.Lock()
 	delete(t.CurrentWorkings, job.ID())
-	if diff := t.MaxProcessCount - len(t.CurrentWorkings); diff > 0 {
+	if diff := t.MaxProcessCount - len(t.CurrentWorkings); diff > 0 && len(t.Waitings) > 0 {
 		for _, j := range t.Waitings[:diff] {
 			t.Add(j)
 			j.BreakBlocker()
