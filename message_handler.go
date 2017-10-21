@@ -68,17 +68,17 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 func (h *MessageHandler) SetupJob(msg *sqs.Message) *Job {
 	job := NewJob(msg, h.Conf)
 	if !h.Tracker.Add(job) {
-		return nil
+		job.Go = make(chan struct{})
+		h.Tracker.AddToWaitings(job)
 	}
 	return job
 }
 
 func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
 	for _, msg := range messages {
-		if job := h.SetupJob(msg); job != nil {
-			wg.Add(1)
-			go h.HandleMessage(ctx, job, wg)
-		}
+		job := h.SetupJob(msg)
+		wg.Add(1)
+		go h.HandleMessage(ctx, job, wg)
 	}
 }
 

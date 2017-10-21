@@ -14,6 +14,7 @@ type Job struct {
 	Msg     *sqs.Message
 	StartAt time.Time
 	URL     string
+	Go      chan struct{}
 }
 
 type JobSummary struct {
@@ -35,6 +36,9 @@ func (j *Job) ID() string {
 }
 
 func (j *Job) Run(ctx context.Context) (bool, error) {
+	if j.Go != nil {
+		<-j.Go // wait
+	}
 	req, err := http.NewRequest("POST", j.URL, strings.NewReader(*j.Msg.Body))
 	if err != nil {
 		return false, err
