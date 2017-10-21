@@ -20,9 +20,8 @@ import (
 )
 
 var (
-	version string
-	commit  string
-	date    string
+	commit string
+	date   string
 )
 
 func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
@@ -97,7 +96,7 @@ func main() {
 	flag.Parse()
 
 	if versionFlg {
-		fmt.Printf("version: %s\ncommit: %s\nbuild date: %s\n", version, commit, date)
+		fmt.Printf("version: %s\ncommit: %s\nbuild date: %s\n", sqsd.GetVersion(), commit, date)
 		return
 	}
 
