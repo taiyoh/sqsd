@@ -42,18 +42,14 @@ func (t *JobTracker) AddToWaitings(j *Job) {
 func (t *JobTracker) Delete(job *Job) {
 	t.mu.Lock()
 	delete(t.CurrentWorkings, job.ID())
-	diff := t.MaxProcessCount - len(t.CurrentWorkings)
-	t.mu.Unlock()
-
-	if diff > 0 {
-		t.mu.Lock()
+	if diff := t.MaxProcessCount - len(t.CurrentWorkings); diff > 0 {
 		for _, j := range t.Waitings[:diff] {
 			t.Add(j)
 			j.Go <- struct{}{}
 		}
 		t.Waitings = t.Waitings[diff:]
-		t.mu.Unlock()
 	}
+	t.mu.Unlock()
 }
 
 func (t *JobTracker) CurrentSummaries() []*JobSummary {
