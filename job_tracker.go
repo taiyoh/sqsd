@@ -45,7 +45,7 @@ func (t *JobTracker) Delete(job *Job) {
 	if diff := t.MaxProcessCount - len(t.CurrentWorkings); diff > 0 {
 		for _, j := range t.Waitings[:diff] {
 			t.Add(j)
-			j.Go <- struct{}{}
+			j.BreakBlocker()
 		}
 		t.Waitings = t.Waitings[diff:]
 	}

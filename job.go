@@ -14,7 +14,7 @@ type Job struct {
 	Msg     *sqs.Message
 	StartAt time.Time
 	URL     string
-	Go      chan struct{}
+	blocker chan struct{}
 }
 
 type JobSummary struct {
@@ -31,14 +31,29 @@ func NewJob(msg *sqs.Message, conf *WorkerConf) *Job {
 	}
 }
 
+func (j *Job) MakeBlocker() {
+	j.blocker = make(chan struct{})
+}
+
+func (j *Job) BreakBlocker() {
+	j.blocker <- struct{}{}
+}
+
+func (j *Job) WaitUntilBreakBlocker() {
+	if j.blocker != nil {
+		<-j.blocker
+		close(j.blocker)
+	}
+	return
+} 
+
 func (j *Job) ID() string {
 	return *j.Msg.MessageId
 }
 
 func (j *Job) Run(ctx context.Context) (bool, error) {
-	if j.Go != nil {
-		<-j.Go // wait
-	}
+	j.WaitUntilBreakBlocker()
+
 	req, err := http.NewRequest("POST", j.URL, strings.NewReader(*j.Msg.Body))
 	if err != nil {
 		return false, err
