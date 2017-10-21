@@ -41,6 +41,9 @@ func (j *Job) Run(ctx context.Context) (bool, error) {
 	}
 	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "github.com/taiyoh/sqsd-" + GetVersion())
+	req.Header.Set("X-Sqsd-Msgid", j.ID())
+	req.Header.Set("X-Sqsd-First-Received-At", j.StartAt.Format("2006-01-02T15:04:05Z0700"))
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
