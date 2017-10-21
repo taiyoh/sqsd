@@ -44,7 +44,7 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 			if !h.Tracker.Acceptable() {
 				h.HandleEmpty()
 			} else {
-				results, err := h.Resource.GetMessages()
+				results, err := h.Resource.GetMessages(ctx)
 				if err != nil {
 					log.Println("Error", err)
 					h.HandleEmpty()

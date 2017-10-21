@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 )
@@ -42,7 +44,7 @@ func NewMockClient() *MockClient {
 	return c
 }
 
-func (c *MockClient) ReceiveMessage(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+func (c *MockClient) ReceiveMessageWithContext(ctx aws.Context, param *sqs.ReceiveMessageInput, opts ...request.Option) (*sqs.ReceiveMessageOutput, error) {
 	o, e := c.RecvFunc(param)
 	return o, e
 }

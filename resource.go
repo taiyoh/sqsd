@@ -1,6 +1,8 @@
 package sqsd
 
 import (
+	"context"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
@@ -22,8 +24,8 @@ func NewResource(client sqsiface.SQSAPI, url string) *Resource {
 	}
 }
 
-func (r *Resource) GetMessages() ([]*sqs.Message, error) {
-	resp, err := r.Client.ReceiveMessage(r.ReceiveParams)
+func (r *Resource) GetMessages(ctx context.Context) ([]*sqs.Message, error) {
+	resp, err := r.Client.ReceiveMessageWithContext(ctx, r.ReceiveParams)
 	return resp.Messages, err
 }
 

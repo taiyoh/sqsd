@@ -1,6 +1,7 @@
 package sqsd
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -21,7 +22,9 @@ func TestResource(t *testing.T) {
 		t.Error("Resource object not created")
 	}
 
-	if _, err := r.GetMessages(); err != nil {
+	ctx := context.Background()
+
+	if _, err := r.GetMessages(ctx); err != nil {
 		t.Error("what's wrong???")
 	}
 
