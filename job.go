@@ -45,7 +45,7 @@ func (j *Job) WaitUntilBreakBlocker() {
 		close(j.blocker)
 	}
 	return
-} 
+}
 
 func (j *Job) ID() string {
 	return *j.Msg.MessageId
