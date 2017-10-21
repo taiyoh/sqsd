@@ -33,7 +33,9 @@ func (t *JobTracker) Add(job *Job) bool {
 }
 
 func (t *JobTracker) AddToWaitings(j *Job) {
+	t.mu.Lock()
 	t.Waitings = append(t.Waitings, j)
+	t.mu.Unlock()
 }
 
 func (t *JobTracker) Delete(job *Job) {
