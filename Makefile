@@ -1,7 +1,7 @@
-GIT_VERSION:=$(shell git describe --tags)
+GIT_VERSION=$(shell git describe --tags | sed 's/^v//')
 CURRENT_REVISION=$(shell git rev-parse --short HEAD)
-CURRENT_DATE=$(shell date +"%FT%T%Z")
-LDFLAGS="-s -w -X sqsd.version=$(GIT_VERSION) -X main.commit=$(CURRENT_REVISION) -X main.date=$(CURRENT_DATE)"
+CURRENT_DATE=$(shell date +"%FT%T%z")
+LDFLAGS="-s -w -X github.com/taiyoh/sqsd.version=$(GIT_VERSION) -X main.commit=$(CURRENT_REVISION) -X main.date=$(CURRENT_DATE)"
 
 .PHONY: get-deps test install
 
@@ -17,10 +17,13 @@ get-deps:
 	dep ensure
 
 build:
-	rm -f dist/sqsd_linux_amd64 dist/sqsd_darwin_amd64 dist/sqsd_windows_amd64
-	GOOS=linux GOARCH=amd64 go build -o dist/sqsd_linux_amd64 -ldflags=$(LDFLAGS) cmd/sqsd/main.go
-	GOOS=darwin GOARCH=amd64 go build -o dist/sqsd_darwin_amd64 -ldflags=$(LDFLAGS) cmd/sqsd/main.go
-	GOOS=windows GOARCH=amd64 go build -o dist/sqsd_windows_amd64.exe -ldflags=$(LDFLAGS) cmd/sqsd/main.go
+	rm -rf pkg/v$(GIT_VERSION)/ && mkdir -p pkg/v$(GIT_VERSION)/dist
+	GOOS=linux   GOARCH=amd64 go build -o pkg/v$(GIT_VERSION)/sqsd_linux_amd64/sqsd       -ldflags=$(LDFLAGS) cmd/sqsd/main.go
+	cd pkg/v$(GIT_VERSION)/sqsd_linux_amd64   && tar cvzf sqsd_$(GIT_VERSION)_linux_amd64.tar.gz sqsd && mv sqsd_$(GIT_VERSION)_linux_amd64.tar.gz ../dist
+	GOOS=darwin  GOARCH=amd64 go build -o pkg/v$(GIT_VERSION)/sqsd_darwin_amd64/sqsd      -ldflags=$(LDFLAGS) cmd/sqsd/main.go
+	cd pkg/v$(GIT_VERSION)/sqsd_darwin_amd64  && zip sqsd_$(GIT_VERSION)_darwin_amd64.zip * && mv sqsd_$(GIT_VERSION)_darwin_amd64.zip ../dist
+	GOOS=windows GOARCH=amd64 go build -o pkg/v$(GIT_VERSION)/sqsd_windows_amd64/sqsd.exe -ldflags=$(LDFLAGS) cmd/sqsd/main.go
+	cd pkg/v$(GIT_VERSION)/sqsd_windows_amd64 && zip sqsd_$(GIT_VERSION)_windows_amd64.zip * && mv sqsd_$(GIT_VERSION)_windows_amd64.zip ../dist
 
 release:
-	goreleaser --rm-dist
+	ghr v$(GIT_VERSION) pkg/v$(GIT_VERSION)/dist
