@@ -68,7 +68,6 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 func (h *MessageHandler) SetupJob(msg *sqs.Message) *Job {
 	job := NewJob(msg, h.Conf)
 	if !h.Tracker.Add(job) {
-		job.MakeBlocker()
 		h.Tracker.AddToWaitings(job)
 	}
 	return job

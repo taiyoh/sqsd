@@ -33,9 +33,10 @@ func (t *JobTracker) Add(job *Job) bool {
 	return true
 }
 
-func (t *JobTracker) AddToWaitings(j *Job) {
+func (t *JobTracker) AddToWaitings(job *Job) {
 	t.mu.Lock()
-	t.Waitings = append(t.Waitings, j)
+	job.MakeBlocker()
+	t.Waitings = append(t.Waitings, job)
 	t.mu.Unlock()
 }
 
