@@ -77,6 +77,10 @@ func TestJobTracker(t *testing.T) {
 		t.Error("CurrentWorkings is filled but Acceptable() is invalid")
 	}
 
+	if blockerBroken {
+		t.Error("blocker broken...")
+	}
+
 	deleteJob := tracker.CurrentWorkings[jobKeys[0]]
 	tracker.Delete(deleteJob)
 
