@@ -14,7 +14,7 @@ type Job struct {
 	Msg     *sqs.Message
 	StartAt time.Time
 	URL     string
-	blocker chan struct{}
+	Blocker chan struct{}
 }
 
 type JobSummary struct {
@@ -32,17 +32,16 @@ func NewJob(msg *sqs.Message, conf *WorkerConf) *Job {
 }
 
 func (j *Job) MakeBlocker() {
-	j.blocker = make(chan struct{})
+	j.Blocker = make(chan struct{})
 }
 
 func (j *Job) BreakBlocker() {
-	j.blocker <- struct{}{}
+	j.Blocker <- struct{}{}
 }
 
 func (j *Job) WaitUntilBreakBlocker() {
-	if j.blocker != nil {
-		<-j.blocker
-		close(j.blocker)
+	if j.Blocker != nil {
+		<-j.Blocker
 	}
 	return
 }
