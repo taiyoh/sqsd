@@ -151,15 +151,8 @@ func TestHandleMessages(t *testing.T) {
 	h.HandleMessages(ctx, msgs, wg)
 	wg.Wait()
 
-	if len(caughtIds) != tr.MaxProcessCount {
+	if len(caughtIds) != 10 {
 		t.Errorf("requests is wrong: %d", len(caughtIds))
-	}
-
-	for i := 6; i <= 10; i++ {
-		id := "msgid:" + strconv.Itoa(i)
-		if _, exists := caughtIds[id]; exists {
-			t.Errorf("id: %s exists", id)
-		}
 	}
 }
 
