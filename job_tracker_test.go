@@ -53,7 +53,7 @@ func TestJobTracker(t *testing.T) {
 	}
 	blockerBroken := false
 	go func() {
-		untrackedJob.WaitUntilBreakBlocker()
+		untrackedJob.WaitUntilBlockerBroken()
 		blockerBroken = true
 	}()
 	tracker.Add(untrackedJob)

@@ -39,7 +39,7 @@ func (j *Job) BreakBlocker() {
 	j.Blocker <- struct{}{}
 }
 
-func (j *Job) WaitUntilBreakBlocker() {
+func (j *Job) WaitUntilBlockerBroken() {
 	if j.Blocker != nil {
 		<-j.Blocker
 	}
@@ -51,7 +51,7 @@ func (j *Job) ID() string {
 }
 
 func (j *Job) Run(ctx context.Context) (bool, error) {
-	j.WaitUntilBreakBlocker()
+	j.WaitUntilBlockerBroken()
 
 	req, err := http.NewRequest("POST", j.URL, strings.NewReader(*j.Msg.Body))
 	if err != nil {
