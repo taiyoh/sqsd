@@ -43,6 +43,8 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 		default:
 			if !h.Tracker.Acceptable() {
 				h.HandleEmpty()
+			} else if h.Tracker.HasWaitings() {
+				h.HandleWaitings(ctx, syncWait)
 			} else {
 				results, err := h.Resource.GetMessages(ctx)
 				if err != nil {
@@ -68,14 +70,24 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
 	for _, msg := range messages {
 		job := NewJob(msg, h.Conf)
-		h.Tracker.Add(job)
-		wg.Add(1)
-		go h.HandleMessage(ctx, job, wg)
+		if h.Tracker.Add(job) {
+			wg.Add(1)
+			go h.HandleMessage(ctx, job, wg)
+		}
 	}
 }
 
 func (h *MessageHandler) HandleEmpty() {
 	h.HandleEmptyFunc()
+}
+
+func (h *MessageHandler) HandleWaitings(ctx context.Context, wg *sync.WaitGroup) {
+	for _, job := range h.Tracker.GetAndClearWaitings() {
+		if h.Tracker.Add(job) {
+			wg.Add(1)
+			go h.HandleMessage(ctx, job, wg)
+		}
+	}
 }
 
 func (h *MessageHandler) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {

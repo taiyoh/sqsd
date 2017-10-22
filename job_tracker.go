@@ -22,27 +22,34 @@ func NewJobTracker(maxProcCount uint) *JobTracker {
 	}
 }
 
-func (t *JobTracker) Add(job *Job) {
+func (t *JobTracker) HasWaitings() bool {
+	return len(t.Waitings) > 0
+}
+
+func (t *JobTracker) GetAndClearWaitings() []*Job {
+	t.mu.Lock()
+	jobs := t.Waitings
+	t.Waitings = []*Job{}
+	t.mu.Unlock()
+	return jobs
+}
+
+func (t *JobTracker) Add(job *Job) bool {
+	addedToWorkings := false
 	t.mu.Lock()
 	if len(t.CurrentWorkings) >= t.MaxProcessCount {
-		job.MakeBlocker()
 		t.Waitings = append(t.Waitings, job)
 	} else {
 		t.CurrentWorkings[job.ID()] = job
+		addedToWorkings = true
 	}
 	t.mu.Unlock()
+	return addedToWorkings
 }
 
 func (t *JobTracker) Delete(job *Job) {
 	t.mu.Lock()
 	delete(t.CurrentWorkings, job.ID())
-	if diff := t.MaxProcessCount - len(t.CurrentWorkings); diff > 0 && len(t.Waitings) > 0 {
-		for _, job := range t.Waitings[:diff] {
-			t.CurrentWorkings[job.ID()] = job
-			job.BreakBlocker()
-		}
-		t.Waitings = t.Waitings[diff:]
-	}
 	t.mu.Unlock()
 }
 

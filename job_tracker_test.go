@@ -51,11 +51,6 @@ func TestJobTracker(t *testing.T) {
 			Body:      aws.String("foobar"),
 		},
 	}
-	blockerBroken := false
-	go func() {
-		untrackedJob.WaitUntilBlockerBroken()
-		blockerBroken = true
-	}()
 	tracker.Add(untrackedJob)
 
 	if len(tracker.Waitings) != 1 {
@@ -66,32 +61,11 @@ func TestJobTracker(t *testing.T) {
 		t.Error("wrong job registered")
 	}
 
-	if tracker.Waitings[0].Blocker == nil {
-		t.Error("blocker not exists")
-	}
-
 	if _, exists := tracker.CurrentWorkings[untrackedJob.ID()]; exists {
 		t.Error("job registered ...")
 	}
 	if tracker.Acceptable() {
 		t.Error("CurrentWorkings is filled but Acceptable() is invalid")
-	}
-
-	if blockerBroken {
-		t.Error("blocker broken...")
-	}
-
-	deleteJob := tracker.CurrentWorkings[jobKeys[0]]
-	tracker.Delete(deleteJob)
-
-	if len(tracker.Waitings) != 0 {
-		t.Error("waitings not cleared")
-	}
-	if _, exists := tracker.CurrentWorkings[untrackedJob.ID()]; !exists {
-		t.Error("untracked job not moved")
-	}
-	if !blockerBroken {
-		t.Error("blocker still exists")
 	}
 }
 
