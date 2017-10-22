@@ -57,7 +57,7 @@ func TestJobTracker(t *testing.T) {
 		blockerBroken = true
 	}()
 	tracker.Add(untrackedJob)
-	
+
 	if len(tracker.Waitings) != 1 {
 		t.Error("waitings not registered")
 	}
