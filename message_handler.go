@@ -43,6 +43,8 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 		default:
 			if !h.Tracker.Acceptable() {
 				h.HandleEmpty()
+			} else if h.Tracker.HasWaitings() {
+				h.HandleWaitings(ctx, syncWait)
 			} else {
 				results, err := h.Resource.GetMessages(ctx)
 				if err != nil {
@@ -65,28 +67,37 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("MessageHandler closed.")
 }
 
-func (h *MessageHandler) SetupJob(msg *sqs.Message) *Job {
-	job := NewJob(msg, h.Conf)
-	if !h.Tracker.Add(job) {
-		return nil
+func (h *MessageHandler) convertMessagesTojobs(messages []*sqs.Message) []*Job {
+	jobs := make([]*Job, len(messages))
+	for idx, msg := range messages {
+		jobs[idx] = NewJob(msg, h.Conf)
 	}
-	return job
-}
-
-func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
-	for _, msg := range messages {
-		if job := h.SetupJob(msg); job != nil {
-			wg.Add(1)
-			go h.HandleMessage(ctx, job, wg)
-		}
-	}
+	return jobs
 }
 
 func (h *MessageHandler) HandleEmpty() {
 	h.HandleEmptyFunc()
 }
 
-func (h *MessageHandler) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {
+func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
+	h.HandleJobs(ctx, h.convertMessagesTojobs(messages), wg)
+}
+
+func (h *MessageHandler) HandleWaitings(ctx context.Context, wg *sync.WaitGroup) {
+	h.HandleJobs(ctx, h.Tracker.GetAndClearWaitings(), wg)
+}
+
+func (h *MessageHandler) HandleJobs(ctx context.Context, jobs []*Job, wg *sync.WaitGroup) {
+	for _, job := range jobs {
+		if h.Tracker.Add(job) {
+			wg.Add(1)
+			go h.HandleJob(ctx, job, wg)
+		}
+	}
+
+}
+
+func (h *MessageHandler) HandleJob(ctx context.Context, job *Job, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Printf("job[%s] HandleMessage start.\n", job.ID())
 	ok, err := job.Run(ctx)

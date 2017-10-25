@@ -20,10 +20,7 @@ func TestJobTracker(t *testing.T) {
 			Body:      aws.String("hoge"),
 		},
 	}
-	ok := tracker.Add(job)
-	if !ok {
-		t.Error("job not inserted")
-	}
+	tracker.Add(job)
 	if _, exists := tracker.CurrentWorkings[job.ID()]; !exists {
 		t.Error("job not registered")
 	}
@@ -32,6 +29,7 @@ func TestJobTracker(t *testing.T) {
 		t.Error("job not deleted")
 	}
 
+	jobKeys := []string{}
 	for i := 0; i < tracker.MaxProcessCount; i++ {
 		j := &Job{
 			Msg: &sqs.Message{
@@ -40,6 +38,11 @@ func TestJobTracker(t *testing.T) {
 			},
 		}
 		tracker.Add(j)
+		jobKeys = append(jobKeys, j.ID())
+	}
+
+	if len(tracker.Waitings) > 0 {
+		t.Error("waitings exists")
 	}
 
 	untrackedJob := &Job{
@@ -48,13 +51,19 @@ func TestJobTracker(t *testing.T) {
 			Body:      aws.String("foobar"),
 		},
 	}
-	if ok := tracker.Add(untrackedJob); ok {
-		t.Error("job register success...")
+	tracker.Add(untrackedJob)
+
+	if len(tracker.Waitings) != 1 {
+		t.Error("waitings not registered")
 	}
+
+	if tracker.Waitings[0].ID() != untrackedJob.ID() {
+		t.Error("wrong job registered")
+	}
+
 	if _, exists := tracker.CurrentWorkings[untrackedJob.ID()]; exists {
 		t.Error("job registered ...")
 	}
-
 	if tracker.Acceptable() {
 		t.Error("CurrentWorkings is filled but Acceptable() is invalid")
 	}

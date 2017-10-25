@@ -9,6 +9,7 @@ type JobTracker struct {
 	MaxProcessCount int
 	JobWorking      bool
 	mu              *sync.RWMutex
+	Waitings        []*Job
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
@@ -17,18 +18,33 @@ func NewJobTracker(maxProcCount uint) *JobTracker {
 		MaxProcessCount: int(maxProcCount),
 		JobWorking:      true,
 		mu:              &sync.RWMutex{},
+		Waitings:        []*Job{},
 	}
 }
 
+func (t *JobTracker) HasWaitings() bool {
+	return len(t.Waitings) > 0
+}
+
+func (t *JobTracker) GetAndClearWaitings() []*Job {
+	t.mu.Lock()
+	jobs := t.Waitings
+	t.Waitings = []*Job{}
+	t.mu.Unlock()
+	return jobs
+}
+
 func (t *JobTracker) Add(job *Job) bool {
+	addedToWorkings := false
 	t.mu.Lock()
 	if len(t.CurrentWorkings) >= t.MaxProcessCount {
-		t.mu.Unlock()
-		return false
+		t.Waitings = append(t.Waitings, job)
+	} else {
+		t.CurrentWorkings[job.ID()] = job
+		addedToWorkings = true
 	}
-	t.CurrentWorkings[job.ID()] = job
 	t.mu.Unlock()
-	return true
+	return addedToWorkings
 }
 
 func (t *JobTracker) Delete(job *Job) {
