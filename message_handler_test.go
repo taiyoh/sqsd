@@ -45,7 +45,7 @@ func TestNewMessageHandler(t *testing.T) {
 	}
 }
 
-func TestHandleMessage(t *testing.T) {
+func TestHandleJob(t *testing.T) {
 	c := &Conf{}
 	r := NewResource(NewMockClient(), "http://example.com/foo/bar/queue")
 	tr := NewJobTracker(5)
@@ -68,7 +68,7 @@ func TestHandleMessage(t *testing.T) {
 		job.URL = ts.URL + "/error"
 
 		wg.Add(1)
-		go h.HandleMessage(ctx, job, wg)
+		go h.HandleJob(ctx, job, wg)
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
@@ -86,7 +86,7 @@ func TestHandleMessage(t *testing.T) {
 		parent, cancel := context.WithCancel(ctx)
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		go h.HandleMessage(parent, job, wg)
+		go h.HandleJob(parent, job, wg)
 		cancel()
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
@@ -104,7 +104,7 @@ func TestHandleMessage(t *testing.T) {
 		job.URL = ts.URL + "/ok"
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		go h.HandleMessage(ctx, job, wg)
+		go h.HandleJob(ctx, job, wg)
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
@@ -151,8 +151,12 @@ func TestHandleMessages(t *testing.T) {
 	h.HandleMessages(ctx, msgs, wg)
 	wg.Wait()
 
-	if len(caughtIds) != 10 {
+	if len(caughtIds) != 5 {
 		t.Errorf("requests is wrong: %d", len(caughtIds))
+	}
+
+	if len(tr.Waitings) != 5 {
+		t.Errorf("waitings is wrong: %d", len(tr.Waitings))
 	}
 }
 
