@@ -67,7 +67,7 @@ func TestHandleMessage(t *testing.T) {
 		job.URL = ts.URL + "/error"
 
 		wg.Add(1)
-		go h.HandleMessage(ctx, job, wg)
+		go h.HandleJob(ctx, job, wg)
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
@@ -84,7 +84,7 @@ func TestHandleMessage(t *testing.T) {
 		parent, cancel := context.WithCancel(ctx)
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		go h.HandleMessage(parent, job, wg)
+		go h.HandleJob(parent, job, wg)
 		cancel()
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
@@ -101,7 +101,7 @@ func TestHandleMessage(t *testing.T) {
 		job.URL = ts.URL + "/ok"
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		go h.HandleMessage(ctx, job, wg)
+		go h.HandleJob(ctx, job, wg)
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
@@ -145,7 +145,7 @@ func TestHandleMessages(t *testing.T) {
 	ctx := context.Background()
 
 	wg := &sync.WaitGroup{}
-	h.HandleMessages(ctx, msgs, wg)
+	h.HandleJobs(ctx, h.MessagesToJobs(msgs), wg)
 	wg.Wait()
 
 	if len(caughtIds) != tr.MaxProcessCount {

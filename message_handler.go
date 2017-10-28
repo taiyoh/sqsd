@@ -53,7 +53,7 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 					h.HandleEmpty()
 				} else {
 					log.Printf("received %d messages. run jobs.\n", len(results))
-					h.HandleMessages(ctx, results, syncWait)
+					h.HandleJobs(ctx, h.MessagesToJobs(results), syncWait)
 				}
 			}
 		}
@@ -65,12 +65,19 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("MessageHandler closed.")
 }
 
-func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
-	for _, msg := range messages {
-		job := NewJob(msg, h.Conf)
+func (h *MessageHandler) MessagesToJobs(msgs []*sqs.Message) []*Job {
+	jobs := []*Job{}
+	for _, msg := range msgs {
+		jobs = append(jobs, NewJob(msg, h.Conf))
+	}
+	return jobs
+}
+
+func (h *MessageHandler) HandleJobs(ctx context.Context, jobs []*Job, wg *sync.WaitGroup) {
+	for _, job := range jobs {
 		if h.Tracker.Add(job) {
 			wg.Add(1)
-			go h.HandleMessage(ctx, job, wg)
+			go h.HandleJob(ctx, job, wg)
 		}
 	}
 }
@@ -79,7 +86,7 @@ func (h *MessageHandler) HandleEmpty() {
 	h.HandleEmptyFunc()
 }
 
-func (h *MessageHandler) HandleMessage(ctx context.Context, job *Job, wg *sync.WaitGroup) {
+func (h *MessageHandler) HandleJob(ctx context.Context, job *Job, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Printf("job[%s] HandleMessage start.\n", job.ID())
 	ok, err := job.Run(ctx)
