@@ -45,23 +45,6 @@ func TestNewMessageHandler(t *testing.T) {
 	}
 }
 
-func TestSetupJob(t *testing.T) {
-	c := &Conf{}
-	r := &Resource{}
-	tr := NewJobTracker(5)
-	h := NewMessageHandler(r, tr, c)
-
-	sqsMsg := &sqs.Message{
-		MessageId: aws.String("foobar"),
-		Body:      aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
-	}
-
-	job := h.SetupJob(sqsMsg)
-	if job == nil {
-		t.Error("job not created")
-	}
-}
-
 func TestHandleMessage(t *testing.T) {
 	c := &Conf{}
 	r := NewResource(NewMockClient(), "http://example.com/foo/bar/queue")
@@ -76,11 +59,11 @@ func TestHandleMessage(t *testing.T) {
 	wg := &sync.WaitGroup{}
 
 	t.Run("job failed", func(t *testing.T) {
-		job := h.SetupJob(&sqs.Message{
+		job := NewJob(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageNG"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
-		})
+		}, h.Conf)
 		job.URL = ts.URL + "/error"
 
 		wg.Add(1)
@@ -92,11 +75,11 @@ func TestHandleMessage(t *testing.T) {
 	})
 
 	t.Run("context cancelled", func(t *testing.T) {
-		job := h.SetupJob(&sqs.Message{
+		job := NewJob(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageErr"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
-		})
+		}, h.Conf)
 		job.URL = ts.URL + "/long"
 		parent, cancel := context.WithCancel(ctx)
 		wg := &sync.WaitGroup{}
@@ -110,11 +93,11 @@ func TestHandleMessage(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		job := h.SetupJob(&sqs.Message{
+		job := NewJob(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageOK"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
-		})
+		}, h.Conf)
 		job.URL = ts.URL + "/ok"
 		wg := &sync.WaitGroup{}
 		wg.Add(1)

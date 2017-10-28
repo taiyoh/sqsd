@@ -65,17 +65,10 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("MessageHandler closed.")
 }
 
-func (h *MessageHandler) SetupJob(msg *sqs.Message) *Job {
-	job := NewJob(msg, h.Conf)
-	if !h.Tracker.Add(job) {
-		return nil
-	}
-	return job
-}
-
 func (h *MessageHandler) HandleMessages(ctx context.Context, messages []*sqs.Message, wg *sync.WaitGroup) {
 	for _, msg := range messages {
-		if job := h.SetupJob(msg); job != nil {
+		job := NewJob(msg, h.Conf)
+		if h.Tracker.Add(job) {
 			wg.Add(1)
 			go h.HandleMessage(ctx, job, wg)
 		}
