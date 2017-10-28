@@ -5,7 +5,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 )
@@ -22,38 +21,51 @@ func TestJobTracker(t *testing.T) {
 			Body:      aws.String("hoge"),
 		},
 	}
+	addedJobs := []*Job{}
+	deletedJobSignal := 0
+	cancel := make(chan struct{})
+	wait := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-cancel:
+				return
+			case <-tracker.JobDeleted():
+				deletedJobSignal++
+				wait <- struct{}{}
+			case job := <-tracker.JobAdded():
+				if job != nil {
+					addedJobs = append(addedJobs, job)
+				}
+				wait <- struct{}{}
+			}
+		}
+	}()
+	time.Sleep(5 * time.Millisecond)
 	ok := tracker.Add(job)
 	if !ok {
 		t.Error("job not inserted")
 	}
+	<-wait
+	if len(addedJobs) != 1 {
+		t.Errorf("add event not comes: %d\n", len(addedJobs))
+	}
 	if _, exists := tracker.CurrentWorkings[job.ID()]; !exists {
 		t.Error("job not registered")
 	}
-	wg := &sync.WaitGroup{}
-	var deletedJobEventReceived bool
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-tracker.JobDeleted():
-				deletedJobEventReceived = true
-				return
-			}
-		}
-	}()
-	if deletedJobEventReceived {
+	if deletedJobSignal != 0 {
 		t.Error("job deleted event comes")
 	}
-	time.Sleep(5 * time.Millisecond)
 	tracker.Delete(job)
-	wg.Wait()
+	<-wait
 	if _, exists := tracker.CurrentWorkings[job.ID()]; exists {
 		t.Error("job not deleted")
 	}
-	if !deletedJobEventReceived {
+	if deletedJobSignal != 1 {
 		t.Error("job deleted event not comes")
 	}
+
+	addedJobs = []*Job{} // clear
 
 	for i := 0; i < tracker.MaxProcessCount; i++ {
 		j := &Job{
@@ -63,10 +75,14 @@ func TestJobTracker(t *testing.T) {
 			},
 		}
 		tracker.Add(j)
+		<-wait
 	}
 
 	if len(tracker.Waitings) != 0 {
 		t.Error("waiting jobs exists")
+	}
+	if len(addedJobs) != tracker.MaxProcessCount {
+		t.Errorf("job event count is wrong: %d\n", len(addedJobs))
 	}
 
 	untrackedJob := &Job{
@@ -78,8 +94,13 @@ func TestJobTracker(t *testing.T) {
 	if ok := tracker.Add(untrackedJob); ok {
 		t.Error("job register success...")
 	}
+	<-wait
 	if _, exists := tracker.CurrentWorkings[untrackedJob.ID()]; exists {
 		t.Error("job registered ...")
+	}
+
+	if len(addedJobs) != tracker.MaxProcessCount {
+		t.Errorf("job event count is wrong: %d\n", len(addedJobs))
 	}
 
 	if len(tracker.Waitings) != 1 {
@@ -97,6 +118,8 @@ func TestJobTracker(t *testing.T) {
 	if len(tracker.Waitings) != 0 {
 		t.Error("waiting job stil exists")
 	}
+
+	cancel <- struct{}{}
 }
 
 func TestJobWorking(t *testing.T) {

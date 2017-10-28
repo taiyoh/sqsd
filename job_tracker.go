@@ -11,6 +11,7 @@ type JobTracker struct {
 	mu              *sync.RWMutex
 	Waitings        []*Job
 	deletedChan     chan struct{}
+	addedChan       chan *Job
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
@@ -34,6 +35,13 @@ func (t *JobTracker) Add(job *Job) bool {
 		registeredWorkings = true
 	}
 	t.mu.Unlock()
+	if t.addedChan != nil {
+		if registeredWorkings {
+			t.addedChan <- job
+		} else {
+			t.addedChan <- nil
+		}
+	}
 	return registeredWorkings
 }
 
@@ -56,6 +64,16 @@ func (t *JobTracker) JobDeleted() <-chan struct{} {
 	d := t.deletedChan
 	t.mu.Unlock()
 	return d
+}
+
+func (t *JobTracker) JobAdded() <-chan *Job {
+	t.mu.Lock()
+	if t.addedChan == nil {
+		t.addedChan = make(chan *Job)
+	}
+	a := t.addedChan
+	t.mu.Unlock()
+	return a
 }
 
 func (t *JobTracker) Delete(job *Job) {
