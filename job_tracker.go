@@ -37,6 +37,17 @@ func (t *JobTracker) Add(job *Job) bool {
 	return registeredWorkings
 }
 
+func (t *JobTracker) ShiftWaitingJobs() *Job {
+	var job *Job
+	t.mu.Lock()
+	if len(t.Waitings) > 0 {
+		job = t.Waitings[0]
+		t.Waitings = t.Waitings[1:]
+	}
+	t.mu.Unlock()
+	return job
+}
+
 func (t *JobTracker) JobDeleted() <-chan struct{} {
 	t.mu.Lock()
 	if t.deletedChan == nil {

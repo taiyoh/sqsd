@@ -29,7 +29,6 @@ func TestJobTracker(t *testing.T) {
 	if _, exists := tracker.CurrentWorkings[job.ID()]; !exists {
 		t.Error("job not registered")
 	}
-	mu := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	var deletedJobEventReceived bool
 	wg.Add(1)
@@ -38,9 +37,7 @@ func TestJobTracker(t *testing.T) {
 		for {
 			select {
 			case <-tracker.JobDeleted():
-				mu.Lock()
 				deletedJobEventReceived = true
-				mu.Unlock()
 				return
 			}
 		}
@@ -68,11 +65,9 @@ func TestJobTracker(t *testing.T) {
 		tracker.Add(j)
 	}
 
-	mu.Lock()
 	if len(tracker.Waitings) != 0 {
 		t.Error("waiting jobs exists")
 	}
-	mu.Unlock()
 
 	untrackedJob := &Job{
 		Msg: &sqs.Message{
@@ -87,14 +82,20 @@ func TestJobTracker(t *testing.T) {
 		t.Error("job registered ...")
 	}
 
-	mu.Lock()
 	if len(tracker.Waitings) != 1 {
 		t.Error("waiting jobs not exists")
 	}
-	mu.Unlock()
 
 	if tracker.Acceptable() {
 		t.Error("CurrentWorkings is filled but Acceptable() is invalid")
+	}
+
+	waitingJob := tracker.ShiftWaitingJobs()
+	if waitingJob.ID() != untrackedJob.ID() {
+		t.Error("wrong job received")
+	}
+	if len(tracker.Waitings) != 0 {
+		t.Error("waiting job stil exists")
 	}
 }
 
