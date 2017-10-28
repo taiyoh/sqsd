@@ -9,6 +9,8 @@ type JobTracker struct {
 	MaxProcessCount int
 	JobWorking      bool
 	mu              *sync.RWMutex
+	Waitings        []*Job
+	deletedChan     chan struct{}
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
@@ -17,24 +19,41 @@ func NewJobTracker(maxProcCount uint) *JobTracker {
 		MaxProcessCount: int(maxProcCount),
 		JobWorking:      true,
 		mu:              &sync.RWMutex{},
+		Waitings:		 []*Job{},
 	}
 }
 
 func (t *JobTracker) Add(job *Job) bool {
+	var registeredWorkings bool
 	t.mu.Lock()
 	if len(t.CurrentWorkings) >= t.MaxProcessCount {
-		t.mu.Unlock()
-		return false
+		t.Waitings = append(t.Waitings, job)
+		registeredWorkings = false
+	} else {
+		t.CurrentWorkings[job.ID()] = job
+		registeredWorkings = true
 	}
-	t.CurrentWorkings[job.ID()] = job
 	t.mu.Unlock()
-	return true
+	return registeredWorkings
+}
+
+func (t *JobTracker) JobDeleted() <-chan struct{} {
+	t.mu.Lock()
+	if t.deletedChan == nil {
+		t.deletedChan = make(chan struct{})
+	}
+	d := t.deletedChan
+	t.mu.Unlock()
+	return d
 }
 
 func (t *JobTracker) Delete(job *Job) {
 	t.mu.Lock()
 	delete(t.CurrentWorkings, job.ID())
 	t.mu.Unlock()
+	if t.deletedChan != nil {
+		t.deletedChan <- struct{}{}
+	}
 }
 
 func (t *JobTracker) CurrentSummaries() []*JobSummary {

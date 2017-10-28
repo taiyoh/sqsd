@@ -5,7 +5,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestJobTracker(t *testing.T) {
@@ -27,9 +29,33 @@ func TestJobTracker(t *testing.T) {
 	if _, exists := tracker.CurrentWorkings[job.ID()]; !exists {
 		t.Error("job not registered")
 	}
+	mu := &sync.Mutex{}
+	wg := &sync.WaitGroup{}
+	var deletedJobEventReceived bool
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-tracker.JobDeleted():
+				mu.Lock()
+				deletedJobEventReceived = true
+				mu.Unlock()
+				return
+			}
+		}
+	}()
+	if deletedJobEventReceived {
+		t.Error("job deleted event comes")
+	}
+	time.Sleep(5 * time.Millisecond)
 	tracker.Delete(job)
+	wg.Wait()
 	if _, exists := tracker.CurrentWorkings[job.ID()]; exists {
 		t.Error("job not deleted")
+	}
+	if !deletedJobEventReceived {
+		t.Error("job deleted event not comes")
 	}
 
 	for i := 0; i < tracker.MaxProcessCount; i++ {
@@ -41,6 +67,12 @@ func TestJobTracker(t *testing.T) {
 		}
 		tracker.Add(j)
 	}
+
+	mu.Lock()
+	if len(tracker.Waitings) != 0 {
+		t.Error("waiting jobs exists")
+	}
+	mu.Unlock()
 
 	untrackedJob := &Job{
 		Msg: &sqs.Message{
@@ -54,6 +86,12 @@ func TestJobTracker(t *testing.T) {
 	if _, exists := tracker.CurrentWorkings[untrackedJob.ID()]; exists {
 		t.Error("job registered ...")
 	}
+
+	mu.Lock()
+	if len(tracker.Waitings) != 1 {
+		t.Error("waiting jobs not exists")
+	}
+	mu.Unlock()
 
 	if tracker.Acceptable() {
 		t.Error("CurrentWorkings is filled but Acceptable() is invalid")
