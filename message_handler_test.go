@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -145,7 +144,7 @@ func TestHandleMessages(t *testing.T) {
 	ctx := context.Background()
 
 	wg := &sync.WaitGroup{}
-	h.HandleJobs(ctx, h.MessagesToJobs(msgs), wg)
+	h.HandleMessages(ctx, msgs, wg)
 	wg.Wait()
 
 	if len(caughtIds) != tr.MaxProcessCount {

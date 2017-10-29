@@ -68,19 +68,12 @@ func (h *MessageHandler) DoHandle(ctx context.Context, wg *sync.WaitGroup) {
 		return
 	}
 	log.Printf("received %d messages. run jobs.\n", len(results))
-	h.HandleJobs(ctx, h.MessagesToJobs(results), wg)
+	h.HandleMessages(ctx, results, wg)
 }
 
-func (h *MessageHandler) MessagesToJobs(msgs []*sqs.Message) []*Job {
-	jobs := []*Job{}
+func (h *MessageHandler) HandleMessages(ctx context.Context, msgs []*sqs.Message, wg *sync.WaitGroup) {
 	for _, msg := range msgs {
-		jobs = append(jobs, NewJob(msg, h.Conf))
-	}
-	return jobs
-}
-
-func (h *MessageHandler) HandleJobs(ctx context.Context, jobs []*Job, wg *sync.WaitGroup) {
-	for _, job := range jobs {
+		job := NewJob(msg, h.Conf)
 		if h.Tracker.Add(job) {
 			wg.Add(1)
 			go h.HandleJob(ctx, job, wg)
