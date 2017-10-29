@@ -41,21 +41,7 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 			h.ShouldStop = true
 			break
 		default:
-			if !h.Tracker.Acceptable() {
-				h.HandleEmpty()
-			} else {
-				results, err := h.Resource.GetMessages(ctx)
-				if err != nil {
-					log.Println("Error", err)
-					h.HandleEmpty()
-				} else if len(results) == 0 {
-					log.Println("received no messages")
-					h.HandleEmpty()
-				} else {
-					log.Printf("received %d messages. run jobs.\n", len(results))
-					h.HandleJobs(ctx, h.MessagesToJobs(results), syncWait)
-				}
-			}
+			h.DoHandle(ctx, syncWait)
 		}
 		if h.ShouldStop {
 			break
@@ -63,6 +49,26 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 	}
 	syncWait.Wait()
 	log.Println("MessageHandler closed.")
+}
+
+func (h *MessageHandler) DoHandle(ctx context.Context, wg *sync.WaitGroup) {
+	if !h.Tracker.Acceptable() {
+		h.HandleEmpty()
+		return
+	}
+	results, err := h.Resource.GetMessages(ctx)
+	if err != nil {
+		log.Println("Error", err)
+		h.HandleEmpty()
+		return
+	}
+	if len(results) == 0 {
+		log.Println("received no messages")
+		h.HandleEmpty()
+		return
+	}
+	log.Printf("received %d messages. run jobs.\n", len(results))
+	h.HandleJobs(ctx, h.MessagesToJobs(results), wg)
 }
 
 func (h *MessageHandler) MessagesToJobs(msgs []*sqs.Message) []*Job {

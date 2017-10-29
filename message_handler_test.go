@@ -160,7 +160,7 @@ func TestHandleMessages(t *testing.T) {
 	}
 }
 
-func TestMessageHandlerRun(t *testing.T) {
+func TestDoHandle(t *testing.T) {
 	c := &Conf{}
 	mc := NewMockClient()
 	r := NewResource(mc, "http://example.com/foo/bar/queue")
@@ -170,14 +170,25 @@ func TestMessageHandlerRun(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 
-	h.HandleEmptyFunc = func() {
-		h.ShouldStop = true
-	}
-	tr.Pause()
-	t.Run("tracker is not working", func(t *testing.T) {
-		wg.Add(1)
-		h.Run(context.Background(), wg)
+	handleEmptyCalled := false
 
+	h.HandleEmptyFunc = func() {
+		handleEmptyCalled = true
+	}
+	mc.ErrRequestCount = 0
+	tr.Pause()
+	if tr.JobWorking {
+		t.Error("jobworking not changed")
+	}
+	t.Run("tracker is not working", func(t *testing.T) {
+		h.DoHandle(context.Background(), wg)
+
+		if !handleEmptyCalled {
+			t.Error("HandleEmpty not working")
+		}
+		if mc.ErrRequestCount != 0 {
+			t.Error("error exists")
+		}
 		if mc.RecvRequestCount != 0 {
 			t.Errorf("receive request count exists: %d", mc.RecvRequestCount)
 		}
@@ -186,35 +197,26 @@ func TestMessageHandlerRun(t *testing.T) {
 		}
 	})
 
-	mc.Err = nil
-	mc.RecvRequestCount = 0
-	h.ShouldStop = false
 	tr.Resume()
-	t.Run("received but empty messages -> context cancel", func(t *testing.T) {
-		h.HandleEmptyFunc = func() {
-			time.Sleep(100 * time.Millisecond)
-		}
-		ctx, cancel := context.WithCancel(context.Background())
-		go func() {
-			time.Sleep(50 * time.Millisecond)
-			cancel()
-		}()
-		wg.Add(1)
-		h.Run(ctx, wg)
 
-		if mc.RecvRequestCount != 1 {
-			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
-		}
-		if mc.DelRequestCount > 0 {
-			t.Errorf("delete request count exists: %d", mc.RecvRequestCount)
-		}
-	})
-
+	mc.Err = errors.New("hogehoge")
 	mc.RecvRequestCount = 0
-	mc.Err = errors.New("fugafuga")
-	t.Run("error received", func(t *testing.T) {
-		wg.Add(1)
-		h.Run(context.Background(), wg)
+	mc.ErrRequestCount = 0
+	h.ShouldStop = false
+	handleEmptyCalled = false
+	if !tr.JobWorking {
+		t.Error("jobworking flag not changed")
+	}
+	t.Run("received but empty messages", func(t *testing.T) {
+		h.DoHandle(context.Background(), wg)
+
+		if !handleEmptyCalled {
+			t.Error("HandleEmpty not working")
+		}
+
+		if mc.ErrRequestCount != 1 {
+			t.Error("no error")
+		}
 
 		if mc.RecvRequestCount != 1 {
 			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
@@ -224,69 +226,72 @@ func TestMessageHandlerRun(t *testing.T) {
 		}
 	})
 
-	for i := 1; i <= 3; i++ {
-		idxStr := strconv.Itoa(i)
-		p := &JobPayloadForTest{ID: "msgid:" + strconv.Itoa(i)}
-		mc.Resp.Messages = append(mc.Resp.Messages, &sqs.Message{
-			MessageId:     aws.String(p.ID),
-			Body:          aws.String(p.String()),
-			ReceiptHandle: aws.String("receithandle-" + idxStr),
-		})
+	mc.Err = nil
+	mc.RecvRequestCount = 0
+	mc.ErrRequestCount = 0
+	handleEmptyCalled = false
+	t.Run("received but empty messages", func(t *testing.T) {
+		h.DoHandle(context.Background(), wg)
+
+		if !handleEmptyCalled {
+			t.Error("HandleEmpty not working")
+		}
+		if mc.ErrRequestCount != 0 {
+			t.Error("error exists")
+		}
+
+		if mc.RecvRequestCount != 1 {
+			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
+		}
+		if mc.DelRequestCount > 0 {
+			t.Errorf("delete request count exists: %d", mc.RecvRequestCount)
+		}
+	})
+
+	mc.Resp.Messages = []*sqs.Message{
+		&sqs.Message{
+			MessageId: aws.String("id:1"),
+			Body:      aws.String(`foobar`),
+		},
 	}
 	mc.Err = nil
-	mc.RecvFunc = func(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
-		mc.RecvRequestCount++
-		if mc.RecvRequestCount > 1 {
-			h.ShouldStop = true
-		}
-		return mc.Resp, mc.Err
-	}
-
-	r.ReceiveParams.WaitTimeSeconds = aws.Int64(0)
-	t.Run("request success", func(t *testing.T) {
-		caughtIds := map[string]int{}
-		l := &sync.Mutex{}
-		ts := httptest.NewServer(http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) {
-				p := DecodePayload(r.Body)
-				log.Printf("task work: %s\n", p.ID)
-				l.Lock()
-				if _, exists := caughtIds[p.ID]; exists {
-					caughtIds[p.ID]++
-				} else {
-					caughtIds[p.ID] = 1
-				}
-				l.Unlock()
-				w.Header().Set("content-Type", "text")
-				fmt.Fprintf(w, "goood")
-				return
-			},
-		))
-		defer ts.Close()
-
-		h.Conf.JobURL = ts.URL
-
+	mc.RecvRequestCount = 0
+	handleEmptyCalled = false
+	t.Run("received 1 message", func(t *testing.T) {
+		var receivedjob *Job
 		wg.Add(1)
-		h.Run(context.Background(), wg)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case receivedjob = <-tr.JobAdded():
+					return
+				}
+			}
+		}()
+		time.Sleep(5 * time.Millisecond)
 
-		if len(caughtIds) != 3 {
-			t.Error("other request comes...")
+		h.DoHandle(context.Background(), wg)
+		wg.Wait()
+
+		if handleEmptyCalled {
+			t.Error("HandleEmpty worked")
 		}
-		for i := 1; i <= 3; i++ {
-			id := "msgid:" + strconv.Itoa(i)
-			v, exists := caughtIds[id]
-			if !exists {
-				t.Errorf("id: %s not requested", id)
-			}
-			if v != 1 {
-				t.Errorf("id: %s request count wrong: %d", id, v)
-			}
+		if mc.ErrRequestCount != 0 {
+			t.Error("error exists")
 		}
-		if mc.RecvRequestCount != 2 {
+		if receivedjob == nil {
+			t.Error("job not received")
+		}
+		if receivedjob.ID() != *mc.Resp.Messages[0].MessageId {
+			t.Error("wrong job received")
+		}
+
+		if mc.RecvRequestCount != 1 {
 			t.Errorf("receive request count wrong: %d", mc.RecvRequestCount)
 		}
-		if mc.DelRequestCount != 3 {
-			t.Errorf("delete request count wrong: %d", mc.RecvRequestCount)
+		if mc.DelRequestCount > 0 {
+			t.Errorf("delete request count exists: %d", mc.RecvRequestCount)
 		}
 	})
 }
