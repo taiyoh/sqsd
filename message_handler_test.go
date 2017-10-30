@@ -238,7 +238,7 @@ func TestDoHandle(t *testing.T) {
 			defer wg.Done()
 			for {
 				select {
-				case receivedjob = <-tr.JobAdded():
+				case receivedjob = <-tr.NextJob():
 					return
 				}
 			}
@@ -300,21 +300,12 @@ func TestRunTrackerEventListener(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	//origOnJobAddedFunc := h.OnJobAddedFunc
-	origOnJobDeletedFunc := h.OnJobDeletedFunc
-
 	mu := &sync.Mutex{}
 
 	onjobAddedCount := 0
-	onjobDeletedCount := 0
 	h.OnJobAddedFunc = func(h *MessageHandler, job *Job, ctx context.Context, wg *sync.WaitGroup) {
 		mu.Lock()
 		onjobAddedCount++
-		mu.Unlock()
-	}
-	h.OnJobDeletedFunc = func(h *MessageHandler, ctx context.Context, wg *sync.WaitGroup) {
-		mu.Lock()
-		onjobDeletedCount++
 		mu.Unlock()
 	}
 
@@ -348,9 +339,6 @@ func TestRunTrackerEventListener(t *testing.T) {
 	if onjobAddedCount != 1 {
 		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
 	}
-	if onjobDeletedCount != 0 {
-		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
-	}
 	mu.Unlock()
 
 	added = tr.Add(job2)
@@ -359,26 +347,17 @@ func TestRunTrackerEventListener(t *testing.T) {
 	}
 	time.Sleep(5 * time.Millisecond)
 	mu.Lock()
-	if onjobAddedCount != 2 {
+	if onjobAddedCount != 1 {
 		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
-	}
-	if onjobDeletedCount != 0 {
-		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
 	}
 	mu.Unlock()
 
-	tr.Delete(job1)
-	time.Sleep(5 * time.Millisecond)
-
-	origOnJobDeletedFunc(h, ctx, wg)
+	tr.DeleteAndNextJob(job1)
 	time.Sleep(5 * time.Millisecond)
 
 	mu.Lock()
-	if onjobAddedCount != 3 {
+	if onjobAddedCount != 2 {
 		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
-	}
-	if onjobDeletedCount != 1 {
-		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
 	}
 	mu.Unlock()
 

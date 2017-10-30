@@ -10,8 +10,7 @@ type JobTracker struct {
 	JobWorking      bool
 	mu              *sync.RWMutex
 	Waitings        []*Job
-	deletedChan     chan struct{}
-	addedChan       chan *Job
+	nextJobChan     chan *Job
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
@@ -35,53 +34,33 @@ func (t *JobTracker) Add(job *Job) bool {
 		registeredWorkings = true
 	}
 	t.mu.Unlock()
-	if t.addedChan != nil {
-		if registeredWorkings {
-			t.addedChan <- job
-		} else {
-			t.addedChan <- nil
-		}
+	if registeredWorkings && t.nextJobChan != nil {
+		t.nextJobChan <- job
 	}
 	return registeredWorkings
 }
 
-func (t *JobTracker) ShiftWaitingJobs() *Job {
-	var job *Job
+func (t *JobTracker) NextJob() <-chan *Job {
 	t.mu.Lock()
+	if t.nextJobChan == nil {
+		t.nextJobChan = make(chan *Job)
+	}
+	t.mu.Unlock()
+	n := t.nextJobChan
+	return n
+}
+
+func (t *JobTracker) DeleteAndNextJob(job *Job) {
+	var waitingJob *Job
+	t.mu.Lock()
+	delete(t.CurrentWorkings, job.ID())
 	if len(t.Waitings) > 0 {
-		job = t.Waitings[0]
+		waitingJob = t.Waitings[0]
 		t.Waitings = t.Waitings[1:]
 	}
 	t.mu.Unlock()
-	return job
-}
-
-func (t *JobTracker) JobDeleted() <-chan struct{} {
-	t.mu.Lock()
-	if t.deletedChan == nil {
-		t.deletedChan = make(chan struct{})
-	}
-	d := t.deletedChan
-	t.mu.Unlock()
-	return d
-}
-
-func (t *JobTracker) JobAdded() <-chan *Job {
-	t.mu.Lock()
-	if t.addedChan == nil {
-		t.addedChan = make(chan *Job)
-	}
-	a := t.addedChan
-	t.mu.Unlock()
-	return a
-}
-
-func (t *JobTracker) Delete(job *Job) {
-	t.mu.Lock()
-	delete(t.CurrentWorkings, job.ID())
-	t.mu.Unlock()
-	if t.deletedChan != nil {
-		t.deletedChan <- struct{}{}
+	if waitingJob != nil {
+		t.Add(waitingJob)
 	}
 }
 

@@ -10,19 +10,26 @@ import (
 )
 
 func TestJobTracker(t *testing.T) {
-	tracker := NewJobTracker(5)
+	tracker := NewJobTracker(1)
 	if tracker == nil {
 		t.Error("job tracker not loaded.")
 	}
 
-	job := &Job{
+	job1 := &Job{
 		Msg: &sqs.Message{
-			MessageId: aws.String("foobar"),
+			MessageId: aws.String("id:1"),
 			Body:      aws.String("hoge"),
+			ReceiptHandle: aws.String("foo"),
+		},
+	}
+	job2 := &Job{
+		Msg: &sqs.Message{
+			MessageId: aws.String("id:2"),
+			Body:      aws.String("fuga"),
+			ReceiptHandle: aws.String("bar"),
 		},
 	}
 	addedJobs := []*Job{}
-	deletedJobSignal := 0
 	cancel := make(chan struct{})
 	wait := make(chan struct{})
 	go func() {
@@ -30,10 +37,7 @@ func TestJobTracker(t *testing.T) {
 			select {
 			case <-cancel:
 				return
-			case <-tracker.JobDeleted():
-				deletedJobSignal++
-				wait <- struct{}{}
-			case job := <-tracker.JobAdded():
+			case job := <-tracker.NextJob():
 				if job != nil {
 					addedJobs = append(addedJobs, job)
 				}
@@ -42,81 +46,31 @@ func TestJobTracker(t *testing.T) {
 		}
 	}()
 	time.Sleep(5 * time.Millisecond)
-	ok := tracker.Add(job)
+	ok := tracker.Add(job1)
 	if !ok {
-		t.Error("job not inserted")
+		t.Error("job1 not inserted")
+	}
+	ok = tracker.Add(job2)
+	if ok {
+		t.Error("job2 inserted")
 	}
 	<-wait
 	if len(addedJobs) != 1 {
 		t.Errorf("add event not comes: %d\n", len(addedJobs))
 	}
-	if _, exists := tracker.CurrentWorkings[job.ID()]; !exists {
-		t.Error("job not registered")
+	if _, exists := tracker.CurrentWorkings[job1.ID()]; !exists {
+		t.Error("job1 not registered")
 	}
-	if deletedJobSignal != 0 {
-		t.Error("job deleted event comes")
-	}
-	tracker.Delete(job)
+	tracker.DeleteAndNextJob(job1)
 	<-wait
-	if _, exists := tracker.CurrentWorkings[job.ID()]; exists {
-		t.Error("job not deleted")
+	if _, exists := tracker.CurrentWorkings[job1.ID()]; exists {
+		t.Error("job1 not deleted")
 	}
-	if deletedJobSignal != 1 {
-		t.Error("job deleted event not comes")
+	if len(addedJobs) != 2 {
+		t.Errorf("add event not comes: %d\n", len(addedJobs))
 	}
-
-	addedJobs = []*Job{} // clear
-
-	for i := 0; i < tracker.MaxProcessCount; i++ {
-		j := &Job{
-			Msg: &sqs.Message{
-				MessageId: aws.String("id:" + strconv.Itoa(i)),
-				Body:      aws.String(`foobar`),
-			},
-		}
-		tracker.Add(j)
-		<-wait
-	}
-
-	if len(tracker.Waitings) != 0 {
-		t.Error("waiting jobs exists")
-	}
-	if len(addedJobs) != tracker.MaxProcessCount {
-		t.Errorf("job event count is wrong: %d\n", len(addedJobs))
-	}
-
-	untrackedJob := &Job{
-		Msg: &sqs.Message{
-			MessageId: aws.String("id:6"),
-			Body:      aws.String("foobar"),
-		},
-	}
-	if ok := tracker.Add(untrackedJob); ok {
-		t.Error("job register success...")
-	}
-	<-wait
-	if _, exists := tracker.CurrentWorkings[untrackedJob.ID()]; exists {
-		t.Error("job registered ...")
-	}
-
-	if len(addedJobs) != tracker.MaxProcessCount {
-		t.Errorf("job event count is wrong: %d\n", len(addedJobs))
-	}
-
-	if len(tracker.Waitings) != 1 {
-		t.Error("waiting jobs not exists")
-	}
-
-	if tracker.Acceptable() {
-		t.Error("CurrentWorkings is filled but Acceptable() is invalid")
-	}
-
-	waitingJob := tracker.ShiftWaitingJobs()
-	if waitingJob.ID() != untrackedJob.ID() {
-		t.Error("wrong job received")
-	}
-	if len(tracker.Waitings) != 0 {
-		t.Error("waiting job stil exists")
+	if _, exists := tracker.CurrentWorkings[job2.ID()]; !exists {
+		t.Error("job2 not registered")
 	}
 
 	cancel <- struct{}{}
