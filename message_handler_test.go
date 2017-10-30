@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -102,36 +101,6 @@ func TestHandleMessage(t *testing.T) {
 	})
 
 	wg.Wait()
-}
-
-func TestHandleMessages(t *testing.T) {
-	msgs := []*sqs.Message{}
-	for i := 1; i <= 10; i++ {
-		idxStr := strconv.Itoa(i)
-		p := &JobPayloadForTest{ID: "msgid:" + strconv.Itoa(i)}
-		msgs = append(msgs, &sqs.Message{
-			MessageId:     aws.String(p.ID),
-			Body:          aws.String(p.String()),
-			ReceiptHandle: aws.String("receithandle-" + idxStr),
-		})
-	}
-	c := &Conf{}
-	r := NewResource(NewMockClient(), "http://example.com/foo/bar/queue")
-	tr := NewJobTracker(5)
-	h := NewMessageHandler(r, tr, c)
-
-	ctx := context.Background()
-	wg := &sync.WaitGroup{}
-
-	h.HandleMessages(ctx, msgs, wg)
-
-	if len(tr.CurrentWorkings) != tr.MaxProcessCount {
-		t.Errorf("requests is wrong: %d", len(tr.CurrentWorkings))
-	}
-
-	if len(tr.Waitings) != 5 {
-		t.Errorf("waiting count is wrong: %d", len(tr.Waitings))
-	}
 }
 
 func TestDoHandle(t *testing.T) {

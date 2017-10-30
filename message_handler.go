@@ -5,8 +5,6 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
 type MessageHandler struct {
@@ -98,13 +96,8 @@ func (h *MessageHandler) DoHandle(ctx context.Context, wg *sync.WaitGroup) {
 		return
 	}
 	log.Printf("received %d messages. run jobs.\n", len(results))
-	h.HandleMessages(ctx, results, wg)
-}
-
-func (h *MessageHandler) HandleMessages(ctx context.Context, msgs []*sqs.Message, wg *sync.WaitGroup) {
-	for _, msg := range msgs {
-		job := NewJob(msg, h.Conf)
-		h.Tracker.Add(job)
+	for _, msg := range results {
+		h.Tracker.Add(NewJob(msg, h.Conf))
 	}
 }
 
