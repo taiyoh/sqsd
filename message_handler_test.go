@@ -388,3 +388,21 @@ func TestRunTrackerEventListener(t *testing.T) {
 	cancel()
 	wg.Wait()
 }
+
+func TestMessageHandlerRun(t *testing.T) {
+	h := NewMessageHandler(
+		NewResource(NewMockClient(), "http://example.com/foo/bar/queue"),
+		NewJobTracker(1),
+		&Conf{},
+	)
+
+	wg := &sync.WaitGroup{}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg.Add(1)
+	go h.Run(ctx, wg)
+	time.Sleep(5 * time.Millisecond)
+
+	cancel()
+	wg.Done()
+}
