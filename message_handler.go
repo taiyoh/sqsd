@@ -16,6 +16,9 @@ type MessageHandler struct {
 	QueueURL        string
 	HandleEmptyFunc func()
 	ShouldStop      bool
+	OnJobAddedFunc  func(h *MessageHandler, job *Job, ctx context.Context, wg *sync.WaitGroup)
+	OnJobDeletedFunc func(h *MessageHandler, ctx context.Context, wg *sync.WaitGroup)
+
 }
 
 func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *MessageHandler {
@@ -27,6 +30,22 @@ func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *Mes
 		HandleEmptyFunc: func() {
 			time.Sleep(1 * time.Second)
 		},
+		OnJobAddedFunc: func(h *MessageHandler, job *Job, ctx context.Context, wg *sync.WaitGroup) {
+			if job == nil {
+				return
+			}
+			wg.Add(1)
+			go h.HandleJob(ctx, job, wg)
+		},
+		OnJobDeletedFunc: func(h *MessageHandler, ctx context.Context, wg *sync.WaitGroup) {
+			tracker := h.Tracker
+			if !tracker.Acceptable() {
+				return
+			}
+			if job := tracker.ShiftWaitingJobs(); job != nil {
+				tracker.Add(job)
+			}
+		},
 	}
 }
 
@@ -34,25 +53,55 @@ func (h *MessageHandler) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Println("MessageHandler start.")
 	defer wg.Done()
 	syncWait := &sync.WaitGroup{}
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("context cancelled. stop MessageHandler.")
-			h.ShouldStop = true
-			break
-		default:
-			h.DoHandle(ctx, syncWait)
-		}
-		if h.ShouldStop {
-			break
-		}
-	}
+	syncWait.Add(2)
+	go h.RunTrackerEventListener(ctx, syncWait)
+	go h.RunMainLoop(ctx, syncWait)
 	syncWait.Wait()
 	log.Println("MessageHandler closed.")
 }
 
+func (h *MessageHandler) RunTrackerEventListener(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	tracker := h.Tracker
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("context cancelled. stop RunTrackerEventListener.")
+			return
+		case <-tracker.JobDeleted():
+			h.OnJobDeleted(ctx, wg)
+		case job := <-tracker.JobAdded():
+			h.OnJobAdded(job, ctx, wg)
+		default:
+			continue
+		}
+	}
+}
+
+func (h *MessageHandler) OnJobAdded(job *Job, ctx context.Context, wg *sync.WaitGroup) {
+	h.OnJobAddedFunc(h, job, ctx, wg)
+}
+
+func (h *MessageHandler) OnJobDeleted(ctx context.Context, wg *sync.WaitGroup) {
+	h.OnJobDeletedFunc(h, ctx, wg)
+}
+
+func (h *MessageHandler) RunMainLoop(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("context cancelled. stop RunMainLoop.")
+			return
+		default:
+			h.DoHandle(ctx, wg)
+		}
+	}
+}
+
 func (h *MessageHandler) DoHandle(ctx context.Context, wg *sync.WaitGroup) {
 	if !h.Tracker.Acceptable() {
+		log.Println("tracker not acceptable")
 		h.HandleEmpty()
 		return
 	}
@@ -74,10 +123,7 @@ func (h *MessageHandler) DoHandle(ctx context.Context, wg *sync.WaitGroup) {
 func (h *MessageHandler) HandleMessages(ctx context.Context, msgs []*sqs.Message, wg *sync.WaitGroup) {
 	for _, msg := range msgs {
 		job := NewJob(msg, h.Conf)
-		if h.Tracker.Add(job) {
-			wg.Add(1)
-			go h.HandleJob(ctx, job, wg)
-		}
+		h.Tracker.Add(job)
 	}
 }
 
@@ -87,14 +133,14 @@ func (h *MessageHandler) HandleEmpty() {
 
 func (h *MessageHandler) HandleJob(ctx context.Context, job *Job, wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Printf("job[%s] HandleMessage start.\n", job.ID())
+	log.Printf("job[%s] HandleJob start.\n", job.ID())
 	ok, err := job.Run(ctx)
 	if err != nil {
-		log.Printf("job[%s] HandleMessage request error: %s\n", job.ID(), err)
+		log.Printf("job[%s] HandleJob request error: %s\n", job.ID(), err)
 	}
 	if ok {
 		h.Resource.DeleteMessage(job.Msg)
 	}
 	h.Tracker.Delete(job)
-	log.Printf("job[%s] HandleMessage finished.\n", job.ID())
+	log.Printf("job[%s] HandleJob finished.\n", job.ID())
 }

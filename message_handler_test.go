@@ -5,10 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"sync"
 	"testing"
@@ -121,41 +118,22 @@ func TestHandleMessages(t *testing.T) {
 			ReceiptHandle: aws.String("receithandle-" + idxStr),
 		})
 	}
-	caughtIds := map[string]bool{}
-	l := &sync.Mutex{}
-	ts := httptest.NewServer(http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			p := DecodePayload(r.Body)
-			l.Lock()
-			caughtIds[p.ID] = true
-			l.Unlock()
-			w.Header().Set("content-Type", "text")
-			fmt.Fprintf(w, "goood")
-			return
-		},
-	))
-	defer ts.Close()
-
-	c := &Conf{Worker: WorkerConf{JobURL: ts.URL}}
+	c := &Conf{}
 	r := NewResource(NewMockClient(), "http://example.com/foo/bar/queue")
 	tr := NewJobTracker(5)
 	h := NewMessageHandler(r, tr, c)
 
 	ctx := context.Background()
-
 	wg := &sync.WaitGroup{}
-	h.HandleMessages(ctx, msgs, wg)
-	wg.Wait()
 
-	if len(caughtIds) != tr.MaxProcessCount {
-		t.Errorf("requests is wrong: %d", len(caughtIds))
+	h.HandleMessages(ctx, msgs, wg)
+
+	if len(tr.CurrentWorkings) != tr.MaxProcessCount {
+		t.Errorf("requests is wrong: %d", len(tr.CurrentWorkings))
 	}
 
-	for i := 6; i <= 10; i++ {
-		id := "msgid:" + strconv.Itoa(i)
-		if _, exists := caughtIds[id]; exists {
-			t.Errorf("id: %s exists", id)
-		}
+	if len(tr.Waitings) != 5 {
+		t.Errorf("waiting count is wrong: %d", len(tr.Waitings))
 	}
 }
 
@@ -294,3 +272,109 @@ func TestDoHandle(t *testing.T) {
 		}
 	})
 }
+
+func TestRunMainLoop(t *testing.T) {
+	c := &Conf{}
+	mc := NewMockClient()
+	r := NewResource(mc, "http://example.com/foo/bar/queue")
+	r.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
+	tr := NewJobTracker(5)
+	h := NewMessageHandler(r, tr, c)
+
+	wg := &sync.WaitGroup{}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg.Add(1)
+	go h.RunMainLoop(ctx, wg)
+
+	time.Sleep(10 * time.Millisecond)
+	cancel()
+	wg.Wait()
+}
+
+func TestRunTrackerEventListener(t *testing.T) {
+	c := &Conf{}
+	mc := NewMockClient()
+	r := NewResource(mc, "http://example.com/foo/bar/queue")
+	r.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
+	tr := NewJobTracker(1)
+	h := NewMessageHandler(r, tr, c)
+
+	wg := &sync.WaitGroup{}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	//origOnJobAddedFunc = h.OnJobAddedFunc
+	origOnJobDeletedFunc := h.OnJobDeletedFunc
+
+	onjobAddedCount := 0
+	onjobDeletedCount := 0
+	h.OnJobAddedFunc = func(h *MessageHandler, job *Job, ctx context.Context, wg *sync.WaitGroup) {
+		onjobAddedCount++
+	}
+	h.OnJobDeletedFunc = func(h *MessageHandler, ctx context.Context, wg *sync.WaitGroup) {
+		onjobDeletedCount++
+	}
+
+	wg.Add(1)
+	go h.RunTrackerEventListener(ctx, wg)
+	time.Sleep(10 * time.Millisecond)
+
+	job1 := NewJob(
+		&sqs.Message{
+			MessageId: aws.String("id:1"),
+			Body: aws.String("foobarbaz"),
+			ReceiptHandle: aws.String("hoge"),
+		},
+		h.Conf,
+	)
+	job2 := NewJob(
+		&sqs.Message{
+			MessageId: aws.String("id:2"),
+			Body: aws.String("foobarbaz"),
+			ReceiptHandle: aws.String("fuga"),
+		},
+		h.Conf,
+	)
+
+	added := tr.Add(job1)
+	if !added {
+		t.Error("job handling fails")
+	}
+	time.Sleep(5 * time.Millisecond)
+	if onjobAddedCount != 1 {
+		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
+	}
+	if onjobDeletedCount != 0 {
+		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
+	}
+
+
+	added = tr.Add(job2)
+	if added {
+		t.Error("job handling fails")
+	}
+	time.Sleep(5 * time.Millisecond)
+	if onjobAddedCount != 2 {
+		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
+	}
+	if onjobDeletedCount != 0 {
+		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
+	}
+
+	tr.Delete(job1)
+	time.Sleep(5 * time.Millisecond)
+
+	origOnJobDeletedFunc(h, ctx, wg)
+	time.Sleep(5 * time.Millisecond)
+
+	if onjobAddedCount != 3 {
+		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
+	}
+	if onjobDeletedCount != 1 {
+		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
+	}
+
+	cancel()
+	wg.Wait()
+}
+
