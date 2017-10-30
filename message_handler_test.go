@@ -321,16 +321,16 @@ func TestRunTrackerEventListener(t *testing.T) {
 
 	job1 := NewJob(
 		&sqs.Message{
-			MessageId: aws.String("id:1"),
-			Body: aws.String("foobarbaz"),
+			MessageId:     aws.String("id:1"),
+			Body:          aws.String("foobarbaz"),
 			ReceiptHandle: aws.String("hoge"),
 		},
 		h.Conf,
 	)
 	job2 := NewJob(
 		&sqs.Message{
-			MessageId: aws.String("id:2"),
-			Body: aws.String("foobarbaz"),
+			MessageId:     aws.String("id:2"),
+			Body:          aws.String("foobarbaz"),
 			ReceiptHandle: aws.String("fuga"),
 		},
 		h.Conf,
@@ -347,7 +347,6 @@ func TestRunTrackerEventListener(t *testing.T) {
 	if onjobDeletedCount != 0 {
 		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
 	}
-
 
 	added = tr.Add(job2)
 	if added {
@@ -377,4 +376,3 @@ func TestRunTrackerEventListener(t *testing.T) {
 	cancel()
 	wg.Wait()
 }
-

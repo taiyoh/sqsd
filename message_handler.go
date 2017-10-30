@@ -10,15 +10,14 @@ import (
 )
 
 type MessageHandler struct {
-	Resource        *Resource
-	Tracker         *JobTracker
-	Conf            *WorkerConf
-	QueueURL        string
-	HandleEmptyFunc func()
-	ShouldStop      bool
-	OnJobAddedFunc  func(h *MessageHandler, job *Job, ctx context.Context, wg *sync.WaitGroup)
+	Resource         *Resource
+	Tracker          *JobTracker
+	Conf             *WorkerConf
+	QueueURL         string
+	HandleEmptyFunc  func()
+	ShouldStop       bool
+	OnJobAddedFunc   func(h *MessageHandler, job *Job, ctx context.Context, wg *sync.WaitGroup)
 	OnJobDeletedFunc func(h *MessageHandler, ctx context.Context, wg *sync.WaitGroup)
-
 }
 
 func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *MessageHandler {

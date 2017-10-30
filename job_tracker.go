@@ -20,7 +20,7 @@ func NewJobTracker(maxProcCount uint) *JobTracker {
 		MaxProcessCount: int(maxProcCount),
 		JobWorking:      true,
 		mu:              &sync.RWMutex{},
-		Waitings:		 []*Job{},
+		Waitings:        []*Job{},
 	}
 }
 
