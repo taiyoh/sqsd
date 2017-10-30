@@ -61,9 +61,8 @@ func TestHandleMessage(t *testing.T) {
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		}, h.Conf)
 		job.URL = ts.URL + "/error"
-
-		wg.Add(1)
-		go h.HandleJob(ctx, job, wg)
+		h.OnJobAddedFunc(h, nil, ctx, wg)
+		h.OnJobAddedFunc(h, job, ctx, wg)
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
@@ -79,8 +78,7 @@ func TestHandleMessage(t *testing.T) {
 		job.URL = ts.URL + "/long"
 		parent, cancel := context.WithCancel(ctx)
 		wg := &sync.WaitGroup{}
-		wg.Add(1)
-		go h.HandleJob(parent, job, wg)
+		h.OnJobAddedFunc(h, job, parent, wg)
 		cancel()
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
@@ -96,8 +94,7 @@ func TestHandleMessage(t *testing.T) {
 		}, h.Conf)
 		job.URL = ts.URL + "/ok"
 		wg := &sync.WaitGroup{}
-		wg.Add(1)
-		go h.HandleJob(ctx, job, wg)
+		h.OnJobAddedFunc(h, job, ctx, wg)
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
 			t.Error("working job yet exists")
@@ -303,7 +300,7 @@ func TestRunTrackerEventListener(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	//origOnJobAddedFunc = h.OnJobAddedFunc
+	//origOnJobAddedFunc := h.OnJobAddedFunc
 	origOnJobDeletedFunc := h.OnJobDeletedFunc
 
 	mu := &sync.Mutex{}
