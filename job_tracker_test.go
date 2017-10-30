@@ -17,15 +17,15 @@ func TestJobTracker(t *testing.T) {
 
 	job1 := &Job{
 		Msg: &sqs.Message{
-			MessageId: aws.String("id:1"),
-			Body:      aws.String("hoge"),
+			MessageId:     aws.String("id:1"),
+			Body:          aws.String("hoge"),
 			ReceiptHandle: aws.String("foo"),
 		},
 	}
 	job2 := &Job{
 		Msg: &sqs.Message{
-			MessageId: aws.String("id:2"),
-			Body:      aws.String("fuga"),
+			MessageId:     aws.String("id:2"),
+			Body:          aws.String("fuga"),
 			ReceiptHandle: aws.String("bar"),
 		},
 	}
