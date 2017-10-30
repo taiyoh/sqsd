@@ -27,9 +27,6 @@ func NewMessageHandler(resource *Resource, tracker *JobTracker, conf *Conf) *Mes
 			time.Sleep(1 * time.Second)
 		},
 		OnJobAddedFunc: func(h *MessageHandler, job *Job, ctx context.Context, wg *sync.WaitGroup) {
-			if job == nil {
-				return
-			}
 			wg.Add(1)
 			go h.HandleJob(ctx, job, wg)
 		},

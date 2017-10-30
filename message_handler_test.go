@@ -60,7 +60,6 @@ func TestHandleMessage(t *testing.T) {
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		}, h.Conf)
 		job.URL = ts.URL + "/error"
-		h.OnJobAddedFunc(h, nil, ctx, wg)
 		h.OnJobAddedFunc(h, job, ctx, wg)
 		wg.Wait()
 		if _, exists := h.Tracker.CurrentWorkings[job.ID()]; exists {
