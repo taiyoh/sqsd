@@ -71,8 +71,6 @@ func (h *MessageHandler) RunTrackerEventListener(ctx context.Context, wg *sync.W
 			h.OnJobDeleted(ctx, wg)
 		case job := <-tracker.JobAdded():
 			h.OnJobAdded(job, ctx, wg)
-		default:
-			continue
 		}
 	}
 }
