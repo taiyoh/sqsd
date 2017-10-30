@@ -306,13 +306,19 @@ func TestRunTrackerEventListener(t *testing.T) {
 	//origOnJobAddedFunc = h.OnJobAddedFunc
 	origOnJobDeletedFunc := h.OnJobDeletedFunc
 
+	mu := &sync.Mutex{}
+
 	onjobAddedCount := 0
 	onjobDeletedCount := 0
 	h.OnJobAddedFunc = func(h *MessageHandler, job *Job, ctx context.Context, wg *sync.WaitGroup) {
+		mu.Lock()
 		onjobAddedCount++
+		mu.Unlock()
 	}
 	h.OnJobDeletedFunc = func(h *MessageHandler, ctx context.Context, wg *sync.WaitGroup) {
+		mu.Lock()
 		onjobDeletedCount++
+		mu.Unlock()
 	}
 
 	wg.Add(1)
@@ -341,24 +347,28 @@ func TestRunTrackerEventListener(t *testing.T) {
 		t.Error("job handling fails")
 	}
 	time.Sleep(5 * time.Millisecond)
+	mu.Lock()
 	if onjobAddedCount != 1 {
 		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
 	}
 	if onjobDeletedCount != 0 {
 		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
 	}
+	mu.Unlock()
 
 	added = tr.Add(job2)
 	if added {
 		t.Error("job handling fails")
 	}
 	time.Sleep(5 * time.Millisecond)
+	mu.Lock()
 	if onjobAddedCount != 2 {
 		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
 	}
 	if onjobDeletedCount != 0 {
 		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
 	}
+	mu.Unlock()
 
 	tr.Delete(job1)
 	time.Sleep(5 * time.Millisecond)
@@ -366,12 +376,14 @@ func TestRunTrackerEventListener(t *testing.T) {
 	origOnJobDeletedFunc(h, ctx, wg)
 	time.Sleep(5 * time.Millisecond)
 
+	mu.Lock()
 	if onjobAddedCount != 3 {
 		t.Errorf("onjobaddedcount is wrong: %d\n", onjobAddedCount)
 	}
 	if onjobDeletedCount != 1 {
 		t.Errorf("onjobdeletedcount is wrong: %d\n", onjobDeletedCount)
 	}
+	mu.Unlock()
 
 	cancel()
 	wg.Wait()
