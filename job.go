@@ -12,20 +12,20 @@ import (
 
 type Job struct {
 	Msg     *sqs.Message
-	StartAt time.Time
+	ReceivedAt time.Time
 	URL     string
 }
 
 type JobSummary struct {
 	ID      string `json:"id"`
-	StartAt int64  `json:"start_at"`
+	ReceivedAt int64  `json:"received_at"`
 	Payload string `json:"payload"`
 }
 
 func NewJob(msg *sqs.Message, conf *WorkerConf) *Job {
 	return &Job{
 		Msg:     msg,
-		StartAt: time.Now(),
+		ReceivedAt: time.Now(),
 		URL:     conf.JobURL,
 	}
 }
@@ -43,7 +43,7 @@ func (j *Job) Run(ctx context.Context) (bool, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "github.com/taiyoh/sqsd-"+GetVersion())
 	req.Header.Set("X-Sqsd-Msgid", j.ID())
-	req.Header.Set("X-Sqsd-First-Received-At", j.StartAt.Format("2006-01-02T15:04:05Z0700"))
+	req.Header.Set("X-Sqsd-First-Received-At", j.ReceivedAt.Format("2006-01-02T15:04:05Z0700"))
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -64,7 +64,7 @@ func (j *Job) Run(ctx context.Context) (bool, error) {
 func (j *Job) Summary() *JobSummary {
 	return &JobSummary{
 		ID:      j.ID(),
-		StartAt: j.StartAt.Unix(),
+		ReceivedAt: j.ReceivedAt.Unix(),
 		Payload: *j.Msg.Body,
 	}
 }

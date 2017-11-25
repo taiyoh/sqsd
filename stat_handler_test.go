@@ -45,7 +45,7 @@ func TestRenderJSON(t *testing.T) {
 	w.ResBytes = []byte{} // clear
 	RenderJSON(w, &StatCurrentJobsResponse{
 		CurrentJobs: []*JobSummary{
-			&JobSummary{ID: "1", Payload: "p1", StartAt: 10},
+			&JobSummary{ID: "1", Payload: "p1", ReceivedAt: 10},
 		},
 	})
 	var r StatCurrentJobsResponse
