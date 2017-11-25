@@ -15,12 +15,15 @@ func TestJobTracker(t *testing.T) {
 		t.Error("job tracker not loaded.")
 	}
 
+	now := time.Now()
+
 	job1 := &Job{
 		Msg: &sqs.Message{
 			MessageId:     aws.String("id:1"),
 			Body:          aws.String("hoge"),
 			ReceiptHandle: aws.String("foo"),
 		},
+		ReceivedAt: now.Add(1),
 	}
 	job2 := &Job{
 		Msg: &sqs.Message{
@@ -28,52 +31,41 @@ func TestJobTracker(t *testing.T) {
 			Body:          aws.String("fuga"),
 			ReceiptHandle: aws.String("bar"),
 		},
+		ReceivedAt: now,
 	}
-	addedJobs := []*Job{}
-	cancel := make(chan struct{})
-	wait := make(chan struct{})
+	allJobRegistered := false
 	go func() {
-		for {
-			select {
-			case <-cancel:
-				return
-			case job := <-tracker.NextJob():
-				if job != nil {
-					addedJobs = append(addedJobs, job)
-				}
-				wait <- struct{}{}
-			}
-		}
+		tracker.Register(job1)
+		tracker.Register(job2)
+		allJobRegistered = true
 	}()
 	time.Sleep(5 * time.Millisecond)
-	ok := tracker.Add(job1)
-	if !ok {
-		t.Error("job1 not inserted")
-	}
-	ok = tracker.Add(job2)
-	if ok {
-		t.Error("job2 inserted")
-	}
-	<-wait
-	if len(addedJobs) != 1 {
-		t.Errorf("add event not comes: %d\n", len(addedJobs))
-	}
-	if _, exists := tracker.CurrentWorkings[job1.ID()]; !exists {
-		t.Error("job1 not registered")
-	}
-	tracker.DeleteAndNextJob(job1)
-	<-wait
-	if _, exists := tracker.CurrentWorkings[job1.ID()]; exists {
-		t.Error("job1 not deleted")
-	}
-	if len(addedJobs) != 2 {
-		t.Errorf("add event not comes: %d\n", len(addedJobs))
-	}
-	if _, exists := tracker.CurrentWorkings[job2.ID()]; !exists {
-		t.Error("job2 not registered")
+
+	if allJobRegistered {
+		t.Error("2 jobs inserted")
 	}
 
-	cancel <- struct{}{}
+	receivedJob := <-tracker.NextJob()
+	if receivedJob.ID() != job1.ID() {
+		t.Error("wrong order")
+	}
+	time.Sleep(5 * time.Millisecond)
+
+	if !allJobRegistered {
+		t.Error("second job not registered")
+	}
+	receivedJob = <-tracker.NextJob()
+	if receivedJob.ID() != job2.ID() {
+		t.Error("wrong order")
+	}
+
+	summaries := tracker.CurrentSummaries()
+	if summaries[0].ID != job2.ID() {
+		t.Error("wrong order")
+	}
+	if summaries[1].ID != job1.ID() {
+		t.Error("wrong order")
+	}
 }
 
 func TestJobWorking(t *testing.T) {
@@ -85,16 +77,10 @@ func TestJobWorking(t *testing.T) {
 	if !tr.JobWorking {
 		t.Error("JobWorking false")
 	}
-	if !tr.Acceptable() {
-		t.Error("Acceptable() invalid")
-	}
 
 	tr.Pause()
 	if tr.JobWorking {
 		t.Error("JobWorking not changed to true")
-	}
-	if tr.Acceptable() {
-		t.Error("Acceptable() invalid")
 	}
 
 	tr.Resume()
@@ -108,6 +94,7 @@ func TestCurrentSummaries(t *testing.T) {
 	conf := &WorkerConf{
 		JobURL: "http://example.com/foo/bar",
 	}
+	now := time.Now()
 	for i := 1; i <= 2; i++ {
 		iStr := strconv.Itoa(i)
 		msg := &sqs.Message{
@@ -115,16 +102,18 @@ func TestCurrentSummaries(t *testing.T) {
 			Body:          aws.String("bar" + iStr),
 			ReceiptHandle: aws.String("baz" + iStr),
 		}
-		tr.Add(NewJob(msg, conf))
+		job := NewJob(msg, conf)
+		job.ReceivedAt = now.Add(time.Duration(i))
+		tr.Register(job)
 	}
 
 	summaries := tr.CurrentSummaries()
 	for _, summary := range summaries {
-		job, exists := tr.CurrentWorkings[summary.ID]
+		data, exists := tr.CurrentWorkings.Load(summary.ID)
 		if !exists {
 			t.Errorf("job not found: %s", summary.ID)
 		}
-		if summary.Payload != *job.Msg.Body {
+		if summary.Payload != *(data.(*Job)).Msg.Body {
 			t.Errorf("job payload is wrong: %s", summary.Payload)
 		}
 	}

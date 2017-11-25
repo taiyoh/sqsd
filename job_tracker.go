@@ -2,76 +2,54 @@ package sqsd
 
 import (
 	"sync"
+	"sort"
 )
 
 type JobTracker struct {
-	CurrentWorkings map[string]*Job
+	CurrentWorkings *sync.Map
 	MaxProcessCount int
 	JobWorking      bool
-	mu              *sync.RWMutex
-	Waitings        []*Job
-	nextJobChan     chan *Job
+	jobChan         chan *Job
+	jobStack        chan struct{}
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
+	processCount := int(maxProcCount)
 	return &JobTracker{
-		CurrentWorkings: make(map[string]*Job),
-		MaxProcessCount: int(maxProcCount),
+		CurrentWorkings: new(sync.Map),
+		MaxProcessCount: processCount,
 		JobWorking:      true,
-		mu:              &sync.RWMutex{},
-		Waitings:        []*Job{},
+		jobChan:         make(chan *Job),
+		jobStack:        make(chan struct{}, processCount),
 	}
 }
 
-func (t *JobTracker) Add(job *Job) bool {
-	var registeredWorkings bool
-	t.mu.Lock()
-	if len(t.CurrentWorkings) >= t.MaxProcessCount {
-		t.Waitings = append(t.Waitings, job)
-		registeredWorkings = false
-	} else {
-		t.CurrentWorkings[job.ID()] = job
-		registeredWorkings = true
-	}
-	t.mu.Unlock()
-	if registeredWorkings && t.nextJobChan != nil {
-		t.nextJobChan <- job
-	}
-	return registeredWorkings
+func (t *JobTracker) Register(job *Job) {
+	t.jobStack <- struct{}{}
+	t.CurrentWorkings.Store(job.ID(), job)
+	t.jobChan <- job
 }
 
-func (t *JobTracker) NextJob() <-chan *Job {
-	t.mu.Lock()
-	if t.nextJobChan == nil {
-		t.nextJobChan = make(chan *Job)
-	}
-	t.mu.Unlock()
-	n := t.nextJobChan
-	return n
-}
-
-func (t *JobTracker) DeleteAndNextJob(job *Job) {
-	var waitingJob *Job
-	t.mu.Lock()
-	delete(t.CurrentWorkings, job.ID())
-	if len(t.Waitings) > 0 {
-		waitingJob = t.Waitings[0]
-		t.Waitings = t.Waitings[1:]
-	}
-	t.mu.Unlock()
-	if waitingJob != nil {
-		t.Add(waitingJob)
-	}
+func (t *JobTracker) Complete(job *Job) {
+	t.CurrentWorkings.Delete(job.ID())
+	<-t.jobStack
 }
 
 func (t *JobTracker) CurrentSummaries() []*JobSummary {
 	currentList := []*JobSummary{}
-	t.mu.RLock()
-	for _, job := range t.CurrentWorkings {
+	t.CurrentWorkings.Range(func(key, val interface{}) bool {
+		job := val.(*Job)
 		currentList = append(currentList, job.Summary())
-	}
-	t.mu.RUnlock()
+		return true
+	})
+	sort.Slice(currentList, func(i, j int) bool {
+		return currentList[i].ReceivedAt < currentList[j].ReceivedAt
+	})
 	return currentList
+}
+
+func (t *JobTracker) NextJob() <-chan *Job {
+       return t.jobChan
 }
 
 func (t *JobTracker) Pause() {
@@ -86,15 +64,3 @@ func (t *JobTracker) IsWorking() bool {
 	return t.JobWorking
 }
 
-func (t *JobTracker) Acceptable() bool {
-	if !t.JobWorking {
-		return false
-	}
-	t.mu.RLock()
-	l := len(t.CurrentWorkings)
-	t.mu.RUnlock()
-	if l >= t.MaxProcessCount {
-		return false
-	}
-	return true
-}
