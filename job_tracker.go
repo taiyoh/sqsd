@@ -7,32 +7,29 @@ import (
 
 type JobTracker struct {
 	CurrentWorkings *sync.Map
-	MaxProcessCount int
 	JobWorking      bool
 	jobChan         chan *Job
 	jobStack        chan struct{}
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
-	processCount := int(maxProcCount)
 	return &JobTracker{
 		CurrentWorkings: new(sync.Map),
-		MaxProcessCount: processCount,
 		JobWorking:      true,
 		jobChan:         make(chan *Job),
-		jobStack:        make(chan struct{}, processCount),
+		jobStack:        make(chan struct{}, int(maxProcCount)),
 	}
 }
 
 func (t *JobTracker) Register(job *Job) {
-	t.jobStack <- struct{}{}
+	t.jobStack <- struct{}{} // blocking
 	t.CurrentWorkings.Store(job.ID(), job)
 	t.jobChan <- job
 }
 
 func (t *JobTracker) Complete(job *Job) {
 	t.CurrentWorkings.Delete(job.ID())
-	<-t.jobStack
+	<-t.jobStack // unblock
 }
 
 func (t *JobTracker) CurrentSummaries() []*JobSummary {
