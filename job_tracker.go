@@ -38,8 +38,7 @@ func (t *JobTracker) Complete(job *Job) {
 func (t *JobTracker) CurrentSummaries() []*JobSummary {
 	currentList := []*JobSummary{}
 	t.CurrentWorkings.Range(func(key, val interface{}) bool {
-		job := val.(*Job)
-		currentList = append(currentList, job.Summary())
+		currentList = append(currentList, (val.(*Job)).Summary())
 		return true
 	})
 	sort.Slice(currentList, func(i, j int) bool {
