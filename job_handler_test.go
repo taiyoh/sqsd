@@ -52,8 +52,8 @@ func TestHandleJob(t *testing.T) {
 			t.Error("error not returns")
 		}
 
-		if receivedRes.Err == nil {
-			t.Error("error not found")
+		if receivedRes.Err != nil {
+			t.Error("error found")
 		}
 	})
 
@@ -105,8 +105,8 @@ func TestHandleJob(t *testing.T) {
 			t.Error("error not returns")
 		}
 
-		if receivedRes.Err != nil {
-			t.Error("error found")
+		if receivedRes.Err == nil {
+			t.Error("error not found")
 		}
 	})
 
