@@ -64,14 +64,14 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 	tr := NewJobTracker(5)
 	h := &StatHandler{tr}
 
-	for i := 1; i <= tr.MaxProcessCount; i++ {
+	for i := 1; i <= 5; i++ {
 		j := &Job{
 			Msg: &sqs.Message{
 				MessageId: aws.String("id:" + strconv.Itoa(i)),
 				Body:      aws.String(`foobar`),
 			},
 		}
-		tr.Add(j)
+		tr.Register(j)
 	}
 
 	summaryController := h.WorkerCurrentSummaryHandler()
@@ -101,12 +101,8 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 			t.Error("json unmarshal error", err)
 		}
 
-		if r.JobsCount != tr.MaxProcessCount {
+		if r.JobsCount != 5 {
 			t.Error("job summaries invalid")
-		}
-
-		if r.RestCount != 0 {
-			t.Error("rest count invalid")
 		}
 
 		if !r.IsWorking {
@@ -140,12 +136,12 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 			t.Error("json unmarshal error", err)
 		}
 
-		if len(r.CurrentJobs) != tr.MaxProcessCount {
+		if len(r.CurrentJobs) != 5 {
 			t.Error("current_jobs count invalid")
 		}
 
 		for _, summary := range r.CurrentJobs {
-			if _, exists := tr.CurrentWorkings[summary.ID]; !exists {
+			if _, exists := tr.CurrentWorkings.Load(summary.ID); !exists {
 				t.Errorf("job summary not registered: %s\n", summary.ID)
 			}
 		}
