@@ -15,7 +15,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	c := &Conf{}
 	mc := NewMockClient()
 	rs := NewResource(mc, "http://example.com/foo/bar/queue")
-	r.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
+	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
 	tr := NewJobTracker(5)
 	rc := NewMessageReceiver(rs, tr, c)
 	if rc == nil {
@@ -109,7 +109,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc.RecvRequestCount = 0
 	handleEmptyCalled = false
 	t.Run("received 1 message", func(t *testing.T) {
-		h.DoHandle(context.Background())
+		rc.DoHandle(context.Background())
 
 		if handleEmptyCalled {
 			t.Error("HandleEmpty worked")
@@ -136,9 +136,9 @@ func TestReceiverRun(t *testing.T) {
 	c := &Conf{}
 	mc := NewMockClient()
 	rs := NewResource(mc, "http://example.com/foo/bar/queue")
-	r.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
+	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
 	tr := NewJobTracker(5)
-	rc := NewMessageHandler(rs, tr, c)
+	rc := NewMessageReceiver(rs, tr, c)
 
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
