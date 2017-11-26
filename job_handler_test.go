@@ -2,10 +2,8 @@ package sqsd
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -44,7 +42,7 @@ func TestHandleJob(t *testing.T) {
 
 		tr.Register(job)
 
-		receivedRes := <- receivedChan
+		receivedRes := <-receivedChan
 
 		if receivedRes.JobID != job.ID() {
 			t.Error("wrong job processed")
@@ -69,7 +67,7 @@ func TestHandleJob(t *testing.T) {
 
 		tr.Register(job)
 
-		receivedRes := <- receivedChan
+		receivedRes := <-receivedChan
 
 		if receivedRes.JobID != job.ID() {
 			t.Error("wrong job processed")
@@ -92,12 +90,12 @@ func TestHandleJob(t *testing.T) {
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		}, c)
 		job.URL = ts.URL + "/long"
-	
+
 		tr.Register(job)
 
 		cancel()
 
-		receivedRes := <- receivedChan
+		receivedRes := <-receivedChan
 
 		if receivedRes.JobID != job.ID() {
 			t.Error("wrong job processed")
