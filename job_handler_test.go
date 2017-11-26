@@ -9,6 +9,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
+type HandleJobResponse struct {
+	JobID string
+	Ok    bool
+	Err   error
+}
+
 func TestHandleJob(t *testing.T) {
 	c := &WorkerConf{}
 	mc := NewMockClient()
@@ -17,8 +23,12 @@ func TestHandleJob(t *testing.T) {
 	h := NewJobHandler(r, tr)
 
 	receivedChan := make(chan *HandleJobResponse)
-	h.OnHandleJobEnds = func(res *HandleJobResponse) {
-		receivedChan <- res
+	h.OnHandleJobEnds = func(jobID string, ok bool, err error) {
+		receivedChan <- &HandleJobResponse{
+			JobID: jobID,
+			Ok:    ok,
+			Err:   err,
+		}
 	}
 
 	ctx := context.Background()

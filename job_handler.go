@@ -9,14 +9,8 @@ import (
 type JobHandler struct {
 	Tracker          *JobTracker
 	Resource         *Resource
-	OnHandleJobEnds  func(res *HandleJobResponse)
+	OnHandleJobEnds  func(jobID string, ok bool, err error)
 	OnHandleJobStart func(job *Job)
-}
-
-type HandleJobResponse struct {
-	JobID string
-	Ok    bool
-	Err   error
 }
 
 func NewJobHandler(resource *Resource, tracker *JobTracker) *JobHandler {
@@ -24,7 +18,7 @@ func NewJobHandler(resource *Resource, tracker *JobTracker) *JobHandler {
 		Tracker:          tracker,
 		Resource:         resource,
 		OnHandleJobStart: func(job *Job) {},
-		OnHandleJobEnds:  func(res *HandleJobResponse) {},
+		OnHandleJobEnds:  func(jobID string, ok bool, err error) {},
 	}
 }
 
@@ -56,9 +50,5 @@ func (h *JobHandler) HandleJob(ctx context.Context, job *Job, wg *sync.WaitGroup
 	}
 	h.Tracker.Complete(job)
 	log.Printf("job[%s] HandleJob finished.\n", job.ID())
-	h.OnHandleJobEnds(&HandleJobResponse{
-		JobID: job.ID(),
-		Ok:    ok,
-		Err:   err,
-	})
+	h.OnHandleJobEnds(job.ID(), ok, err)
 }
