@@ -17,9 +17,9 @@ type MessageReceiver struct {
 
 func NewMessageReceiver(resource *Resource, tracker *JobTracker, conf *Conf) *MessageReceiver {
 	return &MessageReceiver{
-		Resource:   resource,
-		Tracker:    tracker,
-		Conf:       &conf.Worker,
+		Resource: resource,
+		Tracker:  tracker,
+		Conf:     &conf.Worker,
 		HandleEmptyFunc: func() {
 			time.Sleep(1 * time.Second)
 		},

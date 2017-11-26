@@ -11,22 +11,22 @@ import (
 )
 
 type Job struct {
-	Msg     *sqs.Message
+	Msg        *sqs.Message
 	ReceivedAt time.Time
-	URL     string
+	URL        string
 }
 
 type JobSummary struct {
-	ID      string `json:"id"`
+	ID         string `json:"id"`
 	ReceivedAt int64  `json:"received_at"`
-	Payload string `json:"payload"`
+	Payload    string `json:"payload"`
 }
 
 func NewJob(msg *sqs.Message, conf *WorkerConf) *Job {
 	return &Job{
-		Msg:     msg,
+		Msg:        msg,
 		ReceivedAt: time.Now(),
-		URL:     conf.JobURL,
+		URL:        conf.JobURL,
 	}
 }
 
@@ -63,8 +63,8 @@ func (j *Job) Run(ctx context.Context) (bool, error) {
 
 func (j *Job) Summary() *JobSummary {
 	return &JobSummary{
-		ID:      j.ID(),
+		ID:         j.ID(),
 		ReceivedAt: j.ReceivedAt.Unix(),
-		Payload: *j.Msg.Body,
+		Payload:    *j.Msg.Body,
 	}
 }

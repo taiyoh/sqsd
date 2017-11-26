@@ -1,8 +1,8 @@
 package sqsd
 
 import (
-	"sync"
 	"sort"
+	"sync"
 )
 
 type JobTracker struct {
@@ -45,7 +45,7 @@ func (t *JobTracker) CurrentSummaries() []*JobSummary {
 }
 
 func (t *JobTracker) NextJob() <-chan *Job {
-       return t.jobChan
+	return t.jobChan
 }
 
 func (t *JobTracker) Pause() {
@@ -59,4 +59,3 @@ func (t *JobTracker) Resume() {
 func (t *JobTracker) IsWorking() bool {
 	return t.JobWorking
 }
-
