@@ -29,21 +29,18 @@ func NewJobHandler(resource *Resource, tracker *JobTracker) *JobHandler {
 }
 
 func (h *JobHandler) RunEventListener(ctx context.Context, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		syncWait := new(sync.WaitGroup)
-		for {
-			select {
-			case <-ctx.Done():
-				syncWait.Wait()
-				return
-			case job := <-h.Tracker.NextJob():
-				syncWait.Add(1)
-				go h.HandleJob(ctx, job, syncWait)
-			}
+	defer wg.Done()
+	syncWait := new(sync.WaitGroup)
+	for {
+		select {
+		case <-ctx.Done():
+			syncWait.Wait()
+			return
+		case job := <-h.Tracker.NextJob():
+			syncWait.Add(1)
+			go h.HandleJob(ctx, job, syncWait)
 		}
-	}()
+	}
 }
 
 func (h *JobHandler) HandleJob(ctx context.Context, job *Job, wg *sync.WaitGroup) {
