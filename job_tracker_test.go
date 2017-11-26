@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
@@ -13,6 +14,8 @@ func TestJobTracker(t *testing.T) {
 	if tracker == nil {
 		t.Error("job tracker not loaded.")
 	}
+
+	mu := new(sync.Mutex)
 
 	now := time.Now()
 
@@ -37,14 +40,18 @@ func TestJobTracker(t *testing.T) {
 	go func() {
 		tracker.Register(job1)
 		tracker.Register(job2)
+		mu.Lock()
 		allJobRegistered = true
+		mu.Unlock()
 	}()
 
 	time.Sleep(5 * time.Millisecond)
 
+	mu.Lock()
 	if allJobRegistered {
 		t.Error("2 jobs inserted")
 	}
+	mu.Unlock()
 
 	receivedJob := <-tracker.NextJob()
 	if receivedJob.ID() != job1.ID() {
@@ -60,9 +67,12 @@ func TestJobTracker(t *testing.T) {
 
 	time.Sleep(5 * time.Microsecond)
 
+	mu.Lock()
 	if !allJobRegistered {
 		t.Error("second job not registered")
 	}
+	mu.Unlock()
+
 	receivedJob = <-tracker.NextJob()
 	if receivedJob.ID() != job2.ID() {
 		t.Error("wrong order")
