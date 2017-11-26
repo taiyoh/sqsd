@@ -1,7 +1,6 @@
 package sqsd
 
 import (
-	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
@@ -33,12 +32,14 @@ func TestJobTracker(t *testing.T) {
 		},
 		ReceivedAt: now,
 	}
+
 	allJobRegistered := false
 	go func() {
 		tracker.Register(job1)
 		tracker.Register(job2)
 		allJobRegistered = true
 	}()
+
 	time.Sleep(5 * time.Millisecond)
 
 	if allJobRegistered {
@@ -49,7 +50,15 @@ func TestJobTracker(t *testing.T) {
 	if receivedJob.ID() != job1.ID() {
 		t.Error("wrong order")
 	}
-	time.Sleep(5 * time.Millisecond)
+
+	summaries := tracker.CurrentSummaries()
+	if summaries[0].ID != job1.ID() {
+		t.Error("wrong order")
+	}
+
+	tracker.Complete(receivedJob)
+
+	time.Sleep(5 * time.Microsecond)
 
 	if !allJobRegistered {
 		t.Error("second job not registered")
@@ -59,19 +68,13 @@ func TestJobTracker(t *testing.T) {
 		t.Error("wrong order")
 	}
 
-	summaries := tracker.CurrentSummaries()
+	summaries = tracker.CurrentSummaries()
 	if summaries[0].ID != job2.ID() {
-		t.Error("wrong order")
-	}
-	if summaries[1].ID != job1.ID() {
 		t.Error("wrong order")
 	}
 }
 
 func TestJobWorking(t *testing.T) {
-	_, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	tr := NewJobTracker(5)
 
 	if !tr.JobWorking {

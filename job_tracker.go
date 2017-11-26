@@ -13,11 +13,12 @@ type JobTracker struct {
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
+	procCount := int(maxProcCount)
 	return &JobTracker{
 		CurrentWorkings: new(sync.Map),
 		JobWorking:      true,
-		jobChan:         make(chan *Job),
-		jobStack:        make(chan struct{}, int(maxProcCount)),
+		jobChan:         make(chan *Job, procCount),
+		jobStack:        make(chan struct{}, procCount),
 	}
 }
 
