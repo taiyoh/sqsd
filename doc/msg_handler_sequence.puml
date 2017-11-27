@@ -3,53 +3,57 @@
 title "sequence about sqsd handler"
 hide footbox
 
-participant MessageHandler
+participant MessageReceiver
 participant SQS
-participant GoRoutine
 participant JobTracker
+participant JobHandler
+participant HandleJob
 participant Worker
 
-MessageHandler -> MessageHandler : Run()
-activate MessageHandler
+MessageReceiver -> MessageReceiver : Run()
+activate MessageReceiver
 
-MessageHandler -> JobTracker : IsWorking()
+MessageReceiver -> JobTracker : IsWorking()
 activate JobTracker
-MessageHandler <-- JobTracker : bool
+MessageReceiver <-- JobTracker : bool
 deactivate JobTracker
 
-MessageHandler -> SQS : GetMessages()
+MessageReceiver -> SQS : GetMessages()
 activate SQS
-MessageHandler <-- SQS : []*sqs.Message
+MessageReceiver <-- SQS : []*sqs.Message
 deactivate SQS
 
 loop HandleMessage([]*sqs.Message)
-  MessageHandler -> MessageHandler : Newjob(*sqs.Message) *Job
-  MessageHandler -> JobTracker : AddJob(*job)
+  MessageReceiver -> MessageReceiver : Newjob(*sqs.Message) *Job
+  MessageReceiver -> JobTracker : Register(*job)
   activate JobTracker
 
-  JobTracker -> JobTracker : CurrentWorkings[job.ID()] = job
-  MessageHandler <-- JobTracker : bool
+  JobTracker -> JobTracker : jobStack <- struct{}{}
+  JobTracker -> JobTracker : CurrentWorkings.Store(job.ID(), job)
+  JobHandler <-- JobTracker : <-tracker.NextJob()
   deactivate JobTracker
+  activate JobHandler
 
-  MessageHandler ->> GoRoutine : go HandleMessage(*Job)
-  activate GoRoutine
-  deactivate MessageHandler
+  JobHandler ->> HandleJob : goroutine
+  activate HandleJob
+  deactivate JobHandler
 end
 
-GoRoutine -> Worker : <POST Request>
+HandleJob -> Worker : <POST Request>
 activate Worker
 Worker -> Worker : <work hard!>
-GoRoutine <-- Worker : <HTTP response>
+HandleJob <-- Worker : <HTTP response>
 deactivate Worker
-GoRoutine -> SQS : DeleteMessage(*sqs.Message)
+HandleJob -> SQS : DeleteMessage(*sqs.Message)
 activate SQS
-GoRoutine <-- SQS
+HandleJob <-- SQS
 deactivate SQS
-GoRoutine -> JobTracker : Delete(*Job)
+HandleJob -> JobTracker : Complete(*Job)
 activate JobTracker
-JobTracker -> JobTracker : delete(CurrentWorkings, job.ID())
-GoRoutine <-- JobTracker
+JobTracker -> JobTracker : CurrentWorkings.Delete(job.ID())
+JobTracker -> JobTracker : <- jobStack
+HandleJob <-- JobTracker
 deactivate JobTracker
-deactivate GoRoutine
+deactivate HandleJob
 
 @enduml
