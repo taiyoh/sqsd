@@ -132,7 +132,7 @@ func main() {
 	jobHandler := sqsd.NewJobHandler(resource, tracker)
 	wg.Add(1)
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		jobHandler.RunEventListener(ctx)
 	}()
 

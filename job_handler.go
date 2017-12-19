@@ -31,13 +31,15 @@ func (h *JobHandler) RunEventListener(ctx context.Context) {
 			return
 		case job := <-h.Tracker.NextJob():
 			syncWait.Add(1)
-			go h.HandleJob(ctx, job, syncWait)
+			go func() {
+				defer syncWait.Done()
+				h.HandleJob(ctx, job)
+			}()
 		}
 	}
 }
 
-func (h *JobHandler) HandleJob(ctx context.Context, job *Job, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (h *JobHandler) HandleJob(ctx context.Context, job *Job) {
 	h.OnHandleJobStart(job)
 	log.Printf("job[%s] HandleJob start.\n", job.ID())
 	ok, err := job.Run(ctx)

@@ -42,8 +42,8 @@ func TestHandleJob(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
-		wg.Done()
-		go h.RunEventListener(ctx)
+		defer wg.Done()
+		h.RunEventListener(ctx)
 	}()
 
 	t.Run("job failed", func(t *testing.T) {
