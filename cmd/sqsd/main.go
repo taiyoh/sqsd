@@ -131,7 +131,10 @@ func main() {
 
 	jobHandler := sqsd.NewJobHandler(resource, tracker)
 	wg.Add(1)
-	go jobHandler.RunEventListener(ctx, wg)
+	go func() {
+		wg.Done()
+		jobHandler.RunEventListener(ctx)
+	}()
 
 	msgReceiver := sqsd.NewMessageReceiver(
 		resource,

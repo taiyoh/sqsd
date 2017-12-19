@@ -41,7 +41,10 @@ func TestHandleJob(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	wg.Add(1)
-	go h.RunEventListener(ctx, wg)
+	go func() {
+		wg.Done()
+		go h.RunEventListener(ctx)
+	}()
 
 	t.Run("job failed", func(t *testing.T) {
 		job := NewJob(&sqs.Message{

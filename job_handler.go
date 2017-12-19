@@ -22,8 +22,7 @@ func NewJobHandler(resource *Resource, tracker *JobTracker) *JobHandler {
 	}
 }
 
-func (h *JobHandler) RunEventListener(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (h *JobHandler) RunEventListener(ctx context.Context) {
 	syncWait := new(sync.WaitGroup)
 	for {
 		select {
