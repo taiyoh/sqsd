@@ -19,6 +19,7 @@ type MockClient struct {
 	Resp             *sqs.ReceiveMessageOutput
 	RecvRequestCount int
 	DelRequestCount  int
+	ErrRequestCount  int
 	Err              error
 	mu               sync.Mutex
 	RecvFunc         func(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error)
@@ -38,6 +39,9 @@ func NewMockClient() *MockClient {
 		if len(c.Resp.Messages) == 0 && *param.WaitTimeSeconds > 0 {
 			dur := time.Duration(*param.WaitTimeSeconds)
 			time.Sleep(dur * time.Second)
+		}
+		if c.Err != nil {
+			c.ErrRequestCount++
 		}
 		return c.Resp, c.Err
 	}

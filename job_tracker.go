@@ -1,50 +1,52 @@
 package sqsd
 
 import (
+	"sort"
 	"sync"
 )
 
 type JobTracker struct {
-	CurrentWorkings map[string]*Job
-	MaxProcessCount int
+	CurrentWorkings *sync.Map
 	JobWorking      bool
-	mu              *sync.RWMutex
+	jobChan         chan *Job
+	jobStack        chan struct{}
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
+	procCount := int(maxProcCount)
 	return &JobTracker{
-		CurrentWorkings: make(map[string]*Job),
-		MaxProcessCount: int(maxProcCount),
+		CurrentWorkings: new(sync.Map),
 		JobWorking:      true,
-		mu:              &sync.RWMutex{},
+		jobChan:         make(chan *Job, procCount),
+		jobStack:        make(chan struct{}, procCount),
 	}
 }
 
-func (t *JobTracker) Add(job *Job) bool {
-	t.mu.Lock()
-	if len(t.CurrentWorkings) >= t.MaxProcessCount {
-		t.mu.Unlock()
-		return false
-	}
-	t.CurrentWorkings[job.ID()] = job
-	t.mu.Unlock()
-	return true
+func (t *JobTracker) Register(job *Job) {
+	t.jobStack <- struct{}{} // blocking
+	t.CurrentWorkings.Store(job.ID(), job)
+	t.jobChan <- job
 }
 
-func (t *JobTracker) Delete(job *Job) {
-	t.mu.Lock()
-	delete(t.CurrentWorkings, job.ID())
-	t.mu.Unlock()
+func (t *JobTracker) Complete(job *Job) {
+	t.CurrentWorkings.Delete(job.ID())
+	<-t.jobStack // unblock
 }
 
 func (t *JobTracker) CurrentSummaries() []*JobSummary {
 	currentList := []*JobSummary{}
-	t.mu.RLock()
-	for _, job := range t.CurrentWorkings {
-		currentList = append(currentList, job.Summary())
-	}
-	t.mu.RUnlock()
+	t.CurrentWorkings.Range(func(key, val interface{}) bool {
+		currentList = append(currentList, (val.(*Job)).Summary())
+		return true
+	})
+	sort.Slice(currentList, func(i, j int) bool {
+		return currentList[i].ReceivedAt < currentList[j].ReceivedAt
+	})
 	return currentList
+}
+
+func (t *JobTracker) NextJob() <-chan *Job {
+	return t.jobChan
 }
 
 func (t *JobTracker) Pause() {
@@ -57,17 +59,4 @@ func (t *JobTracker) Resume() {
 
 func (t *JobTracker) IsWorking() bool {
 	return t.JobWorking
-}
-
-func (t *JobTracker) Acceptable() bool {
-	if !t.JobWorking {
-		return false
-	}
-	t.mu.RLock()
-	l := len(t.CurrentWorkings)
-	t.mu.RUnlock()
-	if l >= t.MaxProcessCount {
-		return false
-	}
-	return true
 }
