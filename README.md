@@ -4,8 +4,8 @@
 
 ## sequence about MessageHandler
 
-![message handler sequence](./doc/msg_handler_sequence.png)
+![message handler sequence](https://raw.githubusercontent.com/taiyoh/sqsd/master/doc/msg_handler_sequence.png)
 
 ## sequence about StatServer
 
-![stat server sequence](./doc/stat_sequence.png)
+![stat server sequence](https://raw.githubusercontent.com/taiyoh/sqsd/master/doc/stat_sequence.png)
