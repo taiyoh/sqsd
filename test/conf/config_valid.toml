@@ -7,5 +7,6 @@ job_url="http://127.0.0.1:8080/run_job"
 server_port=4080
 
 [sqs]
-queue_url="http://example.com/queue/hoge"
+account_id="foobar"
+queue_name="hoge"
 region="ap-northeast-1"
