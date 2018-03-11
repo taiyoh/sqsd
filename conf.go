@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"errors"
-	"log"
 	"net/url"
 	"strings"
 
@@ -109,10 +108,8 @@ func NewConf(filepath string) (*Conf, error) {
 	sqsdConf.Init()
 
 	if err := sqsdConf.Validate(); err != nil {
-		log.Println("bbbbbbbbbb", err)
 		return nil, err
 	}
 
-	log.Println("cccccccc")
 	return sqsdConf, nil
 }

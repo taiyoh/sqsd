@@ -2,7 +2,7 @@ package sqsd
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"sync"
 )
 
@@ -11,14 +11,16 @@ type JobHandler struct {
 	Resource         *Resource
 	OnHandleJobEnds  func(jobID string, ok bool, err error)
 	OnHandleJobStart func(job *Job)
+	Logger           Logger
 }
 
-func NewJobHandler(resource *Resource, tracker *JobTracker) *JobHandler {
+func NewJobHandler(resource *Resource, tracker *JobTracker, logger Logger) *JobHandler {
 	return &JobHandler{
 		Tracker:          tracker,
 		Resource:         resource,
 		OnHandleJobStart: func(job *Job) {},
 		OnHandleJobEnds:  func(jobID string, ok bool, err error) {},
+		Logger:           logger,
 	}
 }
 
@@ -41,15 +43,15 @@ func (h *JobHandler) RunEventListener(ctx context.Context) {
 
 func (h *JobHandler) HandleJob(ctx context.Context, job *Job) {
 	h.OnHandleJobStart(job)
-	log.Printf("job[%s] HandleJob start.\n", job.ID())
+	h.Logger.Debug(fmt.Sprintf("job[%s] HandleJob start.\n", job.ID()))
 	ok, err := job.Run(ctx)
 	if err != nil {
-		log.Printf("job[%s] HandleJob request error: %s\n", job.ID(), err)
+		h.Logger.Debug(fmt.Sprintf("job[%s] HandleJob request error: %s\n", job.ID(), err))
 	}
 	if ok {
 		h.Resource.DeleteMessage(job.Msg)
 	}
 	h.Tracker.Complete(job)
-	log.Printf("job[%s] HandleJob finished.\n", job.ID())
+	h.Logger.Debug(fmt.Sprintf("job[%s] HandleJob finished.\n", job.ID()))
 	h.OnHandleJobEnds(job.ID(), ok, err)
 }

@@ -3,11 +3,11 @@ package sqsd
 import (
 	"bytes"
 	"context"
-	"github.com/aws/aws-sdk-go/service/sqs"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
 type Job struct {
@@ -54,7 +54,6 @@ func (j *Job) Run(ctx context.Context) (bool, error) {
 	statusCode := resp.StatusCode
 	defer resp.Body.Close()
 	if statusCode != 200 {
-		log.Printf("job[%s] failed. status: %d, response: %s", j.ID(), statusCode, buf.String())
 		return false, nil
 	}
 

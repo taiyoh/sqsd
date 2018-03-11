@@ -2,7 +2,7 @@ package sqsd
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -13,9 +13,10 @@ type MessageReceiver struct {
 	Conf            *WorkerConf
 	QueueURL        string
 	HandleEmptyFunc func()
+	Logger          Logger
 }
 
-func NewMessageReceiver(resource *Resource, tracker *JobTracker, conf *Conf) *MessageReceiver {
+func NewMessageReceiver(resource *Resource, tracker *JobTracker, conf *Conf, logger Logger) *MessageReceiver {
 	return &MessageReceiver{
 		Resource: resource,
 		Tracker:  tracker,
@@ -23,11 +24,12 @@ func NewMessageReceiver(resource *Resource, tracker *JobTracker, conf *Conf) *Me
 		HandleEmptyFunc: func() {
 			time.Sleep(1 * time.Second)
 		},
+		Logger: logger,
 	}
 }
 
 func (r *MessageReceiver) Run(ctx context.Context, wg *sync.WaitGroup) {
-	log.Println("MessageReceiver start.")
+	r.Logger.Debug("MessageReceiver start.")
 	defer wg.Done()
 	wg.Add(1)
 	go func() {
@@ -35,14 +37,14 @@ func (r *MessageReceiver) Run(ctx context.Context, wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("context cancelled. stop RunMainLoop.")
+				r.Logger.Debug("context cancelled. stop RunMainLoop.")
 				return
 			default:
 				r.DoHandle(ctx)
 			}
 		}
 	}()
-	log.Println("MessageReceiver closed.")
+	r.Logger.Debug("MessageReceiver closed.")
 }
 
 func (r *MessageReceiver) HandleEmpty() {
@@ -51,22 +53,22 @@ func (r *MessageReceiver) HandleEmpty() {
 
 func (r *MessageReceiver) DoHandle(ctx context.Context) {
 	if !r.Tracker.IsWorking() {
-		log.Println("tracker not working")
+		r.Logger.Debug("tracker not working")
 		r.HandleEmpty()
 		return
 	}
 	results, err := r.Resource.GetMessages(ctx)
 	if err != nil {
-		log.Println("Error", err)
+		r.Logger.Debug(fmt.Sprintf("Error", err))
 		r.HandleEmpty()
 		return
 	}
 	if len(results) == 0 {
-		log.Println("received no messages")
+		r.Logger.Debug("received no messages")
 		r.HandleEmpty()
 		return
 	}
-	log.Printf("received %d messages. run jobs.\n", len(results))
+	r.Logger.Debug(fmt.Sprintf("received %d messages. run jobs.\n", len(results)))
 	jobs := []*Job{}
 	for _, msg := range results {
 		jobs = append(jobs, NewJob(msg, r.Conf))
