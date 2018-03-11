@@ -29,7 +29,7 @@ func NewMessageReceiver(resource *Resource, tracker *JobTracker, conf *Conf, log
 }
 
 func (r *MessageReceiver) Run(ctx context.Context, wg *sync.WaitGroup) {
-	r.Logger.Debug("MessageReceiver start.")
+	r.Logger.Info("MessageReceiver start.")
 	defer wg.Done()
 	wg.Add(1)
 	go func() {
@@ -37,14 +37,14 @@ func (r *MessageReceiver) Run(ctx context.Context, wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-ctx.Done():
-				r.Logger.Debug("context cancelled. stop RunMainLoop.")
+				r.Logger.Info("context cancelled. stop RunMainLoop.")
 				return
 			default:
 				r.DoHandle(ctx)
 			}
 		}
 	}()
-	r.Logger.Debug("MessageReceiver closed.")
+	r.Logger.Info("MessageReceiver closed.")
 }
 
 func (r *MessageReceiver) HandleEmpty() {
