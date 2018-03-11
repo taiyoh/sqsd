@@ -7,5 +7,6 @@ job_url="{{.job_url}}"
 server_port={{.stat_server_port}}
 
 [sqs]
-queue_url="{{.sqs_queue_url}}"
-region={{.sqs_region}}
+account_id="{{.aws_account_id}}"
+region="{{.saws_region}}"
+queue_name="{{.sqs_queue_name}}"

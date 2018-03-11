@@ -1,4 +1,4 @@
-FROM golang:alpine3.6
+FROM golang:alpine
 
 RUN apk --update add --virtual curl unzip
 
@@ -7,7 +7,7 @@ ENV envlate_zip_file=envlate-${envlate_version}.zip
 RUN curl -L https://github.com/tkuchiki/envlate/releases/download/v${envlate_version}/envlate_linux_amd64.zip -o ${envlate_zip_file} && \
     unzip ${envlate_zip_file} && chmod +x envlate && mv envlate /usr/local/bin && rm ${envlate_zip_file}
 
-ENV SQSD_VERSION=0.0.4
+ENV SQSD_VERSION=0.0.6
 RUN curl -L https://github.com/taiyoh/sqsd/releases/download/v${SQSD_VERSION}/sqsd_linux_amd64.tar.gz -o sqsd_linux_amd64.tar.gz && \
     tar xvzf sqsd_linux_amd64.tar.gz && \
     mv sqsd $GOPATH/bin/sqsd && \
