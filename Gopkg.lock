@@ -20,6 +20,12 @@
   version = "v1.28.2"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/logutils"
+  packages = ["."]
+  revision = "0dc08b1671f34c4250ce212759ebd880f743d883"
+
+[[projects]]
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
   revision = "3433f3ea46d9f8019119e7dd41274e112a2359a9"
@@ -40,6 +46,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "98f0475c6b482b8f178dd3655f93a268edb97fa91b406719713370e6c9dd6636"
+  inputs-digest = "a86c5793088097a18e7219ce8da5c981c28a5c9e8a51fc8774db037474340751"
   solver-name = "gps-cdcl"
   solver-version = 1
