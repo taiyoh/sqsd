@@ -19,8 +19,9 @@ func TestHandleJob(t *testing.T) {
 	c := &WorkerConf{}
 	mc := NewMockClient()
 	r := NewResource(mc, "http://example.com/foo/bar/queue")
+	l := NewLogger("DEBUG")
 	tr := NewJobTracker(5)
-	h := NewJobHandler(r, tr)
+	h := NewJobHandler(r, tr, l)
 
 	receivedChan := make(chan *HandleJobResponse)
 	h.OnHandleJobEnds = func(jobID string, ok bool, err error) {

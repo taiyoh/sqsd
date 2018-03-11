@@ -109,6 +109,8 @@ func main() {
 		log.Fatalf("config file: %s, err: %s\n", confPath, err)
 	}
 
+	logger := sqsd.NewLogger(config.Worker.LogLevel)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	wg := &sync.WaitGroup{}
@@ -127,9 +129,9 @@ func main() {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS.QueueURL)
+	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS.QueueURL())
 
-	jobHandler := sqsd.NewJobHandler(resource, tracker)
+	jobHandler := sqsd.NewJobHandler(resource, tracker, logger)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -140,10 +142,11 @@ func main() {
 		resource,
 		tracker,
 		config,
+		logger,
 	)
 	wg.Add(1)
 	go msgReceiver.Run(ctx, wg)
 
 	wg.Wait()
-	log.Println("sqsd ends.")
+	logger.Info("sqsd ends.")
 }
