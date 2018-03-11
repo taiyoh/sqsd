@@ -27,7 +27,8 @@ func TestInitConf(t *testing.T) {
 func TestValidateConf(t *testing.T) {
 	c := &Conf{}
 	c.Init()
-	c.SQS.QueueURL = "https://example.com/queue/hoge"
+	c.SQS.AccountID = "foo"
+	c.SQS.QueueName = "bar"
 	c.SQS.Region = "ap-northeast-1"
 	c.Worker.JobURL = "http://localhost:1080/run_job"
 	c.Stat.ServerPort = 10000
@@ -47,15 +48,16 @@ func TestValidateConf(t *testing.T) {
 	}
 
 	c.Stat.ServerPort = 10000
-	c.SQS.QueueURL = ""
+	c.SQS.QueueName = ""
 	if err := c.Validate(); err == nil {
-		t.Error("SQS.QueueURL is empty, but no error")
+		t.Error("sqs.queue_name is required")
 	}
-	c.SQS.QueueURL = "foo://bar/baz"
+	c.SQS.QueueName = "bar"
+	c.SQS.AccountID = ""
 	if err := c.Validate(); err == nil {
-		t.Error("SQS.QueueURL is not HTTP url, but no error")
+		t.Error("sqs.account_id is required")
 	}
-	c.SQS.QueueURL = "https://example.com/queue/hoge"
+	c.SQS.AccountID = "foo"
 	c.SQS.Region = ""
 	if err := c.Validate(); err == nil {
 		t.Error("SQS.Region not exists, but no error")
@@ -84,8 +86,8 @@ func TestNewConf(t *testing.T) {
 	if err != nil {
 		t.Error("invalid config??? ", err)
 	}
-	if conf.SQS.QueueURL != "http://example.com/queue/hoge" {
-		t.Error("QueueURL not loaded correctly. " + conf.SQS.QueueURL)
+	if conf.SQS.QueueURL() != "https://sqs.ap-northeast-1.amazonaws.com/foobar/hoge" {
+		t.Error("QueueURL not loaded correctly. " + conf.SQS.QueueURL())
 	}
 	if conf.Stat.ServerPort != 4080 {
 		t.Error("Stat.ServerPort not loaded correctly. " + strconv.Itoa(conf.Stat.ServerPort))
