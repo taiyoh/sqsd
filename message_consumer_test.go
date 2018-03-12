@@ -16,12 +16,11 @@ type HandleJobResponse struct {
 }
 
 func TestHandleJob(t *testing.T) {
-	c := &WorkerConf{}
 	mc := NewMockClient()
 	r := NewResource(mc, "http://example.com/foo/bar/queue")
 	l := NewLogger("DEBUG")
 	tr := NewJobTracker(5)
-	msgc := NewMessageConsumer(r, tr, l)
+	msgc := NewMessageConsumer(r, tr, l, "")
 
 	receivedChan := make(chan *HandleJobResponse)
 	msgc.OnHandleJobEnds = func(jobID string, ok bool, err error) {
@@ -45,12 +44,12 @@ func TestHandleJob(t *testing.T) {
 	go msgc.Run(ctx, wg)
 
 	t.Run("job failed", func(t *testing.T) {
+		msgc.URL = ts.URL + "/error"
 		job := NewJob(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageNG"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
-		}, c)
-		job.URL = ts.URL + "/error"
+		})
 
 		tr.Register(job)
 
@@ -74,8 +73,8 @@ func TestHandleJob(t *testing.T) {
 			MessageId:     aws.String("TestHandleMessageOK"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
-		}, c)
-		job.URL = ts.URL + "/ok"
+		})
+		msgc.URL = ts.URL + "/ok"
 
 		tr.Register(job)
 
@@ -100,8 +99,8 @@ func TestHandleJob(t *testing.T) {
 			MessageId:     aws.String("TestHandleMessageErr"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
-		}, c)
-		job.URL = ts.URL + "/long"
+		})
+		msgc.URL = ts.URL + "/long"
 
 		tr.Register(job)
 

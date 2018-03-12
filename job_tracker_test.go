@@ -105,9 +105,6 @@ func TestJobWorking(t *testing.T) {
 
 func TestCurrentSummaries(t *testing.T) {
 	tr := NewJobTracker(5)
-	conf := &WorkerConf{
-		JobURL: "http://example.com/foo/bar",
-	}
 	now := time.Now()
 	for i := 1; i <= 2; i++ {
 		iStr := strconv.Itoa(i)
@@ -116,7 +113,7 @@ func TestCurrentSummaries(t *testing.T) {
 			Body:          aws.String("bar" + iStr),
 			ReceiptHandle: aws.String("baz" + iStr),
 		}
-		job := NewJob(msg, conf)
+		job := NewJob(msg)
 		job.ReceivedAt = now.Add(time.Duration(i))
 		tr.Register(job)
 	}

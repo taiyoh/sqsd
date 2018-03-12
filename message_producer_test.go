@@ -12,13 +12,12 @@ import (
 )
 
 func TestNewReceiverAndDoHandle(t *testing.T) {
-	c := &Conf{}
 	mc := NewMockClient()
 	rs := NewResource(mc, "http://example.com/foo/bar/queue")
 	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
 	tr := NewJobTracker(5)
 	l := NewLogger("DEBUG")
-	pr := NewMessageProducer(rs, tr, c, l)
+	pr := NewMessageProducer(rs, tr, l)
 	if pr == nil {
 		t.Error("receiver not loaded")
 	}
@@ -134,13 +133,12 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 }
 
 func TestReceiverRun(t *testing.T) {
-	c := &Conf{}
 	mc := NewMockClient()
 	rs := NewResource(mc, "http://example.com/foo/bar/queue")
 	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
 	tr := NewJobTracker(5)
 	l := NewLogger("DEBUG")
-	pr := NewMessageProducer(rs, tr, c, l)
+	pr := NewMessageProducer(rs, tr, l)
 
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())

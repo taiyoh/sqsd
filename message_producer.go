@@ -10,17 +10,15 @@ import (
 type MessageProducer struct {
 	Resource        *Resource
 	Tracker         *JobTracker
-	Conf            *WorkerConf
 	QueueURL        string
 	HandleEmptyFunc func()
 	Logger          Logger
 }
 
-func NewMessageProducer(resource *Resource, tracker *JobTracker, conf *Conf, logger Logger) *MessageProducer {
+func NewMessageProducer(resource *Resource, tracker *JobTracker, logger Logger) *MessageProducer {
 	return &MessageProducer{
 		Resource: resource,
 		Tracker:  tracker,
-		Conf:     &conf.Worker,
 		HandleEmptyFunc: func() {
 			time.Sleep(1 * time.Second)
 		},
@@ -72,7 +70,7 @@ func (p *MessageProducer) DoHandle(ctx context.Context) {
 	p.Logger.Debug(fmt.Sprintf("received %d messages. run jobs.\n", len(results)))
 	jobs := []*Job{}
 	for _, msg := range results {
-		jobs = append(jobs, NewJob(msg, p.Conf))
+		jobs = append(jobs, NewJob(msg))
 	}
 	for _, job := range jobs {
 		p.Tracker.Register(job)
