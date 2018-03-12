@@ -59,7 +59,7 @@ func (r *MessageReceiver) DoHandle(ctx context.Context) {
 	}
 	results, err := r.Resource.GetMessages(ctx)
 	if err != nil {
-		r.Logger.Debug(fmt.Sprintf("Error: %s", err))
+		r.Logger.Error(fmt.Sprintf("GetMessages Error: %s", err))
 		r.HandleEmpty()
 		return
 	}

@@ -46,7 +46,7 @@ func (h *JobHandler) HandleJob(ctx context.Context, job *Job) {
 	h.Logger.Debug(fmt.Sprintf("job[%s] HandleJob start.\n", job.ID()))
 	ok, err := job.Run(ctx)
 	if err != nil {
-		h.Logger.Debug(fmt.Sprintf("job[%s] HandleJob request error: %s\n", job.ID(), err))
+		h.Logger.Error(fmt.Sprintf("job[%s] HandleJob request error: %s\n", job.ID(), err))
 	}
 	if ok {
 		h.Resource.DeleteMessage(job.Msg)
