@@ -24,13 +24,17 @@ func NewMessageConsumer(resource *Resource, tracker *JobTracker, logger Logger) 
 	}
 }
 
-func (c *MessageConsumer) RunEventListener(ctx context.Context) {
+func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 	syncWait := new(sync.WaitGroup)
+	loopEnds := false
+	c.Logger.Info("MessageConsumer start.")
 	for {
 		select {
 		case <-ctx.Done():
 			syncWait.Wait()
-			return
+			loopEnds = true
+			break
 		case job := <-c.Tracker.NextJob():
 			syncWait.Add(1)
 			go func() {
@@ -38,7 +42,11 @@ func (c *MessageConsumer) RunEventListener(ctx context.Context) {
 				c.HandleJob(ctx, job)
 			}()
 		}
+		if loopEnds {
+			break
+		}
 	}
+	c.Logger.Info("MessageConsumer closed.")
 }
 
 func (c *MessageConsumer) HandleJob(ctx context.Context, job *Job) {
