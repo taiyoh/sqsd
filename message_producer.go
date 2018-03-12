@@ -29,15 +29,20 @@ func NewMessageProducer(resource *Resource, tracker *JobTracker, conf *Conf, log
 }
 
 func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
-	p.Logger.Info("MessageProducer start.")
 	defer wg.Done()
+	loopEnds := false
+	p.Logger.Info("MessageProducer start.")
 	for {
 		select {
 		case <-ctx.Done():
 			p.Logger.Info("context cancelled. stop RunMainLoop.")
-			return
+			loopEnds = true
+			break
 		default:
 			p.DoHandle(ctx)
+		}
+		if loopEnds {
+			break
 		}
 	}
 	p.Logger.Info("MessageProducer closed.")
