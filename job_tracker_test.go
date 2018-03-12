@@ -1,12 +1,13 @@
 package sqsd
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
 func TestJobTracker(t *testing.T) {
@@ -65,7 +66,7 @@ func TestJobTracker(t *testing.T) {
 
 	tracker.Complete(receivedJob)
 
-	time.Sleep(5 * time.Microsecond)
+	time.Sleep(10 * time.Microsecond)
 
 	mu.Lock()
 	if !allJobRegistered {
