@@ -18,14 +18,14 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
 	tr := NewJobTracker(5)
 	l := NewLogger("DEBUG")
-	rc := NewMessageReceiver(rs, tr, c, l)
-	if rc == nil {
+	pr := NewMessageProducer(rs, tr, c, l)
+	if pr == nil {
 		t.Error("receiver not loaded")
 	}
 
 	handleEmptyCalled := false
 
-	rc.HandleEmptyFunc = func() {
+	pr.HandleEmptyFunc = func() {
 		handleEmptyCalled = true
 	}
 	mc.ErrRequestCount = 0
@@ -34,7 +34,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 		t.Error("jobworking not changed")
 	}
 	t.Run("tracker is not working", func(t *testing.T) {
-		rc.DoHandle(context.Background())
+		pr.DoHandle(context.Background())
 
 		if !handleEmptyCalled {
 			t.Error("HandleEmpty not working")
@@ -60,7 +60,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 		t.Error("jobworking flag not changed")
 	}
 	t.Run("received but empty messages", func(t *testing.T) {
-		rc.DoHandle(context.Background())
+		pr.DoHandle(context.Background())
 
 		if !handleEmptyCalled {
 			t.Error("HandleEmpty not working")
@@ -83,7 +83,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc.ErrRequestCount = 0
 	handleEmptyCalled = false
 	t.Run("received but empty messages", func(t *testing.T) {
-		rc.DoHandle(context.Background())
+		pr.DoHandle(context.Background())
 
 		if !handleEmptyCalled {
 			t.Error("HandleEmpty not working")
@@ -110,7 +110,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc.RecvRequestCount = 0
 	handleEmptyCalled = false
 	t.Run("received 1 message", func(t *testing.T) {
-		rc.DoHandle(context.Background())
+		pr.DoHandle(context.Background())
 
 		if handleEmptyCalled {
 			t.Error("HandleEmpty worked")
@@ -140,12 +140,12 @@ func TestReceiverRun(t *testing.T) {
 	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
 	tr := NewJobTracker(5)
 	l := NewLogger("DEBUG")
-	rc := NewMessageReceiver(rs, tr, c, l)
+	pr := NewMessageProducer(rs, tr, c, l)
 
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	wg.Add(1)
-	go rc.Run(ctx, wg)
+	go pr.Run(ctx, wg)
 
 	time.Sleep(10 * time.Millisecond)
 	cancel()

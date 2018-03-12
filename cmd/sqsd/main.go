@@ -138,14 +138,14 @@ func main() {
 		jobHandler.RunEventListener(ctx)
 	}()
 
-	msgReceiver := sqsd.NewMessageReceiver(
+	msgProducer := sqsd.NewMessageProducer(
 		resource,
 		tracker,
 		config,
 		logger,
 	)
 	wg.Add(1)
-	go msgReceiver.Run(ctx, wg)
+	go msgProducer.Run(ctx, wg)
 
 	wg.Wait()
 	logger.Info("sqsd ends.")
