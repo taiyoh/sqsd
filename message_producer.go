@@ -10,7 +10,6 @@ import (
 type MessageProducer struct {
 	Resource        *Resource
 	Tracker         *JobTracker
-	QueueURL        string
 	HandleEmptyFunc func()
 	Logger          Logger
 }
