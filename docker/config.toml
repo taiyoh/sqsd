@@ -8,5 +8,5 @@ server_port={{.stat_server_port}}
 
 [sqs]
 account_id="{{.aws_account_id}}"
-region="{{.saws_region}}"
+region="{{.aws_region}}"
 queue_name="{{.sqs_queue_name}}"
