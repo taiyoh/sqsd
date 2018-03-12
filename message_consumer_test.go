@@ -21,10 +21,10 @@ func TestHandleJob(t *testing.T) {
 	r := NewResource(mc, "http://example.com/foo/bar/queue")
 	l := NewLogger("DEBUG")
 	tr := NewJobTracker(5)
-	h := NewJobHandler(r, tr, l)
+	msgc := NewMessageConsumer(r, tr, l)
 
 	receivedChan := make(chan *HandleJobResponse)
-	h.OnHandleJobEnds = func(jobID string, ok bool, err error) {
+	msgc.OnHandleJobEnds = func(jobID string, ok bool, err error) {
 		receivedChan <- &HandleJobResponse{
 			JobID: jobID,
 			Ok:    ok,
@@ -44,7 +44,7 @@ func TestHandleJob(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		h.RunEventListener(ctx)
+		msgc.RunEventListener(ctx)
 	}()
 
 	t.Run("job failed", func(t *testing.T) {

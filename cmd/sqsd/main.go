@@ -131,11 +131,11 @@ func main() {
 	}))
 	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS.QueueURL())
 
-	jobHandler := sqsd.NewJobHandler(resource, tracker, logger)
+	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, logger)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		jobHandler.RunEventListener(ctx)
+		msgConsumer.RunEventListener(ctx)
 	}()
 
 	msgProducer := sqsd.NewMessageProducer(
