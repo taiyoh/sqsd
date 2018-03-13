@@ -8,8 +8,8 @@ import (
 type JobTracker struct {
 	CurrentWorkings *sync.Map
 	JobWorking      bool
-	jobChan         chan *Queue
-	jobStack        chan struct{}
+	queueChan       chan *Queue
+	queueStack      chan struct{}
 }
 
 func NewJobTracker(maxProcCount uint) *JobTracker {
@@ -17,20 +17,20 @@ func NewJobTracker(maxProcCount uint) *JobTracker {
 	return &JobTracker{
 		CurrentWorkings: new(sync.Map),
 		JobWorking:      true,
-		jobChan:         make(chan *Queue, procCount),
-		jobStack:        make(chan struct{}, procCount),
+		queueChan:       make(chan *Queue, procCount),
+		queueStack:      make(chan struct{}, procCount),
 	}
 }
 
 func (t *JobTracker) Register(q *Queue) {
-	t.jobStack <- struct{}{} // blocking
+	t.queueStack <- struct{}{} // blocking
 	t.CurrentWorkings.Store(q.ID(), q)
-	t.jobChan <- q
+	t.queueChan <- q
 }
 
 func (t *JobTracker) Complete(q *Queue) {
 	t.CurrentWorkings.Delete(q.ID())
-	<-t.jobStack // unblock
+	<-t.queueStack // unblock
 }
 
 func (t *JobTracker) CurrentSummaries() []*QueueSummary {
@@ -46,7 +46,7 @@ func (t *JobTracker) CurrentSummaries() []*QueueSummary {
 }
 
 func (t *JobTracker) NextQueue() <-chan *Queue {
-	return t.jobChan
+	return t.queueChan
 }
 
 func (t *JobTracker) Pause() {
