@@ -5,7 +5,7 @@ hide footbox
 
 participant MessageReceiver
 participant SQS
-participant JobTracker
+participant QueueTracker
 participant JobHandler
 participant HandleJob
 participant Worker
@@ -13,10 +13,10 @@ participant Worker
 MessageReceiver -> MessageReceiver : Run()
 activate MessageReceiver
 
-MessageReceiver -> JobTracker : IsWorking()
-activate JobTracker
-MessageReceiver <-- JobTracker : bool
-deactivate JobTracker
+MessageReceiver -> QueueTracker : IsWorking()
+activate QueueTracker
+MessageReceiver <-- QueueTracker : bool
+deactivate QueueTracker
 
 MessageReceiver -> SQS : GetMessages()
 activate SQS
@@ -25,13 +25,13 @@ deactivate SQS
 
 loop HandleMessage([]*sqs.Message)
   MessageReceiver -> MessageReceiver : Newjob(*sqs.Message) *Job
-  MessageReceiver -> JobTracker : Register(*job)
-  activate JobTracker
+  MessageReceiver -> QueueTracker : Register(*job)
+  activate QueueTracker
 
-  JobTracker -> JobTracker : jobStack <- struct{}{}
-  JobTracker -> JobTracker : CurrentWorkings.Store(job.ID(), job)
-  JobHandler <-- JobTracker : <-tracker.NextJob()
-  deactivate JobTracker
+  QueueTracker -> QueueTracker : jobStack <- struct{}{}
+  QueueTracker -> QueueTracker : CurrentWorkings.Store(job.ID(), job)
+  JobHandler <-- QueueTracker : <-tracker.NextJob()
+  deactivate QueueTracker
   activate JobHandler
 
   JobHandler ->> HandleJob : goroutine
@@ -48,12 +48,12 @@ HandleJob -> SQS : DeleteMessage(*sqs.Message)
 activate SQS
 HandleJob <-- SQS
 deactivate SQS
-HandleJob -> JobTracker : Complete(*Job)
-activate JobTracker
-JobTracker -> JobTracker : CurrentWorkings.Delete(job.ID())
-JobTracker -> JobTracker : <- jobStack
-HandleJob <-- JobTracker
-deactivate JobTracker
+HandleJob -> QueueTracker : Complete(*Job)
+activate QueueTracker
+QueueTracker -> QueueTracker : CurrentWorkings.Delete(job.ID())
+QueueTracker -> QueueTracker : <- jobStack
+HandleJob <-- QueueTracker
+deactivate QueueTracker
 deactivate HandleJob
 
 @enduml

@@ -15,7 +15,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc := NewMockClient()
 	rs := NewResource(mc, "http://example.com/foo/bar/queue")
 	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
-	tr := NewJobTracker(5)
+	tr := NewQueueTracker(5)
 	l := NewLogger("DEBUG")
 	pr := NewMessageProducer(rs, tr, l)
 	if pr == nil {
@@ -136,7 +136,7 @@ func TestReceiverRun(t *testing.T) {
 	mc := NewMockClient()
 	rs := NewResource(mc, "http://example.com/foo/bar/queue")
 	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
-	tr := NewJobTracker(5)
+	tr := NewQueueTracker(5)
 	l := NewLogger("DEBUG")
 	pr := NewMessageProducer(rs, tr, l)
 

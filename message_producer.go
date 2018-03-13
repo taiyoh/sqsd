@@ -9,12 +9,12 @@ import (
 
 type MessageProducer struct {
 	Resource        *Resource
-	Tracker         *JobTracker
+	Tracker         *QueueTracker
 	HandleEmptyFunc func()
 	Logger          Logger
 }
 
-func NewMessageProducer(resource *Resource, tracker *JobTracker, logger Logger) *MessageProducer {
+func NewMessageProducer(resource *Resource, tracker *QueueTracker, logger Logger) *MessageProducer {
 	return &MessageProducer{
 		Resource: resource,
 		Tracker:  tracker,

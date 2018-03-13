@@ -52,7 +52,7 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 	}
 }
 
-func RunStatServer(tr *sqsd.JobTracker, port int, ctx context.Context, wg *sync.WaitGroup) {
+func RunStatServer(tr *sqsd.QueueTracker, port int, ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	handler := &sqsd.StatHandler{Tracker: tr}
 
@@ -118,7 +118,7 @@ func main() {
 	wg.Add(1)
 	go waitSignal(cancel, wg)
 
-	tracker := sqsd.NewJobTracker(config.Worker.MaxProcessCount)
+	tracker := sqsd.NewQueueTracker(config.Worker.MaxProcessCount)
 
 	wg.Add(1)
 	go RunStatServer(tracker, config.Stat.ServerPort, ctx, wg)

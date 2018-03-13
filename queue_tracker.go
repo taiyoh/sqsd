@@ -5,16 +5,16 @@ import (
 	"sync"
 )
 
-type JobTracker struct {
+type QueueTracker struct {
 	CurrentWorkings *sync.Map
 	JobWorking      bool
 	queueChan       chan *Queue
 	queueStack      chan struct{}
 }
 
-func NewJobTracker(maxProcCount uint) *JobTracker {
+func NewQueueTracker(maxProcCount uint) *QueueTracker {
 	procCount := int(maxProcCount)
-	return &JobTracker{
+	return &QueueTracker{
 		CurrentWorkings: new(sync.Map),
 		JobWorking:      true,
 		queueChan:       make(chan *Queue, procCount),
@@ -22,18 +22,18 @@ func NewJobTracker(maxProcCount uint) *JobTracker {
 	}
 }
 
-func (t *JobTracker) Register(q *Queue) {
+func (t *QueueTracker) Register(q *Queue) {
 	t.queueStack <- struct{}{} // blocking
 	t.CurrentWorkings.Store(q.ID(), q)
 	t.queueChan <- q
 }
 
-func (t *JobTracker) Complete(q *Queue) {
+func (t *QueueTracker) Complete(q *Queue) {
 	t.CurrentWorkings.Delete(q.ID())
 	<-t.queueStack // unblock
 }
 
-func (t *JobTracker) CurrentSummaries() []*QueueSummary {
+func (t *QueueTracker) CurrentSummaries() []*QueueSummary {
 	currentList := []*QueueSummary{}
 	t.CurrentWorkings.Range(func(key, val interface{}) bool {
 		currentList = append(currentList, (val.(*Queue)).Summary())
@@ -45,18 +45,18 @@ func (t *JobTracker) CurrentSummaries() []*QueueSummary {
 	return currentList
 }
 
-func (t *JobTracker) NextQueue() <-chan *Queue {
+func (t *QueueTracker) NextQueue() <-chan *Queue {
 	return t.queueChan
 }
 
-func (t *JobTracker) Pause() {
+func (t *QueueTracker) Pause() {
 	t.JobWorking = false
 }
 
-func (t *JobTracker) Resume() {
+func (t *QueueTracker) Resume() {
 	t.JobWorking = true
 }
 
-func (t *JobTracker) IsWorking() bool {
+func (t *QueueTracker) IsWorking() bool {
 	return t.JobWorking
 }

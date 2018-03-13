@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
-func TestJobTracker(t *testing.T) {
-	tracker := NewJobTracker(1)
+func TestQueueTracker(t *testing.T) {
+	tracker := NewQueueTracker(1)
 	if tracker == nil {
 		t.Error("job tracker not loaded.")
 	}
@@ -86,7 +86,7 @@ func TestJobTracker(t *testing.T) {
 }
 
 func TestJobWorking(t *testing.T) {
-	tr := NewJobTracker(5)
+	tr := NewQueueTracker(5)
 
 	if !tr.JobWorking {
 		t.Error("JobWorking false")
@@ -104,7 +104,7 @@ func TestJobWorking(t *testing.T) {
 }
 
 func TestCurrentSummaries(t *testing.T) {
-	tr := NewJobTracker(5)
+	tr := NewQueueTracker(5)
 	now := time.Now()
 	for i := 1; i <= 2; i++ {
 		iStr := strconv.Itoa(i)

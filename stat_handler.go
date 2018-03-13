@@ -9,7 +9,7 @@ import (
 )
 
 type StatHandler struct {
-	Tracker *JobTracker
+	Tracker *QueueTracker
 }
 
 type StatResponseIFace interface {

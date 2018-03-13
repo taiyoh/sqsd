@@ -9,7 +9,7 @@ import (
 )
 
 type MessageConsumer struct {
-	Tracker          *JobTracker
+	Tracker          *QueueTracker
 	Resource         *Resource
 	URL              string
 	OnHandleJobEnds  func(jobID string, ok bool, err error)
@@ -17,7 +17,7 @@ type MessageConsumer struct {
 	Logger           Logger
 }
 
-func NewMessageConsumer(resource *Resource, tracker *JobTracker, logger Logger, url string) *MessageConsumer {
+func NewMessageConsumer(resource *Resource, tracker *QueueTracker, logger Logger, url string) *MessageConsumer {
 	return &MessageConsumer{
 		Tracker:          tracker,
 		Resource:         resource,

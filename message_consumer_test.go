@@ -19,7 +19,7 @@ func TestHandleJob(t *testing.T) {
 	mc := NewMockClient()
 	r := NewResource(mc, "http://example.com/foo/bar/queue")
 	l := NewLogger("DEBUG")
-	tr := NewJobTracker(5)
+	tr := NewQueueTracker(5)
 	msgc := NewMessageConsumer(r, tr, l, "")
 
 	receivedChan := make(chan *HandleJobResponse)
