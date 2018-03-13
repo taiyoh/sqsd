@@ -3,40 +3,40 @@
 title "sequence about sqsd handler"
 hide footbox
 
-participant MessageReceiver
+participant MessageProducer
 participant SQS
 participant QueueTracker
-participant JobHandler
+participant MessageConsumer
 participant HandleJob
 participant Worker
 
-MessageReceiver -> MessageReceiver : Run()
-activate MessageReceiver
+MessageProducer -> MessageProducer : Run()
+activate MessageProducer
 
-MessageReceiver -> QueueTracker : IsWorking()
+MessageProducer -> QueueTracker : IsWorking()
 activate QueueTracker
-MessageReceiver <-- QueueTracker : bool
+MessageProducer <-- QueueTracker : bool
 deactivate QueueTracker
 
-MessageReceiver -> SQS : GetMessages()
+MessageProducer -> SQS : GetMessages()
 activate SQS
-MessageReceiver <-- SQS : []*sqs.Message
+MessageProducer <-- SQS : []*sqs.Message
 deactivate SQS
 
 loop HandleMessage([]*sqs.Message)
-  MessageReceiver -> MessageReceiver : Newjob(*sqs.Message) *Job
-  MessageReceiver -> QueueTracker : Register(*job)
+  MessageProducer -> MessageProducer : NewQueue(*sqs.Message) *Queue
+  MessageProducer -> QueueTracker : Register(*queue)
   activate QueueTracker
 
-  QueueTracker -> QueueTracker : jobStack <- struct{}{}
-  QueueTracker -> QueueTracker : CurrentWorkings.Store(job.ID(), job)
-  JobHandler <-- QueueTracker : <-tracker.NextJob()
+  QueueTracker -> QueueTracker : queueStack <- struct{}{}
+  QueueTracker -> QueueTracker : CurrentWorkings.Store(queue.ID(), queue)
+  MessageConsumer <-- QueueTracker : <-tracker.NextQueue()
   deactivate QueueTracker
-  activate JobHandler
+  activate MessageConsumer
 
-  JobHandler ->> HandleJob : goroutine
+  MessageConsumer ->> HandleJob : goroutine
   activate HandleJob
-  deactivate JobHandler
+  deactivate MessageConsumer
 end
 
 HandleJob -> Worker : <POST Request>
@@ -48,10 +48,10 @@ HandleJob -> SQS : DeleteMessage(*sqs.Message)
 activate SQS
 HandleJob <-- SQS
 deactivate SQS
-HandleJob -> QueueTracker : Complete(*Job)
+HandleJob -> QueueTracker : Complete(*Queue)
 activate QueueTracker
-QueueTracker -> QueueTracker : CurrentWorkings.Delete(job.ID())
-QueueTracker -> QueueTracker : <- jobStack
+QueueTracker -> QueueTracker : CurrentWorkings.Delete(queue.ID())
+QueueTracker -> QueueTracker : <- queueStack
 HandleJob <-- QueueTracker
 deactivate QueueTracker
 deactivate HandleJob
