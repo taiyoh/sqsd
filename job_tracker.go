@@ -8,7 +8,7 @@ import (
 type JobTracker struct {
 	CurrentWorkings *sync.Map
 	JobWorking      bool
-	jobChan         chan *Job
+	jobChan         chan *Queue
 	jobStack        chan struct{}
 }
 
@@ -17,26 +17,26 @@ func NewJobTracker(maxProcCount uint) *JobTracker {
 	return &JobTracker{
 		CurrentWorkings: new(sync.Map),
 		JobWorking:      true,
-		jobChan:         make(chan *Job, procCount),
+		jobChan:         make(chan *Queue, procCount),
 		jobStack:        make(chan struct{}, procCount),
 	}
 }
 
-func (t *JobTracker) Register(job *Job) {
+func (t *JobTracker) Register(q *Queue) {
 	t.jobStack <- struct{}{} // blocking
-	t.CurrentWorkings.Store(job.ID(), job)
-	t.jobChan <- job
+	t.CurrentWorkings.Store(q.ID(), q)
+	t.jobChan <- q
 }
 
-func (t *JobTracker) Complete(job *Job) {
-	t.CurrentWorkings.Delete(job.ID())
+func (t *JobTracker) Complete(q *Queue) {
+	t.CurrentWorkings.Delete(q.ID())
 	<-t.jobStack // unblock
 }
 
-func (t *JobTracker) CurrentSummaries() []*JobSummary {
-	currentList := []*JobSummary{}
+func (t *JobTracker) CurrentSummaries() []*QueueSummary {
+	currentList := []*QueueSummary{}
 	t.CurrentWorkings.Range(func(key, val interface{}) bool {
-		currentList = append(currentList, (val.(*Job)).Summary())
+		currentList = append(currentList, (val.(*Queue)).Summary())
 		return true
 	})
 	sort.Slice(currentList, func(i, j int) bool {
@@ -45,7 +45,7 @@ func (t *JobTracker) CurrentSummaries() []*JobSummary {
 	return currentList
 }
 
-func (t *JobTracker) NextJob() <-chan *Job {
+func (t *JobTracker) NextQueue() <-chan *Queue {
 	return t.jobChan
 }
 

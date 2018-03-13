@@ -118,9 +118,9 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 			t.Error("error exists")
 		}
 
-		receivedjob := <-tr.NextJob()
-		if receivedjob.ID() != *mc.Resp.Messages[0].MessageId {
-			t.Error("wrong job received")
+		receivedqueue := <-tr.NextQueue()
+		if receivedqueue.ID() != *mc.Resp.Messages[0].MessageId {
+			t.Error("wrong queue received")
 		}
 
 		if mc.RecvRequestCount != 1 {

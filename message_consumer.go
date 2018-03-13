@@ -13,7 +13,7 @@ type MessageConsumer struct {
 	Resource         *Resource
 	URL              string
 	OnHandleJobEnds  func(jobID string, ok bool, err error)
-	OnHandleJobStart func(job *Job)
+	OnHandleJobStart func(q *Queue)
 	Logger           Logger
 }
 
@@ -22,7 +22,7 @@ func NewMessageConsumer(resource *Resource, tracker *JobTracker, logger Logger, 
 		Tracker:          tracker,
 		Resource:         resource,
 		URL:              url,
-		OnHandleJobStart: func(job *Job) {},
+		OnHandleJobStart: func(q *Queue) {},
 		OnHandleJobEnds:  func(jobID string, ok bool, err error) {},
 		Logger:           logger,
 	}
@@ -39,11 +39,11 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 			syncWait.Wait()
 			loopEnds = true
 			break
-		case job := <-c.Tracker.NextJob():
+		case q := <-c.Tracker.NextQueue():
 			syncWait.Add(1)
 			go func() {
 				defer syncWait.Done()
-				c.HandleJob(ctx, job)
+				c.HandleJob(ctx, q)
 			}()
 		}
 		if loopEnds {
@@ -53,31 +53,31 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	c.Logger.Info("MessageConsumer closed.")
 }
 
-func (c *MessageConsumer) HandleJob(ctx context.Context, job *Job) {
-	c.OnHandleJobStart(job)
-	c.Logger.Debug(fmt.Sprintf("job[%s] HandleJob start.\n", job.ID()))
-	ok, err := c.CallWorker(ctx, job)
+func (c *MessageConsumer) HandleJob(ctx context.Context, q *Queue) {
+	c.OnHandleJobStart(q)
+	c.Logger.Debug(fmt.Sprintf("job[%s] HandleJob start.\n", q.ID()))
+	ok, err := c.CallWorker(ctx, q)
 	if err != nil {
-		c.Logger.Error(fmt.Sprintf("job[%s] HandleJob request error: %s\n", job.ID(), err))
+		c.Logger.Error(fmt.Sprintf("job[%s] HandleJob request error: %s\n", q.ID(), err))
 	}
 	if ok {
-		c.Resource.DeleteMessage(job.Msg)
+		c.Resource.DeleteMessage(q.Msg)
 	}
-	c.Tracker.Complete(job)
-	c.Logger.Debug(fmt.Sprintf("job[%s] HandleJob finished.\n", job.ID()))
-	c.OnHandleJobEnds(job.ID(), ok, err)
+	c.Tracker.Complete(q)
+	c.Logger.Debug(fmt.Sprintf("job[%s] HandleJob finished.\n", q.ID()))
+	c.OnHandleJobEnds(q.ID(), ok, err)
 }
 
-func (c *MessageConsumer) CallWorker(ctx context.Context, j *Job) (bool, error) {
-	req, err := http.NewRequest("POST", c.URL, strings.NewReader(*j.Msg.Body))
+func (c *MessageConsumer) CallWorker(ctx context.Context, q *Queue) (bool, error) {
+	req, err := http.NewRequest("POST", c.URL, strings.NewReader(*q.Msg.Body))
 	if err != nil {
 		return false, err
 	}
 	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "github.com/taiyoh/sqsd-"+GetVersion())
-	req.Header.Set("X-Sqsd-Msgid", j.ID())
-	req.Header.Set("X-Sqsd-First-Received-At", j.ReceivedAt.Format("2006-01-02T15:04:05Z0700"))
+	req.Header.Set("X-Sqsd-Msgid", q.ID())
+	req.Header.Set("X-Sqsd-First-Received-At", q.ReceivedAt.Format("2006-01-02T15:04:05Z0700"))
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

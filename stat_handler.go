@@ -3,8 +3,9 @@ package sqsd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fukata/golang-stats-api-handler"
 	"net/http"
+
+	"github.com/fukata/golang-stats-api-handler"
 )
 
 type StatHandler struct {
@@ -16,7 +17,7 @@ type StatResponseIFace interface {
 }
 
 type StatCurrentJobsResponse struct {
-	CurrentJobs []*JobSummary `json:"current_jobs"`
+	CurrentJobs []*QueueSummary `json:"current_jobs"`
 }
 
 func (r *StatCurrentJobsResponse) JSONString() string {

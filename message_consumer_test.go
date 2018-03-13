@@ -45,17 +45,17 @@ func TestHandleJob(t *testing.T) {
 
 	t.Run("job failed", func(t *testing.T) {
 		msgc.URL = ts.URL + "/error"
-		job := NewJob(&sqs.Message{
+		queue := NewQueue(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageNG"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		})
 
-		tr.Register(job)
+		tr.Register(queue)
 
 		receivedRes := <-receivedChan
 
-		if receivedRes.JobID != job.ID() {
+		if receivedRes.JobID != queue.ID() {
 			t.Error("wrong job processed")
 		}
 
@@ -69,18 +69,18 @@ func TestHandleJob(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		job := NewJob(&sqs.Message{
+		queue := NewQueue(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageOK"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		})
 		msgc.URL = ts.URL + "/ok"
 
-		tr.Register(job)
+		tr.Register(queue)
 
 		receivedRes := <-receivedChan
 
-		if receivedRes.JobID != job.ID() {
+		if receivedRes.JobID != queue.ID() {
 			t.Error("wrong job processed")
 		}
 
@@ -95,21 +95,21 @@ func TestHandleJob(t *testing.T) {
 	})
 
 	t.Run("context cancelled", func(t *testing.T) {
-		job := NewJob(&sqs.Message{
+		queue := NewQueue(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageErr"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		})
 		msgc.URL = ts.URL + "/long"
 
-		tr.Register(job)
+		tr.Register(queue)
 
 		cancel()
 
 		receivedRes := <-receivedChan
 
-		if receivedRes.JobID != job.ID() {
-			t.Error("wrong job processed")
+		if receivedRes.JobID != queue.ID() {
+			t.Error("wrong queue processed")
 		}
 
 		if receivedRes.Ok {

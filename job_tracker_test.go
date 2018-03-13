@@ -20,7 +20,7 @@ func TestJobTracker(t *testing.T) {
 
 	now := time.Now()
 
-	job1 := &Job{
+	q1 := &Queue{
 		Msg: &sqs.Message{
 			MessageId:     aws.String("id:1"),
 			Body:          aws.String("hoge"),
@@ -28,7 +28,7 @@ func TestJobTracker(t *testing.T) {
 		},
 		ReceivedAt: now.Add(1),
 	}
-	job2 := &Job{
+	q2 := &Queue{
 		Msg: &sqs.Message{
 			MessageId:     aws.String("id:2"),
 			Body:          aws.String("fuga"),
@@ -39,8 +39,8 @@ func TestJobTracker(t *testing.T) {
 
 	allJobRegistered := false
 	go func() {
-		tracker.Register(job1)
-		tracker.Register(job2)
+		tracker.Register(q1)
+		tracker.Register(q2)
 		mu.Lock()
 		allJobRegistered = true
 		mu.Unlock()
@@ -54,17 +54,17 @@ func TestJobTracker(t *testing.T) {
 	}
 	mu.Unlock()
 
-	receivedJob := <-tracker.NextJob()
-	if receivedJob.ID() != job1.ID() {
+	receivedQueue := <-tracker.NextQueue()
+	if receivedQueue.ID() != q1.ID() {
 		t.Error("wrong order")
 	}
 
 	summaries := tracker.CurrentSummaries()
-	if summaries[0].ID != job1.ID() {
+	if summaries[0].ID != q1.ID() {
 		t.Error("wrong order")
 	}
 
-	tracker.Complete(receivedJob)
+	tracker.Complete(receivedQueue)
 
 	time.Sleep(10 * time.Microsecond)
 
@@ -74,13 +74,13 @@ func TestJobTracker(t *testing.T) {
 	}
 	mu.Unlock()
 
-	receivedJob = <-tracker.NextJob()
-	if receivedJob.ID() != job2.ID() {
+	receivedQueue = <-tracker.NextQueue()
+	if receivedQueue.ID() != q2.ID() {
 		t.Error("wrong order")
 	}
 
 	summaries = tracker.CurrentSummaries()
-	if summaries[0].ID != job2.ID() {
+	if summaries[0].ID != q2.ID() {
 		t.Error("wrong order")
 	}
 }
@@ -113,9 +113,9 @@ func TestCurrentSummaries(t *testing.T) {
 			Body:          aws.String("bar" + iStr),
 			ReceiptHandle: aws.String("baz" + iStr),
 		}
-		job := NewJob(msg)
-		job.ReceivedAt = now.Add(time.Duration(i))
-		tr.Register(job)
+		q := NewQueue(msg)
+		q.ReceivedAt = now.Add(time.Duration(i))
+		tr.Register(q)
 	}
 
 	summaries := tr.CurrentSummaries()
@@ -124,7 +124,7 @@ func TestCurrentSummaries(t *testing.T) {
 		if !exists {
 			t.Errorf("job not found: %s", summary.ID)
 		}
-		if summary.Payload != *(data.(*Job)).Msg.Body {
+		if summary.Payload != *(data.(*Queue)).Msg.Body {
 			t.Errorf("job payload is wrong: %s", summary.Payload)
 		}
 	}
