@@ -24,7 +24,7 @@ type WorkerConf struct {
 func (c WorkerConf) Validate() error {
 	uri, err := url.ParseRequestURI(c.WorkerURL)
 	if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
-		return errors.New("worker.job_url is not HTTP URL: " + c.WorkerURL)
+		return errors.New("worker.worker_url is not HTTP URL: " + c.WorkerURL)
 	}
 	levelMap := map[string]struct{}{
 		"DEBUG": struct{}{},

@@ -1,7 +1,7 @@
 [worker]
 interval_seconds={{or .interval_seconds 20}}
 max_process_count={{or .max_process_count 5}}
-job_url="{{.job_url}}"
+worker_url="{{.worker_url}}"
 
 [stat]
 server_port={{.stat_server_port}}
