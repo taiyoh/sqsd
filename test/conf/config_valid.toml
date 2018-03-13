@@ -1,7 +1,7 @@
 [worker]
 interval_seconds=1
 max_process_count=40
-job_url="http://127.0.0.1:8080/run_job"
+worker_url="http://127.0.0.1:8080/run_job"
 
 [stat]
 server_port=4080

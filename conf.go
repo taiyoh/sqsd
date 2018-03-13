@@ -17,14 +17,14 @@ type Conf struct {
 type WorkerConf struct {
 	IntervalSeconds uint64 `toml:"interval_seconds"`
 	MaxProcessCount uint   `toml:"max_process_count"`
-	JobURL          string `toml:"job_url"`
+	WorkerURL       string `toml:"worker_url"`
 	LogLevel        string `toml:"log_level"`
 }
 
 func (c WorkerConf) Validate() error {
-	uri, err := url.ParseRequestURI(c.JobURL)
+	uri, err := url.ParseRequestURI(c.WorkerURL)
 	if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
-		return errors.New("worker.job_url is not HTTP URL: " + c.JobURL)
+		return errors.New("worker.job_url is not HTTP URL: " + c.WorkerURL)
 	}
 	levelMap := map[string]struct{}{
 		"DEBUG": struct{}{},
