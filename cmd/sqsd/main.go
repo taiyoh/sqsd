@@ -52,7 +52,7 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 	}
 }
 
-func RunStatServer(tr *sqsd.JobTracker, port int, ctx context.Context, wg *sync.WaitGroup) {
+func RunStatServer(tr *sqsd.QueueTracker, port int, ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	handler := &sqsd.StatHandler{Tracker: tr}
 
@@ -118,7 +118,7 @@ func main() {
 	wg.Add(1)
 	go waitSignal(cancel, wg)
 
-	tracker := sqsd.NewJobTracker(config.Worker.MaxProcessCount)
+	tracker := sqsd.NewQueueTracker(config.Worker.MaxProcessCount)
 
 	wg.Add(1)
 	go RunStatServer(tracker, config.Stat.ServerPort, ctx, wg)
@@ -131,21 +131,11 @@ func main() {
 	}))
 	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS.QueueURL())
 
-	jobHandler := sqsd.NewJobHandler(resource, tracker, logger)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		jobHandler.RunEventListener(ctx)
-	}()
-
-	msgReceiver := sqsd.NewMessageReceiver(
-		resource,
-		tracker,
-		config,
-		logger,
-	)
-	wg.Add(1)
-	go msgReceiver.Run(ctx, wg)
+	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, logger, config.Worker.WorkerURL)
+	msgProducer := sqsd.NewMessageProducer(resource, tracker, logger)
+	wg.Add(2)
+	go msgConsumer.Run(ctx, wg)
+	go msgProducer.Run(ctx, wg)
 
 	wg.Wait()
 	logger.Info("sqsd ends.")

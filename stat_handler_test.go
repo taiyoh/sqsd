@@ -2,11 +2,12 @@ package sqsd
 
 import (
 	"encoding/json"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"net/http"
 	"strconv"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
 func TestReqMethodValidate(t *testing.T) {
@@ -44,8 +45,8 @@ func TestRenderJSON(t *testing.T) {
 	}
 	w.ResBytes = []byte{} // clear
 	RenderJSON(w, &StatCurrentJobsResponse{
-		CurrentJobs: []*JobSummary{
-			&JobSummary{ID: "1", Payload: "p1", ReceivedAt: 10},
+		CurrentJobs: []*QueueSummary{
+			&QueueSummary{ID: "1", Payload: "p1", ReceivedAt: 10},
 		},
 	})
 	var r StatCurrentJobsResponse
@@ -61,17 +62,17 @@ func TestRenderJSON(t *testing.T) {
 }
 
 func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
-	tr := NewJobTracker(5)
+	tr := NewQueueTracker(5)
 	h := &StatHandler{tr}
 
 	for i := 1; i <= 5; i++ {
-		j := &Job{
+		q := &Queue{
 			Msg: &sqs.Message{
 				MessageId: aws.String("id:" + strconv.Itoa(i)),
 				Body:      aws.String(`foobar`),
 			},
 		}
-		tr.Register(j)
+		tr.Register(q)
 	}
 
 	summaryController := h.WorkerCurrentSummaryHandler()
@@ -149,7 +150,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 }
 
 func TestWorkerPauseAndResumeHandler(t *testing.T) {
-	tr := NewJobTracker(5)
+	tr := NewQueueTracker(5)
 	h := &StatHandler{tr}
 
 	pauseController := h.WorkerPauseHandler()

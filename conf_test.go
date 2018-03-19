@@ -30,7 +30,7 @@ func TestValidateConf(t *testing.T) {
 	c.SQS.AccountID = "foo"
 	c.SQS.QueueName = "bar"
 	c.SQS.Region = "ap-northeast-1"
-	c.Worker.JobURL = "http://localhost:1080/run_job"
+	c.Worker.WorkerURL = "http://localhost:1080/run_job"
 	c.Stat.ServerPort = 10000
 
 	if err := c.Validate(); err != nil {
@@ -64,13 +64,13 @@ func TestValidateConf(t *testing.T) {
 	}
 	c.SQS.Region = "ap-northeast-1"
 
-	c.Worker.JobURL = ""
+	c.Worker.WorkerURL = ""
 	if err := c.Validate(); err == nil {
-		t.Error("Worker.JobURL is empty, but no error")
+		t.Error("Worker.WorkerURL is empty, but no error")
 	}
-	c.Worker.JobURL = "foo://bar/baz"
+	c.Worker.WorkerURL = "foo://bar/baz"
 	if err := c.Validate(); err == nil {
-		t.Error("Worker.JobURL is not HTTP url, but no error")
+		t.Error("Worker.WorkerURL is not HTTP url, but no error")
 	}
 }
 
