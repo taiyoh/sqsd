@@ -64,6 +64,11 @@ func TestValidateConf(t *testing.T) {
 	}
 	c.SQS.Region = "ap-northeast-1"
 
+	c.SQS.URL = "foo://bar/baz"
+	if err := c.Validate(); err == nil {
+		t.Error("SQS.URL should be url")
+	}
+
 	c.Worker.WorkerURL = ""
 	if err := c.Validate(); err == nil {
 		t.Error("Worker.WorkerURL is empty, but no error")
@@ -71,6 +76,11 @@ func TestValidateConf(t *testing.T) {
 	c.Worker.WorkerURL = "foo://bar/baz"
 	if err := c.Validate(); err == nil {
 		t.Error("Worker.WorkerURL is not HTTP url, but no error")
+	}
+	c.Worker.WorkerURL = "http://localhost/foo/bar"
+	c.Worker.LogLevel = "WRONG"
+	if err := c.Validate(); err == nil {
+		t.Error("Worker.LogLevel should be invalid: ", err)
 	}
 }
 
@@ -91,5 +101,10 @@ func TestNewConf(t *testing.T) {
 	}
 	if conf.Stat.ServerPort != 4080 {
 		t.Error("Stat.ServerPort not loaded correctly. " + strconv.Itoa(conf.Stat.ServerPort))
+	}
+
+	conf.SQS.URL = "http://localhost:4649/foo/bar"
+	if conf.SQS.QueueURL() != "http://localhost:4649/foo/bar" {
+		t.Error("SQS.URL has priority than building url." + conf.SQS.QueueURL())
 	}
 }

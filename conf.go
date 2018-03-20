@@ -58,6 +58,11 @@ func (c SQSConf) Validate() error {
 		if c.QueueName == "" {
 			return errors.New("sqs.queue_name is required")
 		}
+	} else {
+		uri, err := url.ParseRequestURI(c.URL)
+		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+			return errors.New("sqs.url is not HTTP URL: " + c.URL)
+		}
 	}
 	if c.Region == "" {
 		return errors.New("sqs.region is required")
