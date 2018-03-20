@@ -68,6 +68,7 @@ func TestValidateConf(t *testing.T) {
 	if err := c.Validate(); err == nil {
 		t.Error("SQS.URL should be url")
 	}
+	c.SQS.URL = ""
 
 	c.Worker.WorkerURL = ""
 	if err := c.Validate(); err == nil {
@@ -80,8 +81,25 @@ func TestValidateConf(t *testing.T) {
 	c.Worker.WorkerURL = "http://localhost/foo/bar"
 	c.Worker.LogLevel = "WRONG"
 	if err := c.Validate(); err == nil {
-		t.Error("Worker.LogLevel should be invalid: ", err)
+		t.Error("Worker.LogLevel should be invalid")
 	}
+	c.Worker.LogLevel = "INFO"
+	c.Worker.HealthCheckURL = "hoge://fuga/piyo"
+	if err := c.Validate(); err == nil {
+		t.Error("Worker.HealthCheckURL should be invalid")
+	}
+	c.Worker.HealthCheckURL = "http://localhost/hoge/fuga"
+	if err := c.Validate(); err != nil {
+		t.Error("WorkerConf should be valid: ", err)
+	}
+	if !c.Worker.CanSupportHealthCheck() {
+		t.Error("healthcheck support should be true")
+	}
+	c.Worker.HealthCheckURL = ""
+	if c.Worker.CanSupportHealthCheck() {
+		t.Error("healthcheck support should not be true")
+	}
+
 }
 
 func TestNewConf(t *testing.T) {

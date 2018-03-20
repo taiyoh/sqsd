@@ -19,6 +19,7 @@ type WorkerConf struct {
 	MaxProcessCount uint   `toml:"max_process_count"`
 	WorkerURL       string `toml:"worker_url"`
 	LogLevel        string `toml:"log_level"`
+	HealthCheckURL  string `toml:"healthcheck_url"`
 }
 
 func (c WorkerConf) Validate() error {
@@ -35,7 +36,17 @@ func (c WorkerConf) Validate() error {
 	if _, ok := levelMap[c.LogLevel]; !ok {
 		return errors.New("worker.log_level is invalid: " + c.LogLevel)
 	}
+	if c.HealthCheckURL != "" {
+		uri, err := url.ParseRequestURI(c.HealthCheckURL)
+		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+			return errors.New("worker.healthcheck_url is not HTTP URL: " + c.HealthCheckURL)
+		}
+	}
 	return nil
+}
+
+func (c WorkerConf) CanSupportHealthCheck() bool {
+	return c.HealthCheckURL != ""
 }
 
 type StatConf struct {
