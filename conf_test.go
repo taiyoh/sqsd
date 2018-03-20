@@ -92,14 +92,6 @@ func TestValidateConf(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Error("WorkerConf should be valid: ", err)
 	}
-	if !c.Worker.CanSupportHealthCheck() {
-		t.Error("healthcheck support should be true")
-	}
-	c.Worker.HealthCheckURL = ""
-	if c.Worker.CanSupportHealthCheck() {
-		t.Error("healthcheck support should not be true")
-	}
-
 }
 
 func TestNewConf(t *testing.T) {

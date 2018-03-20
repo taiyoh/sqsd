@@ -45,10 +45,6 @@ func (c WorkerConf) Validate() error {
 	return nil
 }
 
-func (c WorkerConf) CanSupportHealthCheck() bool {
-	return c.HealthCheckURL != ""
-}
-
 type StatConf struct {
 	ServerPort int `toml:"server_port"`
 }
