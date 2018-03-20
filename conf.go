@@ -47,14 +47,22 @@ type SQSConf struct {
 	AccountID string `toml:"account_id"`
 	QueueName string `toml:"queue_name"`
 	Region    string `toml:"region"`
+	URL       string `toml:"url"`
 }
 
 func (c SQSConf) Validate() error {
-	if c.AccountID == "" {
-		return errors.New("sqs.account_id is required")
-	}
-	if c.QueueName == "" {
-		return errors.New("sqs.queue_name is required")
+	if c.URL == "" {
+		if c.AccountID == "" {
+			return errors.New("sqs.account_id is required")
+		}
+		if c.QueueName == "" {
+			return errors.New("sqs.queue_name is required")
+		}
+	} else {
+		uri, err := url.ParseRequestURI(c.URL)
+		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+			return errors.New("sqs.url is not HTTP URL: " + c.URL)
+		}
 	}
 	if c.Region == "" {
 		return errors.New("sqs.region is required")
@@ -63,7 +71,13 @@ func (c SQSConf) Validate() error {
 }
 
 func (c SQSConf) QueueURL() string {
-	return "https://sqs." + c.Region + ".amazonaws.com/" + c.AccountID + "/" + c.QueueName
+	var url string
+	if c.URL != "" {
+		url = c.URL
+	} else {
+		url = "https://sqs." + c.Region + ".amazonaws.com/" + c.AccountID + "/" + c.QueueName
+	}
+	return url
 }
 
 // Init confのデフォルト値はここで埋める
