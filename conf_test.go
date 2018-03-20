@@ -84,6 +84,11 @@ func TestValidateConf(t *testing.T) {
 		t.Error("Worker.LogLevel should be invalid")
 	}
 	c.Worker.LogLevel = "INFO"
+
+	if c.HealthCheck.ShouldSupport() {
+		t.Error("healthcheck should not support for empty url")
+	}
+
 	c.HealthCheck.URL = "hoge://fuga/piyo"
 	if err := c.Validate(); err == nil {
 		t.Error("HealthCheck.URL should be invalid")
@@ -93,6 +98,10 @@ func TestValidateConf(t *testing.T) {
 		t.Error("HealthCheck.MaxElapsedTime is required")
 	}
 	c.HealthCheck.MaxElapsedTime = 1
+
+	if !c.HealthCheck.ShouldSupport() {
+		t.Error("healthcheck should support for filled url")
+	}
 
 	if err := c.Validate(); err != nil {
 		t.Error("WorkerConf should be valid: ", err)
