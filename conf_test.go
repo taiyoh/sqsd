@@ -84,11 +84,16 @@ func TestValidateConf(t *testing.T) {
 		t.Error("Worker.LogLevel should be invalid")
 	}
 	c.Worker.LogLevel = "INFO"
-	c.Worker.HealthCheckURL = "hoge://fuga/piyo"
+	c.HealthCheck.URL = "hoge://fuga/piyo"
 	if err := c.Validate(); err == nil {
-		t.Error("Worker.HealthCheckURL should be invalid")
+		t.Error("HealthCheck.URL should be invalid")
 	}
-	c.Worker.HealthCheckURL = "http://localhost/hoge/fuga"
+	c.HealthCheck.URL = "http://localhost/hoge/fuga"
+	if err := c.Validate(); err == nil {
+		t.Error("HealthCheck.MaxElapsedTime is required")
+	}
+	c.HealthCheck.MaxElapsedTime = 1
+
 	if err := c.Validate(); err != nil {
 		t.Error("WorkerConf should be valid: ", err)
 	}

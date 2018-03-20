@@ -9,9 +9,10 @@ import (
 )
 
 type Conf struct {
-	Worker WorkerConf `toml:"worker"`
-	Stat   StatConf   `toml:"stat"`
-	SQS    SQSConf    `toml:"sqs"`
+	Worker      WorkerConf      `toml:"worker"`
+	HealthCheck HealthCheckConf `toml:"healthcheck"`
+	Stat        StatConf        `toml:"stat"`
+	SQS         SQSConf         `toml:"sqs"`
 }
 
 type WorkerConf struct {
@@ -19,7 +20,11 @@ type WorkerConf struct {
 	MaxProcessCount uint   `toml:"max_process_count"`
 	WorkerURL       string `toml:"worker_url"`
 	LogLevel        string `toml:"log_level"`
-	HealthCheckURL  string `toml:"healthcheck_url"`
+}
+
+type HealthCheckConf struct {
+	URL            string `toml:"url"`
+	MaxElapsedTime uint   `toml:"max_elapsed_time"`
 }
 
 func (c WorkerConf) Validate() error {
@@ -35,12 +40,6 @@ func (c WorkerConf) Validate() error {
 	}
 	if _, ok := levelMap[c.LogLevel]; !ok {
 		return errors.New("worker.log_level is invalid: " + c.LogLevel)
-	}
-	if c.HealthCheckURL != "" {
-		uri, err := url.ParseRequestURI(c.HealthCheckURL)
-		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
-			return errors.New("worker.healthcheck_url is not HTTP URL: " + c.HealthCheckURL)
-		}
 	}
 	return nil
 }
@@ -87,6 +86,23 @@ func (c SQSConf) QueueURL() string {
 	return url
 }
 
+func (c HealthCheckConf) Validate() error {
+	if c.URL != "" {
+		uri, err := url.ParseRequestURI(c.URL)
+		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+			return errors.New("healthcheck.url is not HTTP URL: " + c.URL)
+		}
+		if c.MaxElapsedTime == 0 {
+			return errors.New("healthcheck.max_elapsed_time is required")
+		}
+	}
+	return nil
+}
+
+func (c HealthCheckConf) ShouldSupport() bool {
+	return c.URL != ""
+}
+
 // Init confのデフォルト値はここで埋める
 func (c *Conf) Init() {
 	if c.Worker.IntervalSeconds == 0 {
@@ -107,6 +123,10 @@ func (c *Conf) Validate() error {
 	}
 
 	if err := c.SQS.Validate(); err != nil {
+		return err
+	}
+
+	if err := c.HealthCheck.Validate(); err != nil {
 		return err
 	}
 
