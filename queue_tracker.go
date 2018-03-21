@@ -86,7 +86,7 @@ func (t *QueueTracker) HealthCheck(c HealthCheckConf) bool {
 		defer cancel()
 		resp, err := client.Do(req.WithContext(ctx))
 		if err != nil {
-			t.Logger.Warn(fmt.Sprintf("healthcheck request failed. %s\n", err))
+			t.Logger.Warn(fmt.Sprintf("healthcheck request failed. %s", err))
 			return err
 		}
 		defer resp.Body.Close()
