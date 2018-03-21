@@ -216,3 +216,12 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 	})
 
 }
+
+func TestStatHandlerServeMux(t *testing.T) {
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
+	h := &StatHandler{tr}
+
+	if m := h.BuildServeMux(); m == nil {
+		t.Error("ServeMux not returned.")
+	}
+}
