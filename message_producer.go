@@ -81,11 +81,7 @@ func (p *MessageProducer) DoHandle(ctx context.Context) {
 		return
 	}
 	p.Logger.Debug(fmt.Sprintf("received %d messages. run jobs.\n", len(results)))
-	queues := []*Queue{}
 	for _, msg := range results {
-		queues = append(queues, NewQueue(msg))
-	}
-	for _, queue := range queues {
-		p.Tracker.Register(queue)
+		p.Tracker.Register(NewQueue(msg))
 	}
 }
