@@ -129,3 +129,42 @@ func TestCurrentSummaries(t *testing.T) {
 		}
 	}
 }
+
+func TestHealthCheck(t *testing.T) {
+	tr := NewQueueTracker(5)
+	hc := HealthCheckConf{}
+
+	if !tr.HealthCheck(hc) {
+		t.Error("healthcheck should not support.")
+	}
+
+	ts := MockServer()
+	defer ts.Close()
+
+	t.Run("error returns", func(t *testing.T) {
+		hc.URL = ts.URL + "/error"
+		hc.MaxElapsedSec = 1
+		if tr.HealthCheck(hc) {
+			t.Error("healthcheck is success. but expected failure.")
+		}
+	})
+
+	t.Run("request timeout", func(t *testing.T) {
+		hc.URL = ts.URL + "/long"
+		hc.MaxElapsedSec = 2
+		hc.MaxRequestMS = 300
+		if tr.HealthCheck(hc) {
+			t.Error("healthcheck is success. but expected failure.")
+		}
+	})
+
+	t.Run("response ok", func(t *testing.T) {
+		hc.URL = ts.URL + "/ok"
+		hc.MaxElapsedSec = 3
+		hc.MaxRequestMS = 1000
+		if !tr.HealthCheck(hc) {
+			t.Error("healthcheck is failure. but expected success.")
+		}
+	})
+
+}

@@ -1,8 +1,15 @@
 package sqsd
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"net/http"
 	"sort"
 	"sync"
+	"time"
+
+	"github.com/cenkalti/backoff"
 )
 
 type QueueTracker struct {
@@ -59,4 +66,34 @@ func (t *QueueTracker) Resume() {
 
 func (t *QueueTracker) IsWorking() bool {
 	return t.JobWorking
+}
+
+func (t *QueueTracker) HealthCheck(c HealthCheckConf) bool {
+	if !c.ShouldSupport() {
+		return true
+	}
+
+	ebo := backoff.NewExponentialBackOff()
+	ebo.MaxElapsedTime = time.Duration(c.MaxElapsedSec) * time.Second
+	client := &http.Client{}
+
+	err := backoff.Retry(func() error {
+		req, _ := http.NewRequest("GET", c.URL, bytes.NewBuffer([]byte("")))
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.MaxRequestMS)*time.Millisecond)
+		defer cancel()
+		resp, err := client.Do(req.WithContext(ctx))
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return errors.New("response status code != 200")
+		}
+		return nil
+	}, ebo)
+	if err != nil {
+		return false
+	}
+
+	return true
 }

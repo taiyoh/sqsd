@@ -33,7 +33,7 @@ func TestHandleJob(t *testing.T) {
 
 	ctx := context.Background()
 
-	ts := MockJobServer()
+	ts := MockServer()
 	defer ts.Close()
 
 	wg := &sync.WaitGroup{}
