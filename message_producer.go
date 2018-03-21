@@ -14,14 +14,14 @@ type MessageProducer struct {
 	Logger          Logger
 }
 
-func NewMessageProducer(resource *Resource, tracker *QueueTracker, logger Logger) *MessageProducer {
+func NewMessageProducer(resource *Resource, tracker *QueueTracker) *MessageProducer {
 	return &MessageProducer{
 		Resource: resource,
 		Tracker:  tracker,
 		HandleEmptyFunc: func() {
 			time.Sleep(1 * time.Second)
 		},
-		Logger: logger,
+		Logger: tracker.Logger,
 	}
 }
 

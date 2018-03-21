@@ -68,6 +68,7 @@ func TestValidateConf(t *testing.T) {
 	if err := c.Validate(); err == nil {
 		t.Error("SQS.URL should be url")
 	}
+	c.SQS.URL = ""
 
 	c.Worker.WorkerURL = ""
 	if err := c.Validate(); err == nil {
@@ -80,7 +81,30 @@ func TestValidateConf(t *testing.T) {
 	c.Worker.WorkerURL = "http://localhost/foo/bar"
 	c.Worker.LogLevel = "WRONG"
 	if err := c.Validate(); err == nil {
-		t.Error("Worker.LogLevel should be invalid: ", err)
+		t.Error("Worker.LogLevel should be invalid")
+	}
+	c.Worker.LogLevel = "INFO"
+
+	if c.HealthCheck.ShouldSupport() {
+		t.Error("healthcheck should not support for empty url")
+	}
+
+	c.HealthCheck.URL = "hoge://fuga/piyo"
+	if err := c.Validate(); err == nil {
+		t.Error("HealthCheck.URL should be invalid")
+	}
+	c.HealthCheck.URL = "http://localhost/hoge/fuga"
+	if err := c.Validate(); err == nil {
+		t.Error("HealthCheck.MaxElapsedSec is required")
+	}
+	c.HealthCheck.MaxElapsedSec = 1
+
+	if !c.HealthCheck.ShouldSupport() {
+		t.Error("healthcheck should support for filled url")
+	}
+
+	if err := c.Validate(); err != nil {
+		t.Error("WorkerConf should be valid: ", err)
 	}
 }
 

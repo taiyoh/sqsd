@@ -18,9 +18,8 @@ type HandleJobResponse struct {
 func TestHandleJob(t *testing.T) {
 	mc := NewMockClient()
 	r := NewResource(mc, "http://example.com/foo/bar/queue")
-	l := NewLogger("DEBUG")
-	tr := NewQueueTracker(5)
-	msgc := NewMessageConsumer(r, tr, l, "")
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
+	msgc := NewMessageConsumer(r, tr, "")
 
 	receivedChan := make(chan *HandleJobResponse)
 	msgc.OnHandleJobEnds = func(jobID string, ok bool, err error) {
@@ -33,7 +32,7 @@ func TestHandleJob(t *testing.T) {
 
 	ctx := context.Background()
 
-	ts := MockJobServer()
+	ts := MockServer()
 	defer ts.Close()
 
 	wg := &sync.WaitGroup{}

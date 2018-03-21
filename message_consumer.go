@@ -17,14 +17,14 @@ type MessageConsumer struct {
 	Logger           Logger
 }
 
-func NewMessageConsumer(resource *Resource, tracker *QueueTracker, logger Logger, url string) *MessageConsumer {
+func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *MessageConsumer {
 	return &MessageConsumer{
 		Tracker:          tracker,
 		Resource:         resource,
 		URL:              url,
 		OnHandleJobStart: func(q *Queue) {},
 		OnHandleJobEnds:  func(jobID string, ok bool, err error) {},
-		Logger:           logger,
+		Logger:           tracker.Logger,
 	}
 }
 

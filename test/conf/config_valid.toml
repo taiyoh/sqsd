@@ -1,3 +1,7 @@
+[healthcheck]
+url = "http://127.0.0.1:8080/healthcheck"
+max_elapsed_sec  = 10
+
 [worker]
 interval_seconds=1
 max_process_count=40

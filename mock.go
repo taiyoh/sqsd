@@ -60,7 +60,7 @@ func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageO
 	return &sqs.DeleteMessageOutput{}, nil
 }
 
-func MockJobServer() *httptest.Server {
+func MockServer() *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/error", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-Type", "text")

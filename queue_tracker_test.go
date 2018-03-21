@@ -11,7 +11,7 @@ import (
 )
 
 func TestQueueTracker(t *testing.T) {
-	tracker := NewQueueTracker(1)
+	tracker := NewQueueTracker(1, NewLogger("DEBUG"))
 	if tracker == nil {
 		t.Error("job tracker not loaded.")
 	}
@@ -86,7 +86,7 @@ func TestQueueTracker(t *testing.T) {
 }
 
 func TestJobWorking(t *testing.T) {
-	tr := NewQueueTracker(5)
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 
 	if !tr.JobWorking {
 		t.Error("JobWorking false")
@@ -104,7 +104,7 @@ func TestJobWorking(t *testing.T) {
 }
 
 func TestCurrentSummaries(t *testing.T) {
-	tr := NewQueueTracker(5)
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	now := time.Now()
 	for i := 1; i <= 2; i++ {
 		iStr := strconv.Itoa(i)
@@ -128,4 +128,44 @@ func TestCurrentSummaries(t *testing.T) {
 			t.Errorf("job payload is wrong: %s", summary.Payload)
 		}
 	}
+}
+
+func TestHealthCheck(t *testing.T) {
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
+	hc := HealthCheckConf{}
+
+	if !tr.HealthCheck(hc) {
+		t.Error("healthcheck should not support.")
+	}
+
+	ts := MockServer()
+	defer ts.Close()
+
+	t.Run("error returns", func(t *testing.T) {
+		hc.URL = ts.URL + "/error"
+		hc.MaxElapsedSec = 1
+		hc.MaxRequestMS = 1000
+		if tr.HealthCheck(hc) {
+			t.Error("healthcheck is success. but expected failure.")
+		}
+	})
+
+	t.Run("request timeout", func(t *testing.T) {
+		hc.URL = ts.URL + "/long"
+		hc.MaxElapsedSec = 2
+		hc.MaxRequestMS = 300
+		if tr.HealthCheck(hc) {
+			t.Error("healthcheck is success. but expected failure.")
+		}
+	})
+
+	t.Run("response ok", func(t *testing.T) {
+		hc.URL = ts.URL + "/ok"
+		hc.MaxElapsedSec = 3
+		hc.MaxRequestMS = 1000
+		if !tr.HealthCheck(hc) {
+			t.Error("healthcheck is failure. but expected success.")
+		}
+	})
+
 }

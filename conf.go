@@ -9,9 +9,10 @@ import (
 )
 
 type Conf struct {
-	Worker WorkerConf `toml:"worker"`
-	Stat   StatConf   `toml:"stat"`
-	SQS    SQSConf    `toml:"sqs"`
+	Worker      WorkerConf      `toml:"worker"`
+	HealthCheck HealthCheckConf `toml:"healthcheck"`
+	Stat        StatConf        `toml:"stat"`
+	SQS         SQSConf         `toml:"sqs"`
 }
 
 type WorkerConf struct {
@@ -19,6 +20,12 @@ type WorkerConf struct {
 	MaxProcessCount uint   `toml:"max_process_count"`
 	WorkerURL       string `toml:"worker_url"`
 	LogLevel        string `toml:"log_level"`
+}
+
+type HealthCheckConf struct {
+	URL           string `toml:"url"`
+	MaxElapsedSec int64  `toml:"max_elapsed_sec"`
+	MaxRequestMS  int64  `toml:"max_request_ms"`
 }
 
 func (c WorkerConf) Validate() error {
@@ -80,6 +87,23 @@ func (c SQSConf) QueueURL() string {
 	return url
 }
 
+func (c HealthCheckConf) Validate() error {
+	if c.URL != "" {
+		uri, err := url.ParseRequestURI(c.URL)
+		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+			return errors.New("healthcheck.url is not HTTP URL: " + c.URL)
+		}
+		if c.MaxElapsedSec == 0 {
+			return errors.New("healthcheck.max_elapsed_sec is required")
+		}
+	}
+	return nil
+}
+
+func (c HealthCheckConf) ShouldSupport() bool {
+	return c.URL != ""
+}
+
 // Init confのデフォルト値はここで埋める
 func (c *Conf) Init() {
 	if c.Worker.IntervalSeconds == 0 {
@@ -91,6 +115,10 @@ func (c *Conf) Init() {
 	if c.Worker.LogLevel == "" {
 		c.Worker.LogLevel = "INFO"
 	}
+
+	if c.HealthCheck.URL != "" && c.HealthCheck.MaxRequestMS == 0 {
+		c.HealthCheck.MaxRequestMS = 1000
+	}
 }
 
 // Validate confのバリデーションはここで行う
@@ -100,6 +128,10 @@ func (c *Conf) Validate() error {
 	}
 
 	if err := c.SQS.Validate(); err != nil {
+		return err
+	}
+
+	if err := c.HealthCheck.Validate(); err != nil {
 		return err
 	}
 
