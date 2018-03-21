@@ -111,16 +111,18 @@ func main() {
 
 	logger := sqsd.NewLogger(config.Worker.LogLevel)
 
+	tracker := sqsd.NewQueueTracker(config.Worker.MaxProcessCount)
+	if !tracker.HealthCheck(config.HealthCheck) {
+		logger.Error("healthcheck failed.")
+		return
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	wg := &sync.WaitGroup{}
 
-	wg.Add(1)
+	wg.Add(2)
 	go waitSignal(cancel, wg)
-
-	tracker := sqsd.NewQueueTracker(config.Worker.MaxProcessCount)
-
-	wg.Add(1)
 	go RunStatServer(tracker, config.Stat.ServerPort, ctx, wg)
 
 	awsConf := &aws.Config{
