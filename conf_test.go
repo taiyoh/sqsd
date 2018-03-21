@@ -95,9 +95,9 @@ func TestValidateConf(t *testing.T) {
 	}
 	c.HealthCheck.URL = "http://localhost/hoge/fuga"
 	if err := c.Validate(); err == nil {
-		t.Error("HealthCheck.MaxElapsedTime is required")
+		t.Error("HealthCheck.MaxElapsedSec is required")
 	}
-	c.HealthCheck.MaxElapsedTime = 1
+	c.HealthCheck.MaxElapsedSec = 1
 
 	if !c.HealthCheck.ShouldSupport() {
 		t.Error("healthcheck should support for filled url")

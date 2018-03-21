@@ -23,8 +23,9 @@ type WorkerConf struct {
 }
 
 type HealthCheckConf struct {
-	URL            string `toml:"url"`
-	MaxElapsedTime uint   `toml:"max_elapsed_time"`
+	URL           string `toml:"url"`
+	MaxElapsedSec int64  `toml:"max_elapsed_sec"`
+	MaxRequestMS  int64  `toml:"max_request_ms"`
 }
 
 func (c WorkerConf) Validate() error {
@@ -92,8 +93,8 @@ func (c HealthCheckConf) Validate() error {
 		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
 			return errors.New("healthcheck.url is not HTTP URL: " + c.URL)
 		}
-		if c.MaxElapsedTime == 0 {
-			return errors.New("healthcheck.max_elapsed_time is required")
+		if c.MaxElapsedSec == 0 {
+			return errors.New("healthcheck.max_elapsed_sec is required")
 		}
 	}
 	return nil
@@ -113,6 +114,10 @@ func (c *Conf) Init() {
 	}
 	if c.Worker.LogLevel == "" {
 		c.Worker.LogLevel = "INFO"
+	}
+
+	if c.HealthCheck.URL != "" && c.HealthCheck.MaxRequestMS == 0 {
+		c.HealthCheck.MaxRequestMS = 1000
 	}
 }
 
