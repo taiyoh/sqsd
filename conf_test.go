@@ -131,4 +131,8 @@ func TestNewConf(t *testing.T) {
 	if conf.SQS.QueueURL() != "http://localhost:4649/foo/bar" {
 		t.Error("SQS.URL has priority than building url." + conf.SQS.QueueURL())
 	}
+
+	if conf.SQS.Concurrency != 5 {
+		t.Error("SQS.Concurrency should be 5")
+	}
 }

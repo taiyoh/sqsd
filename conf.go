@@ -51,10 +51,11 @@ type StatConf struct {
 
 // https://sqs.<region>.amazonaws.com/<account_id>/<queue_name>"
 type SQSConf struct {
-	AccountID string `toml:"account_id"`
-	QueueName string `toml:"queue_name"`
-	Region    string `toml:"region"`
-	URL       string `toml:"url"`
+	AccountID   string `toml:"account_id"`
+	QueueName   string `toml:"queue_name"`
+	Region      string `toml:"region"`
+	URL         string `toml:"url"`
+	Concurrency uint   `toml:"concurrency"`
 }
 
 func (c SQSConf) Validate() error {
@@ -118,6 +119,10 @@ func (c *Conf) Init() {
 
 	if c.HealthCheck.URL != "" && c.HealthCheck.MaxRequestMS == 0 {
 		c.HealthCheck.MaxRequestMS = 1000
+	}
+
+	if c.SQS.Concurrency == 0 {
+		c.SQS.Concurrency = 1
 	}
 }
 

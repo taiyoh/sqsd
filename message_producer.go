@@ -12,37 +12,51 @@ type MessageProducer struct {
 	Tracker         *QueueTracker
 	HandleEmptyFunc func()
 	Logger          Logger
+	Concurrency     int
 }
 
-func NewMessageProducer(resource *Resource, tracker *QueueTracker) *MessageProducer {
+func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency uint) *MessageProducer {
 	return &MessageProducer{
 		Resource: resource,
 		Tracker:  tracker,
 		HandleEmptyFunc: func() {
 			time.Sleep(1 * time.Second)
 		},
-		Logger: tracker.Logger,
+		Logger:      tracker.Logger,
+		Concurrency: int(concurrency),
 	}
 }
 
 func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	loopEnds := false
-	p.Logger.Info("MessageProducer start.")
+	p.Logger.Info(fmt.Sprintf("MessageProducer start. concurrency=%d", p.Concurrency))
+	syncWait := &sync.WaitGroup{}
+	syncWait.Add(p.Concurrency + 1)
+	for i := 0; i < p.Concurrency; i++ {
+		go p.fetch(ctx, syncWait)
+	}
+	go func() {
+		defer syncWait.Done()
+		select {
+		case <-ctx.Done():
+			p.Logger.Info("context cancel detected. stop MessageProducer...")
+			return
+		}
+	}()
+	syncWait.Wait()
+	p.Logger.Info("MessageProducer closed.")
+}
+
+func (p *MessageProducer) fetch(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
-			p.Logger.Info("context cancelled. stop RunMainLoop.")
-			loopEnds = true
-			break
+			return
 		default:
 			p.DoHandle(ctx)
 		}
-		if loopEnds {
-			break
-		}
 	}
-	p.Logger.Info("MessageProducer closed.")
 }
 
 func (p *MessageProducer) HandleEmpty() {
