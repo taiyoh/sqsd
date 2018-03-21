@@ -15,7 +15,7 @@ type MessageProducer struct {
 	Concurrency     int
 }
 
-func NewMessageProducer(resource *Resource, tracker *QueueTracker) *MessageProducer {
+func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency uint) *MessageProducer {
 	return &MessageProducer{
 		Resource: resource,
 		Tracker:  tracker,
@@ -23,7 +23,7 @@ func NewMessageProducer(resource *Resource, tracker *QueueTracker) *MessageProdu
 			time.Sleep(1 * time.Second)
 		},
 		Logger:      tracker.Logger,
-		Concurrency: 1,
+		Concurrency: int(concurrency),
 	}
 }
 

@@ -134,7 +134,7 @@ func main() {
 	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS.QueueURL())
 
 	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.WorkerURL)
-	msgProducer := sqsd.NewMessageProducer(resource, tracker)
+	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
 	wg.Add(2)
 	go msgConsumer.Run(ctx, wg)
 	go msgProducer.Run(ctx, wg)
