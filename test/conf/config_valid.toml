@@ -1,6 +1,6 @@
 [healthcheck]
-url = "http://127.0.0.1:8080/healthcheck"
-max_elapsed_sec  = 10
+url="http://127.0.0.1:8080/healthcheck"
+max_elapsed_sec=10
 
 [worker]
 interval_seconds=1
@@ -14,3 +14,4 @@ server_port=4080
 account_id="foobar"
 queue_name="hoge"
 region="ap-northeast-1"
+concurrency=5
