@@ -11,7 +11,7 @@ import (
 )
 
 func TestQueueTracker(t *testing.T) {
-	tracker := NewQueueTracker(1)
+	tracker := NewQueueTracker(1, NewLogger("DEBUG"))
 	if tracker == nil {
 		t.Error("job tracker not loaded.")
 	}
@@ -86,7 +86,7 @@ func TestQueueTracker(t *testing.T) {
 }
 
 func TestJobWorking(t *testing.T) {
-	tr := NewQueueTracker(5)
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 
 	if !tr.JobWorking {
 		t.Error("JobWorking false")
@@ -104,7 +104,7 @@ func TestJobWorking(t *testing.T) {
 }
 
 func TestCurrentSummaries(t *testing.T) {
-	tr := NewQueueTracker(5)
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	now := time.Now()
 	for i := 1; i <= 2; i++ {
 		iStr := strconv.Itoa(i)
@@ -131,7 +131,7 @@ func TestCurrentSummaries(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	tr := NewQueueTracker(5)
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	hc := HealthCheckConf{}
 
 	if !tr.HealthCheck(hc) {

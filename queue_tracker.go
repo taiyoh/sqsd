@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"sync"
@@ -15,15 +16,17 @@ import (
 type QueueTracker struct {
 	CurrentWorkings *sync.Map
 	JobWorking      bool
+	Logger          Logger
 	queueChan       chan *Queue
 	queueStack      chan struct{}
 }
 
-func NewQueueTracker(maxProcCount uint) *QueueTracker {
+func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 	procCount := int(maxProcCount)
 	return &QueueTracker{
 		CurrentWorkings: new(sync.Map),
 		JobWorking:      true,
+		Logger:          logger,
 		queueChan:       make(chan *Queue, procCount),
 		queueStack:      make(chan struct{}, procCount),
 	}
@@ -83,12 +86,15 @@ func (t *QueueTracker) HealthCheck(c HealthCheckConf) bool {
 		defer cancel()
 		resp, err := client.Do(req.WithContext(ctx))
 		if err != nil {
+			t.Logger.Warn(fmt.Sprintf("healthcheck request failed. %s\n", err))
 			return err
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
+			t.Logger.Warn("healthcheck response code != 200")
 			return errors.New("response status code != 200")
 		}
+		t.Logger.Info("healthcheck request success.")
 		return nil
 	}, ebo)
 	if err != nil {

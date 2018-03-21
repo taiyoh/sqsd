@@ -111,7 +111,7 @@ func main() {
 
 	logger := sqsd.NewLogger(config.Worker.LogLevel)
 
-	tracker := sqsd.NewQueueTracker(config.Worker.MaxProcessCount)
+	tracker := sqsd.NewQueueTracker(config.Worker.MaxProcessCount, logger)
 	if !tracker.HealthCheck(config.HealthCheck) {
 		logger.Error("healthcheck failed.")
 		return
@@ -133,8 +133,8 @@ func main() {
 	}))
 	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS.QueueURL())
 
-	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, logger, config.Worker.WorkerURL)
-	msgProducer := sqsd.NewMessageProducer(resource, tracker, logger)
+	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.WorkerURL)
+	msgProducer := sqsd.NewMessageProducer(resource, tracker)
 	wg.Add(2)
 	go msgConsumer.Run(ctx, wg)
 	go msgProducer.Run(ctx, wg)

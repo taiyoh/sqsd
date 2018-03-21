@@ -62,7 +62,7 @@ func TestRenderJSON(t *testing.T) {
 }
 
 func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
-	tr := NewQueueTracker(5)
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	h := &StatHandler{tr}
 
 	for i := 1; i <= 5; i++ {
@@ -150,7 +150,7 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 }
 
 func TestWorkerPauseAndResumeHandler(t *testing.T) {
-	tr := NewQueueTracker(5)
+	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	h := &StatHandler{tr}
 
 	pauseController := h.WorkerPauseHandler()
