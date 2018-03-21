@@ -31,32 +31,26 @@ func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	p.Logger.Info(fmt.Sprintf("MessageProducer start. concurrency=%d", p.Concurrency))
 	syncWait := &sync.WaitGroup{}
-	syncWait.Add(p.Concurrency + 1)
+	syncWait.Add(p.Concurrency)
 	for i := 0; i < p.Concurrency; i++ {
-		go p.fetch(ctx, syncWait)
+		go func() {
+			defer syncWait.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					p.DoHandle(ctx)
+				}
+			}
+		}()
 	}
 	go func() {
-		defer syncWait.Done()
-		select {
-		case <-ctx.Done():
-			p.Logger.Info("context cancel detected. stop MessageProducer...")
-			return
-		}
+		<-ctx.Done()
+		p.Logger.Info("context cancel detected. stop MessageProducer...")
 	}()
 	syncWait.Wait()
 	p.Logger.Info("MessageProducer closed.")
-}
-
-func (p *MessageProducer) fetch(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			p.DoHandle(ctx)
-		}
-	}
 }
 
 func (p *MessageProducer) HandleEmpty() {
