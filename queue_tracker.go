@@ -91,7 +91,7 @@ func (t *QueueTracker) HealthCheck(c HealthCheckConf) bool {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			t.Logger.Warn("healthcheck response code != 200")
+			t.Logger.Warn(fmt.Sprintf("healthcheck response code != 200: %s", resp.Status))
 			return errors.New("response status code != 200")
 		}
 		t.Logger.Info("healthcheck request success.")

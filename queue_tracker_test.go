@@ -144,6 +144,7 @@ func TestHealthCheck(t *testing.T) {
 	t.Run("error returns", func(t *testing.T) {
 		hc.URL = ts.URL + "/error"
 		hc.MaxElapsedSec = 1
+		hc.MaxRequestMS = 1000
 		if tr.HealthCheck(hc) {
 			t.Error("healthcheck is success. but expected failure.")
 		}
