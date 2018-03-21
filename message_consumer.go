@@ -31,14 +31,13 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *
 func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	syncWait := new(sync.WaitGroup)
-	loopEnds := false
 	c.Logger.Info("MessageConsumer start.")
 	for {
 		select {
 		case <-ctx.Done():
 			syncWait.Wait()
-			loopEnds = true
-			break
+			c.Logger.Info("MessageConsumer closed.")
+			return
 		case q := <-c.Tracker.NextQueue():
 			syncWait.Add(1)
 			go func() {
@@ -46,11 +45,7 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 				c.HandleJob(ctx, q)
 			}()
 		}
-		if loopEnds {
-			break
-		}
 	}
-	c.Logger.Info("MessageConsumer closed.")
 }
 
 func (c *MessageConsumer) HandleJob(ctx context.Context, q *Queue) {
@@ -69,10 +64,7 @@ func (c *MessageConsumer) HandleJob(ctx context.Context, q *Queue) {
 }
 
 func (c *MessageConsumer) CallWorker(ctx context.Context, q *Queue) (bool, error) {
-	req, err := http.NewRequest("POST", c.URL, strings.NewReader(*q.Msg.Body))
-	if err != nil {
-		return false, err
-	}
+	req, _ := http.NewRequest("POST", c.URL, strings.NewReader(*q.Msg.Body))
 	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "github.com/taiyoh/sqsd-"+GetVersion())
@@ -83,9 +75,8 @@ func (c *MessageConsumer) CallWorker(ctx context.Context, q *Queue) (bool, error
 	if err != nil {
 		return false, err
 	}
-	statusCode := resp.StatusCode
 	defer resp.Body.Close()
-	if statusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return false, nil
 	}
 
