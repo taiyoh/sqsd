@@ -3,6 +3,13 @@ interval_seconds={{or .interval_seconds 20}}
 max_process_count={{or .max_process_count 5}}
 worker_url="{{.worker_url}}"
 
+{{if .healthcheck_url -}}
+[healthcheck]
+url="{{.healthcheck_url}}"
+max_elapsed_sec={{.healthcheck_max_elapsed_sec}}
+max_request_ms={{or .healthcheck_max_request_ms 1000}}
+{{- end}}
+
 [stat]
 server_port={{.stat_server_port}}
 
@@ -10,3 +17,4 @@ server_port={{.stat_server_port}}
 account_id="{{.aws_account_id}}"
 region="{{.aws_region}}"
 queue_name="{{.sqs_queue_name}}"
+concurrency={{or .sqs_concurrency 1}}
