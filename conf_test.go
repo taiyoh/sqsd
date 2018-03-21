@@ -103,6 +103,12 @@ func TestValidateConf(t *testing.T) {
 		t.Error("healthcheck should support for filled url")
 	}
 
+	c.Stat.ServerPort = 0
+	if err := c.Validate(); err == nil {
+		t.Error("Stat.ServerPort should be invalid")
+	}
+	c.Stat.ServerPort = 4080
+
 	if err := c.Validate(); err != nil {
 		t.Error("WorkerConf should be valid: ", err)
 	}
