@@ -43,7 +43,6 @@ type SQSConf struct {
 
 // ConfSection is interface for Conf.Init and Conf.Validate
 type ConfSection interface {
-	Init(a ...interface{})
 	Validate() error
 }
 
@@ -70,27 +69,6 @@ func (c SQSConf) QueueURL() string {
 // ShouldHealthcheckSupport returns either healthcheck_url is registered or not.
 func (c WorkerConf) ShouldHealthcheckSupport() bool {
 	return c.HealthcheckURL != ""
-}
-
-// Init processes MainConfOption typed functions for injecting default value
-func (c MainConf) Init(opts ...interface{}) {
-	for _, o := range opts {
-		o.(MainConfOption)(&c)
-	}
-}
-
-// Init processes WorkerConfOption typed functions for injecting default value
-func (c WorkerConf) Init(opts ...interface{}) {
-	for _, o := range opts {
-		o.(WorkerConfOption)(&c)
-	}
-}
-
-// Init processes SQSConfOption typed functions for injecting default value
-func (c SQSConf) Init(opts ...interface{}) {
-	for _, o := range opts {
-		o.(SQSConfOption)(&c)
-	}
 }
 
 // <!-- validation section start
@@ -205,9 +183,15 @@ func concurrency(i uint) SQSConfOption {
 
 // Init fills default values for each sections.
 func (c *Conf) Init() {
-	c.Main.Init(logLevel("INFO"))
-	c.Worker.Init(maxProcessCount(1), healthcheckMaxRequestMillisec(1000))
-	c.SQS.Init(waitTimeSec(20), concurrency(1))
+	for _, o := range []MainConfOption{logLevel("INFO")} {
+		o(&c.Main)
+	}
+	for _, o := range []WorkerConfOption{maxProcessCount(1), healthcheckMaxRequestMillisec(1000)} {
+		o(&c.Worker)
+	}
+	for _, o := range []SQSConfOption{waitTimeSec(20), concurrency(1)} {
+		o(&c.SQS)
+	}
 }
 
 // Validate processes Validate method for each sections. return error if exists.

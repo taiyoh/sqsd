@@ -7,23 +7,6 @@ import (
 	"testing"
 )
 
-func TestInitConf(t *testing.T) {
-	c := &Conf{}
-	if c.Worker.MaxProcessCount != 0 {
-		t.Error("MaxProcessCount is invalid")
-	}
-	if c.Worker.IntervalSeconds != 0 {
-		t.Error("IntervalSeconds is invalid")
-	}
-	c.Init()
-	if c.Worker.MaxProcessCount != 1 {
-		t.Error("MaxProcessCount is yet 0")
-	}
-	if c.Worker.IntervalSeconds != 1 {
-		t.Error("IntervalSeconds not set!")
-	}
-}
-
 func TestValidateConf(t *testing.T) {
 	c := &Conf{}
 	c.Init()
@@ -31,7 +14,7 @@ func TestValidateConf(t *testing.T) {
 	c.SQS.QueueName = "bar"
 	c.SQS.Region = "ap-northeast-1"
 	c.Worker.WorkerURL = "http://localhost:1080/run_job"
-	c.Stat.ServerPort = 10000
+	c.Main.StatServerPort = 4000
 
 	if err := c.Validate(); err != nil {
 		t.Error("valid conf but error found", err)
@@ -42,12 +25,12 @@ func TestValidateConf(t *testing.T) {
 		t.Error("sqs.region is required but valid config")
 	}
 
-	c.Stat.ServerPort = 0
+	c.Main.StatServerPort = 0
 	if err := c.Validate(); err == nil {
 		t.Error("stat.server_port is 0, but no error")
 	}
 
-	c.Stat.ServerPort = 10000
+	c.Main.StatServerPort = 10000
 	c.SQS.QueueName = ""
 	if err := c.Validate(); err == nil {
 		t.Error("sqs.queue_name is required")
@@ -79,38 +62,28 @@ func TestValidateConf(t *testing.T) {
 		t.Error("Worker.WorkerURL is not HTTP url, but no error")
 	}
 	c.Worker.WorkerURL = "http://localhost/foo/bar"
-	c.Worker.LogLevel = "WRONG"
+	c.Main.LogLevel = "WRONG"
 	if err := c.Validate(); err == nil {
 		t.Error("Worker.LogLevel should be invalid")
 	}
-	c.Worker.LogLevel = "INFO"
+	c.Main.LogLevel = "INFO"
 
-	if c.HealthCheck.ShouldSupport() {
+	if c.Worker.ShouldHealthcheckSupport() {
 		t.Error("healthcheck should not support for empty url")
 	}
 
-	c.HealthCheck.URL = "hoge://fuga/piyo"
+	c.Worker.HealthcheckURL = "hoge://fuga/piyo"
 	if err := c.Validate(); err == nil {
 		t.Error("HealthCheck.URL should be invalid")
 	}
-	c.HealthCheck.URL = "http://localhost/hoge/fuga"
+	c.Worker.HealthcheckURL = "http://localhost/hoge/fuga"
 	if err := c.Validate(); err == nil {
-		t.Error("HealthCheck.MaxElapsedSec is required")
+		t.Error("HealthcheckMaxElapsedSec is required")
 	}
-	c.HealthCheck.MaxElapsedSec = 1
+	c.Worker.HealthcheckMaxElapsedSec = 1
 
-	if !c.HealthCheck.ShouldSupport() {
+	if !c.Worker.ShouldHealthcheckSupport() {
 		t.Error("healthcheck should support for filled url")
-	}
-
-	c.Stat.ServerPort = 0
-	if err := c.Validate(); err == nil {
-		t.Error("Stat.ServerPort should be invalid")
-	}
-	c.Stat.ServerPort = 4080
-
-	if err := c.Validate(); err != nil {
-		t.Error("WorkerConf should be valid: ", err)
 	}
 }
 
@@ -129,8 +102,8 @@ func TestNewConf(t *testing.T) {
 	if conf.SQS.QueueURL() != "https://sqs.ap-northeast-1.amazonaws.com/foobar/hoge" {
 		t.Error("QueueURL not loaded correctly. " + conf.SQS.QueueURL())
 	}
-	if conf.Stat.ServerPort != 4080 {
-		t.Error("Stat.ServerPort not loaded correctly. " + strconv.Itoa(conf.Stat.ServerPort))
+	if conf.Main.StatServerPort != 4080 {
+		t.Error("Main.StatServerPort not loaded correctly. " + strconv.Itoa(conf.Main.StatServerPort))
 	}
 
 	conf.SQS.URL = "http://localhost:4649/foo/bar"

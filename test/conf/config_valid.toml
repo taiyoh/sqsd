@@ -1,14 +1,12 @@
-[healthcheck]
-url="http://127.0.0.1:8080/healthcheck"
-max_elapsed_sec=10
+[main]
+stat_server_port=4080
 
 [worker]
 interval_seconds=1
 max_process_count=40
 worker_url="http://127.0.0.1:8080/run_job"
-
-[stat]
-server_port=4080
+healthcheck_url="http://127.0.0.1:8080/healthcheck"
+healthcheck_max_elapsed_sec=10
 
 [sqs]
 account_id="foobar"
