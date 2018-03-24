@@ -17,7 +17,8 @@ func TestResource(t *testing.T) {
 			ReceiptHandle: aws.String("aaaaaaaaaaaaa"),
 		},
 	}
-	r := NewResource(c, "http://example.com/foo")
+	sc := SQSConf{URL: "http://example.com/foo", WaitTimeSec: 10}
+	r := NewResource(c, sc)
 	if r == nil {
 		t.Error("Resource object not created")
 	}

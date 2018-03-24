@@ -13,13 +13,13 @@ type Resource struct {
 	ReceiveParams *sqs.ReceiveMessageInput
 }
 
-func NewResource(client sqsiface.SQSAPI, url string) *Resource {
+func NewResource(client sqsiface.SQSAPI, c SQSConf) *Resource {
 	return &Resource{
 		Client: client,
 		ReceiveParams: &sqs.ReceiveMessageInput{
-			QueueUrl:            aws.String(url),
+			QueueUrl:            aws.String(c.QueueURL()),
 			MaxNumberOfMessages: aws.Int64(10),
-			WaitTimeSeconds:     aws.Int64(20),
+			WaitTimeSeconds:     aws.Int64(c.WaitTimeSec),
 		},
 	}
 }

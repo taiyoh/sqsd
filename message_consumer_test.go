@@ -17,7 +17,8 @@ type HandleJobResponse struct {
 
 func TestHandleJob(t *testing.T) {
 	mc := NewMockClient()
-	r := NewResource(mc, "http://example.com/foo/bar/queue")
+	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
+	r := NewResource(mc, sc)
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	msgc := NewMessageConsumer(r, tr, "")
 
