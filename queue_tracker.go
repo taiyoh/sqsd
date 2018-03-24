@@ -70,18 +70,18 @@ func (t *QueueTracker) IsWorking() bool {
 	return t.JobWorking
 }
 
-func (t *QueueTracker) HealthCheck(c WorkerConf) bool {
-	if !c.ShouldHealthcheckSupport() {
+func (t *QueueTracker) HealthCheck(c HealthcheckConf) bool {
+	if !c.ShouldSupport() {
 		return true
 	}
 
 	ebo := backoff.NewExponentialBackOff()
-	ebo.MaxElapsedTime = time.Duration(c.HealthcheckMaxElapsedSec) * time.Second
+	ebo.MaxElapsedTime = time.Duration(c.MaxElapsedSec) * time.Second
 	client := &http.Client{}
 
 	err := backoff.Retry(func() error {
-		req, _ := http.NewRequest("GET", c.HealthcheckURL, bytes.NewBuffer([]byte("")))
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.HealthcheckMaxRequestMS)*time.Millisecond)
+		req, _ := http.NewRequest("GET", c.URL, bytes.NewBuffer([]byte("")))
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.MaxRequestMS)*time.Millisecond)
 		defer cancel()
 		resp, err := client.Do(req.WithContext(ctx))
 		if err != nil {
