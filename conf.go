@@ -24,11 +24,15 @@ type MainConf struct {
 
 // WorkerConf provides parameters for request to worker endpoint.
 type WorkerConf struct {
-	MaxProcessCount          uint   `toml:"max_process_count"`
-	WorkerURL                string `toml:"worker_url"`
-	HealthcheckURL           string `toml:"healthcheck_url"`
-	HealthcheckMaxElapsedSec int64  `toml:"healthcheck_max_elapsed_sec"`
-	HealthcheckMaxRequestMS  int64  `toml:"healthcheck_max_request_ms"`
+	URL             string          `toml:"url"`
+	MaxProcessCount uint            `toml:"max_process_count"`
+	Healthcheck     HealthcheckConf `toml:"healthcheck"`
+}
+
+type HealthcheckConf struct {
+	URL           string `toml:"url"`
+	MaxElapsedSec int64  `toml:"max_elapsed_sec"`
+	MaxRequestMS  int64  `toml:"max_request_ms"`
 }
 
 // SQSConf provides parameters for request to sqs endpoint.
@@ -52,6 +56,9 @@ type MainConfOption func(c *MainConf)
 // WorkerConfOption injects default value for WorkerConf
 type WorkerConfOption func(c *WorkerConf)
 
+// HealthcheckConfOption injects default value for HealthcheckConf
+type HealthcheckConfOption func(c *HealthcheckConf)
+
 // SQSConfOption injects default value for SQSConf
 type SQSConfOption func(c *SQSConf)
 
@@ -67,8 +74,8 @@ func (c SQSConf) QueueURL() string {
 }
 
 // ShouldHealthcheckSupport returns either healthcheck_url is registered or not.
-func (c WorkerConf) ShouldHealthcheckSupport() bool {
-	return c.HealthcheckURL != ""
+func (c HealthcheckConf) ShouldSupport() bool {
+	return c.URL != ""
 }
 
 // <!-- validation section start
@@ -80,16 +87,16 @@ func isURL(urlStr string) bool {
 
 // Validate returns error if worker configuration is invalid.
 func (c WorkerConf) Validate() error {
-	if !isURL(c.WorkerURL) {
-		return errors.New("worker.worker_url is not HTTP URL: " + c.WorkerURL)
+	if !isURL(c.URL) {
+		return errors.New("worker.url is not HTTP URL: " + c.URL)
 	}
 
-	if c.HealthcheckURL != "" {
-		if !isURL(c.HealthcheckURL) {
-			return errors.New("worker.healthcheck_url is not HTTP URL: " + c.HealthcheckURL)
+	if c.Healthcheck.URL != "" {
+		if !isURL(c.Healthcheck.URL) {
+			return errors.New("worker.healthcheck.url is not HTTP URL: " + c.Healthcheck.URL)
 		}
-		if c.HealthcheckMaxElapsedSec == 0 {
-			return errors.New("worker.healthcheck_max_elapsed_sec is required")
+		if c.Healthcheck.MaxElapsedSec == 0 {
+			return errors.New("worker.healthcheck.max_elapsed_sec is required")
 		}
 	}
 
@@ -163,10 +170,10 @@ func logLevel(l string) MainConfOption {
 	}
 }
 
-func healthcheckMaxRequestMillisec(ms int64) WorkerConfOption {
-	return func(c *WorkerConf) {
-		if c.HealthcheckURL != "" && c.HealthcheckMaxRequestMS == 0 {
-			c.HealthcheckMaxRequestMS = ms
+func maxRequestMillisec(ms int64) HealthcheckConfOption {
+	return func(c *HealthcheckConf) {
+		if c.URL != "" && c.MaxRequestMS == 0 {
+			c.MaxRequestMS = ms
 		}
 	}
 }
@@ -186,8 +193,11 @@ func (c *Conf) Init() {
 	for _, o := range []MainConfOption{logLevel("INFO")} {
 		o(&c.Main)
 	}
-	for _, o := range []WorkerConfOption{maxProcessCount(1), healthcheckMaxRequestMillisec(1000)} {
+	for _, o := range []WorkerConfOption{maxProcessCount(1)} {
 		o(&c.Worker)
+	}
+	for _, o := range []HealthcheckConfOption{maxRequestMillisec(1000)} {
+		o(&c.Worker.Healthcheck)
 	}
 	for _, o := range []SQSConfOption{waitTimeSec(20), concurrency(1)} {
 		o(&c.SQS)

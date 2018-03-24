@@ -1,15 +1,18 @@
 [main]
-stat_server_port=4080
+stat_server_port = 4080
+log_level        = "INFO"
 
 [worker]
-interval_seconds=1
-max_process_count=40
-worker_url="http://127.0.0.1:8080/run_job"
-healthcheck_url="http://127.0.0.1:8080/healthcheck"
-healthcheck_max_elapsed_sec=10
+max_process_count = 40
+url               = "http://127.0.0.1:8080/run_job"
+
+[worker.healthcheck]
+url             = "http://127.0.0.1:8080/healthcheck"
+max_elapsed_sec = 10
 
 [sqs]
-account_id="foobar"
-queue_name="hoge"
-region="ap-northeast-1"
-concurrency=5
+account_id    = "foobar"
+queue_name    = "hoge"
+region        = "ap-northeast-1"
+concurrency   = 5
+wait_time_sec = 20
