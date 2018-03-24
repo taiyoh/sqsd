@@ -13,7 +13,7 @@ func TestValidateConf(t *testing.T) {
 	c.SQS.AccountID = "foo"
 	c.SQS.QueueName = "bar"
 	c.SQS.Region = "ap-northeast-1"
-	c.Worker.WorkerURL = "http://localhost:1080/run_job"
+	c.Worker.URL = "http://localhost:1080/run_job"
 	c.Main.StatServerPort = 4000
 
 	if err := c.Validate(); err != nil {
@@ -53,36 +53,36 @@ func TestValidateConf(t *testing.T) {
 	}
 	c.SQS.URL = ""
 
-	c.Worker.WorkerURL = ""
+	c.Worker.URL = ""
 	if err := c.Validate(); err == nil {
 		t.Error("Worker.WorkerURL is empty, but no error")
 	}
-	c.Worker.WorkerURL = "foo://bar/baz"
+	c.Worker.URL = "foo://bar/baz"
 	if err := c.Validate(); err == nil {
 		t.Error("Worker.WorkerURL is not HTTP url, but no error")
 	}
-	c.Worker.WorkerURL = "http://localhost/foo/bar"
+	c.Worker.URL = "http://localhost/foo/bar"
 	c.Main.LogLevel = "WRONG"
 	if err := c.Validate(); err == nil {
 		t.Error("Worker.LogLevel should be invalid")
 	}
 	c.Main.LogLevel = "INFO"
 
-	if c.Worker.ShouldHealthcheckSupport() {
+	if c.Worker.Healthcheck.ShouldSupport() {
 		t.Error("healthcheck should not support for empty url")
 	}
 
-	c.Worker.HealthcheckURL = "hoge://fuga/piyo"
+	c.Worker.Healthcheck.URL = "hoge://fuga/piyo"
 	if err := c.Validate(); err == nil {
 		t.Error("HealthCheck.URL should be invalid")
 	}
-	c.Worker.HealthcheckURL = "http://localhost/hoge/fuga"
+	c.Worker.Healthcheck.URL = "http://localhost/hoge/fuga"
 	if err := c.Validate(); err == nil {
 		t.Error("HealthcheckMaxElapsedSec is required")
 	}
-	c.Worker.HealthcheckMaxElapsedSec = 1
+	c.Worker.Healthcheck.MaxElapsedSec = 1
 
-	if !c.Worker.ShouldHealthcheckSupport() {
+	if !c.Worker.Healthcheck.ShouldSupport() {
 		t.Error("healthcheck should support for filled url")
 	}
 }

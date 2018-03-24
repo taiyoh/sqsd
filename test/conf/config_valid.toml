@@ -4,9 +4,11 @@ log_level        = "INFO"
 
 [worker]
 max_process_count = 40
-worker_url        = "http://127.0.0.1:8080/run_job"
-healthcheck_url             = "http://127.0.0.1:8080/healthcheck"
-healthcheck_max_elapsed_sec = 10
+url               = "http://127.0.0.1:8080/run_job"
+
+[worker.healthcheck]
+url             = "http://127.0.0.1:8080/healthcheck"
+max_elapsed_sec = 10
 
 [sqs]
 account_id    = "foobar"
