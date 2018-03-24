@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -29,7 +28,7 @@ func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency u
 
 func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	p.Logger.Info(fmt.Sprintf("MessageProducer start. concurrency=%d", p.Concurrency))
+	p.Logger.Infof("MessageProducer start. concurrency=%d", p.Concurrency)
 	syncWait := &sync.WaitGroup{}
 	syncWait.Add(p.Concurrency)
 	for i := 0; i < p.Concurrency; i++ {
@@ -65,7 +64,7 @@ func (p *MessageProducer) DoHandle(ctx context.Context) {
 	}
 	results, err := p.Resource.GetMessages(ctx)
 	if err != nil {
-		p.Logger.Error(fmt.Sprintf("GetMessages Error: %s", err))
+		p.Logger.Errorf("GetMessages Error: %s", err)
 		p.HandleEmpty()
 		return
 	}
@@ -74,7 +73,7 @@ func (p *MessageProducer) DoHandle(ctx context.Context) {
 		p.HandleEmpty()
 		return
 	}
-	p.Logger.Debug(fmt.Sprintf("received %d messages. run jobs.\n", len(results)))
+	p.Logger.Debugf("received %d messages. run jobs.\n", len(results))
 	for _, msg := range results {
 		p.Tracker.Register(NewQueue(msg))
 	}

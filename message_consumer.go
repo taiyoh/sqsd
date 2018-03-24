@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -50,16 +49,16 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 func (c *MessageConsumer) HandleJob(ctx context.Context, q *Queue) {
 	c.OnHandleJobStart(q)
-	c.Logger.Debug(fmt.Sprintf("job[%s] HandleJob start.", q.ID()))
+	c.Logger.Debugf("job[%s] HandleJob start.", q.ID())
 	ok, err := c.CallWorker(ctx, q)
 	if err != nil {
-		c.Logger.Error(fmt.Sprintf("job[%s] HandleJob request error: %s", q.ID(), err))
+		c.Logger.Errorf("job[%s] HandleJob request error: %s", q.ID(), err)
 	}
 	if ok {
 		c.Resource.DeleteMessage(q.Msg)
 	}
 	c.Tracker.Complete(q)
-	c.Logger.Debug(fmt.Sprintf("job[%s] HandleJob finished.", q.ID()))
+	c.Logger.Debugf("job[%s] HandleJob finished.", q.ID())
 	c.OnHandleJobEnds(q.ID(), ok, err)
 }
 

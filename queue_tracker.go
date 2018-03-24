@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"sort"
 	"sync"
@@ -86,12 +85,12 @@ func (t *QueueTracker) HealthCheck(c HealthCheckConf) bool {
 		defer cancel()
 		resp, err := client.Do(req.WithContext(ctx))
 		if err != nil {
-			t.Logger.Warn(fmt.Sprintf("healthcheck request failed. %s", err))
+			t.Logger.Warnf("healthcheck request failed. %s", err)
 			return err
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			t.Logger.Warn(fmt.Sprintf("healthcheck response code != 200: %s", resp.Status))
+			t.Logger.Warnf("healthcheck response code != 200: %s", resp.Status)
 			return errors.New("response status code != 200")
 		}
 		t.Logger.Info("healthcheck request success.")
