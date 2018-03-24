@@ -109,10 +109,10 @@ func main() {
 		log.Fatalf("config file: %s, err: %s\n", confPath, err)
 	}
 
-	logger := sqsd.NewLogger(config.Worker.LogLevel)
+	logger := sqsd.NewLogger(config.Main.LogLevel)
 
 	tracker := sqsd.NewQueueTracker(config.Worker.MaxProcessCount, logger)
-	if !tracker.HealthCheck(config.HealthCheck) {
+	if !tracker.HealthCheck(config.Worker) {
 		logger.Error("healthcheck failed.")
 		return
 	}
@@ -123,7 +123,7 @@ func main() {
 
 	wg.Add(2)
 	go waitSignal(cancel, wg)
-	go RunStatServer(tracker, config.Stat.ServerPort, ctx, wg)
+	go RunStatServer(tracker, config.Main.StatServerPort, ctx, wg)
 
 	awsConf := &aws.Config{
 		Region: aws.String(config.SQS.Region),
