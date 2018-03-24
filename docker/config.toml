@@ -3,12 +3,14 @@ stat_server_port = {{or .stat_server_port 5956}}
 log_level        = "{{or .log_level "INFO"}}"
 
 [worker]
-max_process_count           = {{or .max_process_count 1}}
-worker_url                  = "{{.worker_url}}"
+url               = "{{.worker_url}}"
+max_process_count = {{or .max_process_count 1}}
+
 {{if .healthcheck_url -}}
-healthcheck_url             = "{{.healthcheck_url}}"
-healthcheck_max_elapsed_sec = {{or .healthcheck_max_elapsed_sec 10}}
-healthcheck_max_request_ms  = {{or .healthcheck_max_request_ms 1000}}
+[worker.healthcheck]
+url             = "{{.healthcheck_url}}"
+max_elapsed_sec = {{or .healthcheck_max_elapsed_sec 10}}
+max_request_ms  = {{or .healthcheck_max_request_ms 1000}}
 {{- end}}
 
 [sqs]
