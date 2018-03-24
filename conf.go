@@ -8,6 +8,10 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
+type workerConfOption func(c *WorkerConf) error
+type sqsConfOption func(c *SQSConf) error
+type healthcheckConfOption func(c *HealthCheckConf) error
+
 type Conf struct {
 	Worker      WorkerConf      `toml:"worker"`
 	HealthCheck HealthCheckConf `toml:"healthcheck"`
@@ -28,9 +32,13 @@ type HealthCheckConf struct {
 	MaxRequestMS  int64  `toml:"max_request_ms"`
 }
 
+func isURL(urlStr string) bool {
+	uri, err := url.ParseRequestURI(urlStr)
+	return err == nil && strings.HasPrefix(uri.Scheme, "http")
+}
+
 func (c WorkerConf) Validate() error {
-	uri, err := url.ParseRequestURI(c.WorkerURL)
-	if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+	if !isURL(c.WorkerURL) {
 		return errors.New("worker.worker_url is not HTTP URL: " + c.WorkerURL)
 	}
 	levelMap := map[string]struct{}{
@@ -67,8 +75,7 @@ func (c SQSConf) Validate() error {
 			return errors.New("sqs.queue_name is required")
 		}
 	} else {
-		uri, err := url.ParseRequestURI(c.URL)
-		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+		if !isURL(c.URL) {
 			return errors.New("sqs.url is not HTTP URL: " + c.URL)
 		}
 	}
@@ -90,8 +97,7 @@ func (c SQSConf) QueueURL() string {
 
 func (c HealthCheckConf) Validate() error {
 	if c.URL != "" {
-		uri, err := url.ParseRequestURI(c.URL)
-		if err != nil || !strings.HasPrefix(uri.Scheme, "http") {
+		if !isURL(c.URL) {
 			return errors.New("healthcheck.url is not HTTP URL: " + c.URL)
 		}
 		if c.MaxElapsedSec == 0 {
@@ -105,25 +111,74 @@ func (c HealthCheckConf) ShouldSupport() bool {
 	return c.URL != ""
 }
 
+func intervalSec(s uint64) workerConfOption {
+	return func(c *WorkerConf) error {
+		if c.IntervalSeconds == 0 {
+			c.IntervalSeconds = s
+		}
+		return nil
+	}
+}
+
+func maxProcessCount(i uint) workerConfOption {
+	return func(c *WorkerConf) error {
+		if c.MaxProcessCount == 0 {
+			c.MaxProcessCount = i
+		}
+		return nil
+	}
+}
+
+func logLevel(l string) workerConfOption {
+	return func(c *WorkerConf) error {
+		if c.LogLevel == "" {
+			c.LogLevel = l
+		}
+		return nil
+	}
+}
+
+func maxRequestMillisec(ms int64) healthcheckConfOption {
+	return func(c *HealthCheckConf) error {
+		if c.URL != "" && c.MaxRequestMS == 0 {
+			c.MaxRequestMS = ms
+		}
+		return nil
+	}
+}
+
+func concurrency(i uint) sqsConfOption {
+	return func(c *SQSConf) error {
+		if c.Concurrency == 0 {
+			c.Concurrency = 1
+		}
+		return nil
+	}
+}
+
+func (c *Conf) workerInit(opts ...workerConfOption) {
+	for _, o := range opts {
+		o(&c.Worker)
+	}
+}
+
+func (c *Conf) healthcheckInit(opts ...healthcheckConfOption) {
+	for _, o := range opts {
+		o(&c.HealthCheck)
+	}
+}
+
+func (c *Conf) sqsInit(opts ...sqsConfOption) {
+	for _, o := range opts {
+		o(&c.SQS)
+	}
+}
+
 // Init confのデフォルト値はここで埋める
 func (c *Conf) Init() {
-	if c.Worker.IntervalSeconds == 0 {
-		c.Worker.IntervalSeconds = 1
-	}
-	if c.Worker.MaxProcessCount == 0 {
-		c.Worker.MaxProcessCount = 1
-	}
-	if c.Worker.LogLevel == "" {
-		c.Worker.LogLevel = "INFO"
-	}
-
-	if c.HealthCheck.URL != "" && c.HealthCheck.MaxRequestMS == 0 {
-		c.HealthCheck.MaxRequestMS = 1000
-	}
-
-	if c.SQS.Concurrency == 0 {
-		c.SQS.Concurrency = 1
-	}
+	c.workerInit(intervalSec(1), maxProcessCount(1), logLevel("INFO"))
+	c.healthcheckInit(maxRequestMillisec(1000))
+	c.sqsInit(concurrency(1))
 }
 
 // Validate confのバリデーションはここで行う
