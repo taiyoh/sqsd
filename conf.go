@@ -2,15 +2,12 @@ package sqsd
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/pelletier/go-toml"
 )
-
-type workerConfOption func(c *WorkerConf) error
-type sqsConfOption func(c *SQSConf) error
-type healthcheckConfOption func(c *HealthCheckConf) error
 
 type Conf struct {
 	Worker      WorkerConf      `toml:"worker"`
@@ -31,6 +28,35 @@ type HealthCheckConf struct {
 	MaxElapsedSec int64  `toml:"max_elapsed_sec"`
 	MaxRequestMS  int64  `toml:"max_request_ms"`
 }
+
+type StatConf struct {
+	ServerPort int `toml:"server_port"`
+}
+
+// https://sqs.<region>.amazonaws.com/<account_id>/<queue_name>"
+type SQSConf struct {
+	AccountID   string `toml:"account_id"`
+	QueueName   string `toml:"queue_name"`
+	Region      string `toml:"region"`
+	URL         string `toml:"url"`
+	Concurrency uint   `toml:"concurrency"`
+}
+
+func (c SQSConf) QueueURL() string {
+	var url string
+	if c.URL != "" {
+		url = c.URL
+	} else {
+		url = fmt.Sprintf("https://sqs.%s.amazonaws.com/%s/%s", c.Region, c.AccountID, c.QueueName)
+	}
+	return url
+}
+
+func (c HealthCheckConf) ShouldSupport() bool {
+	return c.URL != ""
+}
+
+// <!-- validation section start
 
 func isURL(urlStr string) bool {
 	uri, err := url.ParseRequestURI(urlStr)
@@ -53,19 +79,6 @@ func (c WorkerConf) Validate() error {
 	return nil
 }
 
-type StatConf struct {
-	ServerPort int `toml:"server_port"`
-}
-
-// https://sqs.<region>.amazonaws.com/<account_id>/<queue_name>"
-type SQSConf struct {
-	AccountID   string `toml:"account_id"`
-	QueueName   string `toml:"queue_name"`
-	Region      string `toml:"region"`
-	URL         string `toml:"url"`
-	Concurrency uint   `toml:"concurrency"`
-}
-
 func (c SQSConf) Validate() error {
 	if c.URL == "" {
 		if c.AccountID == "" {
@@ -85,16 +98,6 @@ func (c SQSConf) Validate() error {
 	return nil
 }
 
-func (c SQSConf) QueueURL() string {
-	var url string
-	if c.URL != "" {
-		url = c.URL
-	} else {
-		url = "https://sqs." + c.Region + ".amazonaws.com/" + c.AccountID + "/" + c.QueueName
-	}
-	return url
-}
-
 func (c HealthCheckConf) Validate() error {
 	if c.URL != "" {
 		if !isURL(c.URL) {
@@ -107,54 +110,55 @@ func (c HealthCheckConf) Validate() error {
 	return nil
 }
 
-func (c HealthCheckConf) ShouldSupport() bool {
-	return c.URL != ""
-}
+// validation section ends -->
+
+// <!-- default value section start
+
+type workerConfOption func(c *WorkerConf)
+type sqsConfOption func(c *SQSConf)
+type healthcheckConfOption func(c *HealthCheckConf)
 
 func intervalSec(s uint64) workerConfOption {
-	return func(c *WorkerConf) error {
+	return func(c *WorkerConf) {
 		if c.IntervalSeconds == 0 {
 			c.IntervalSeconds = s
 		}
-		return nil
 	}
 }
 
 func maxProcessCount(i uint) workerConfOption {
-	return func(c *WorkerConf) error {
+	return func(c *WorkerConf) {
 		if c.MaxProcessCount == 0 {
 			c.MaxProcessCount = i
 		}
-		return nil
 	}
 }
 
 func logLevel(l string) workerConfOption {
-	return func(c *WorkerConf) error {
+	return func(c *WorkerConf) {
 		if c.LogLevel == "" {
 			c.LogLevel = l
 		}
-		return nil
 	}
 }
 
 func maxRequestMillisec(ms int64) healthcheckConfOption {
-	return func(c *HealthCheckConf) error {
+	return func(c *HealthCheckConf) {
 		if c.URL != "" && c.MaxRequestMS == 0 {
 			c.MaxRequestMS = ms
 		}
-		return nil
 	}
 }
 
 func concurrency(i uint) sqsConfOption {
-	return func(c *SQSConf) error {
+	return func(c *SQSConf) {
 		if c.Concurrency == 0 {
 			c.Concurrency = 1
 		}
-		return nil
 	}
 }
+
+// default value section ends -->
 
 func (c *Conf) workerInit(opts ...workerConfOption) {
 	for _, o := range opts {
