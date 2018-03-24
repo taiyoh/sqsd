@@ -38,7 +38,7 @@ type SQSConf struct {
 	Region      string `toml:"region"`
 	URL         string `toml:"url"`
 	Concurrency uint   `toml:"concurrency"`
-	WaitTimeSec uint   `toml:"wait_time_sec"`
+	WaitTimeSec int64  `toml:"wait_time_sec"`
 }
 
 // ConfSection is interface for Conf.Init and Conf.Validate
@@ -139,7 +139,7 @@ func (c MainConf) Validate() error {
 
 // <!-- default value section start
 
-func waitTimeSec(s uint) SQSConfOption {
+func waitTimeSec(s int64) SQSConfOption {
 	return func(c *SQSConf) {
 		if c.WaitTimeSec == 0 {
 			c.WaitTimeSec = s

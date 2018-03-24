@@ -131,7 +131,7 @@ func main() {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS.QueueURL())
+	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS)
 
 	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.WorkerURL)
 	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
