@@ -72,18 +72,21 @@ func (c WorkerConf) ShouldHealthcheckSupport() bool {
 	return c.HealthcheckURL != ""
 }
 
+// Init processes MainConfOption typed functions for injecting default value
 func (c MainConf) Init(opts ...interface{}) {
 	for _, o := range opts {
 		o.(MainConfOption)(&c)
 	}
 }
 
+// Init processes WorkerConfOption typed functions for injecting default value
 func (c WorkerConf) Init(opts ...interface{}) {
 	for _, o := range opts {
 		o.(WorkerConfOption)(&c)
 	}
 }
 
+// Init processes SQSConfOption typed functions for injecting default value
 func (c SQSConf) Init(opts ...interface{}) {
 	for _, o := range opts {
 		o.(SQSConfOption)(&c)
