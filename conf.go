@@ -32,7 +32,6 @@ type WorkerConf struct {
 }
 
 // SQSConf provides parameters for request to sqs endpoint.
-// https://sqs.<region>.amazonaws.com/<account_id>/<queue_name>"
 type SQSConf struct {
 	AccountID   string `toml:"account_id"`
 	QueueName   string `toml:"queue_name"`
@@ -42,11 +41,20 @@ type SQSConf struct {
 	WaitTimeSec uint   `toml:"wait_time_sec"`
 }
 
-type confValidator interface {
+// ConfSection is interface for Conf.Init and Conf.Validate
+type ConfSection interface {
+	Init(a ...interface{})
 	Validate() error
 }
 
-type confValidators []confValidator
+// MainConfOption injects default value for MainConf
+type MainConfOption func(c *MainConf)
+
+// WorkerConfOption injects default value for WorkerConf
+type WorkerConfOption func(c *WorkerConf)
+
+// SQSConfOption injects default value for SQSConf
+type SQSConfOption func(c *SQSConf)
 
 // QueueURL builds sqs endpoint from sqs configuration
 func (c SQSConf) QueueURL() string {
@@ -62,6 +70,24 @@ func (c SQSConf) QueueURL() string {
 // ShouldHealthcheckSupport returns either healthcheck_url is registered or not.
 func (c WorkerConf) ShouldHealthcheckSupport() bool {
 	return c.HealthcheckURL != ""
+}
+
+func (c MainConf) Init(opts ...interface{}) {
+	for _, o := range opts {
+		o.(MainConfOption)(&c)
+	}
+}
+
+func (c WorkerConf) Init(opts ...interface{}) {
+	for _, o := range opts {
+		o.(WorkerConfOption)(&c)
+	}
+}
+
+func (c SQSConf) Init(opts ...interface{}) {
+	for _, o := range opts {
+		o.(SQSConfOption)(&c)
+	}
 }
 
 // <!-- validation section start
@@ -132,11 +158,7 @@ func (c MainConf) Validate() error {
 
 // <!-- default value section start
 
-type mainConfOption func(c *MainConf)
-type workerConfOption func(c *WorkerConf)
-type sqsConfOption func(c *SQSConf)
-
-func waitTimeSec(s uint) sqsConfOption {
+func waitTimeSec(s uint) SQSConfOption {
 	return func(c *SQSConf) {
 		if c.WaitTimeSec == 0 {
 			c.WaitTimeSec = s
@@ -144,7 +166,7 @@ func waitTimeSec(s uint) sqsConfOption {
 	}
 }
 
-func maxProcessCount(i uint) workerConfOption {
+func maxProcessCount(i uint) WorkerConfOption {
 	return func(c *WorkerConf) {
 		if c.MaxProcessCount == 0 {
 			c.MaxProcessCount = i
@@ -152,7 +174,7 @@ func maxProcessCount(i uint) workerConfOption {
 	}
 }
 
-func logLevel(l string) mainConfOption {
+func logLevel(l string) MainConfOption {
 	return func(c *MainConf) {
 		if c.LogLevel == "" {
 			c.LogLevel = l
@@ -160,7 +182,7 @@ func logLevel(l string) mainConfOption {
 	}
 }
 
-func healthcheckMaxRequestMillisec(ms int64) workerConfOption {
+func healthcheckMaxRequestMillisec(ms int64) WorkerConfOption {
 	return func(c *WorkerConf) {
 		if c.HealthcheckURL != "" && c.HealthcheckMaxRequestMS == 0 {
 			c.HealthcheckMaxRequestMS = ms
@@ -168,7 +190,7 @@ func healthcheckMaxRequestMillisec(ms int64) workerConfOption {
 	}
 }
 
-func concurrency(i uint) sqsConfOption {
+func concurrency(i uint) SQSConfOption {
 	return func(c *SQSConf) {
 		if c.Concurrency == 0 {
 			c.Concurrency = 1
@@ -178,35 +200,17 @@ func concurrency(i uint) sqsConfOption {
 
 // default value section ends -->
 
-func (c *Conf) workerInit(opts ...workerConfOption) {
-	for _, o := range opts {
-		o(&c.Worker)
-	}
-}
-
-func (c *Conf) sqsInit(opts ...sqsConfOption) {
-	for _, o := range opts {
-		o(&c.SQS)
-	}
-}
-
-func (c *Conf) mainInit(opts ...mainConfOption) {
-	for _, o := range opts {
-		o(&c.Main)
-	}
-}
-
-// Init fills default value for each sections.
+// Init fills default values for each sections.
 func (c *Conf) Init() {
-	c.mainInit(logLevel("INFO"))
-	c.workerInit(maxProcessCount(1), healthcheckMaxRequestMillisec(1000))
-	c.sqsInit(waitTimeSec(20), concurrency(1))
+	c.Main.Init(logLevel("INFO"))
+	c.Worker.Init(maxProcessCount(1), healthcheckMaxRequestMillisec(1000))
+	c.SQS.Init(waitTimeSec(20), concurrency(1))
 }
 
 // Validate processes Validate method for each sections. return error if exists.
 func (c *Conf) Validate() error {
-	validators := confValidators{c.Main, c.Worker, c.SQS}
-	for _, c := range validators {
+	confs := []ConfSection{c.Main, c.Worker, c.SQS}
+	for _, c := range confs {
 		if err := c.Validate(); err != nil {
 			return err
 		}
