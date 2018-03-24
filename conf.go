@@ -9,30 +9,29 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
+// Conf aggregates configuration for sqsd.
 type Conf struct {
-	Worker      WorkerConf      `toml:"worker"`
-	HealthCheck HealthCheckConf `toml:"healthcheck"`
-	Stat        StatConf        `toml:"stat"`
-	SQS         SQSConf         `toml:"sqs"`
+	Main   MainConf   `toml:"main"`
+	Worker WorkerConf `toml:"worker"`
+	SQS    SQSConf    `toml:"sqs"`
 }
 
+// MainConf provides misc parameters for sqsd. not worker and sqs.
+type MainConf struct {
+	StatServerPort int    `toml:"stat_server_port"`
+	LogLevel       string `toml:"log_level"`
+}
+
+// WorkerConf provides parameters for request to worker endpoint.
 type WorkerConf struct {
-	IntervalSeconds uint64 `toml:"interval_seconds"`
-	MaxProcessCount uint   `toml:"max_process_count"`
-	WorkerURL       string `toml:"worker_url"`
-	LogLevel        string `toml:"log_level"`
+	MaxProcessCount          uint   `toml:"max_process_count"`
+	WorkerURL                string `toml:"worker_url"`
+	HealthcheckURL           string `toml:"healthcheck_url"`
+	HealthcheckMaxElapsedSec int64  `toml:"healthcheck_max_elapsed_sec"`
+	HealthcheckMaxRequestMS  int64  `toml:"healthcheck_max_request_ms"`
 }
 
-type HealthCheckConf struct {
-	URL           string `toml:"url"`
-	MaxElapsedSec int64  `toml:"max_elapsed_sec"`
-	MaxRequestMS  int64  `toml:"max_request_ms"`
-}
-
-type StatConf struct {
-	ServerPort int `toml:"server_port"`
-}
-
+// SQSConf provides parameters for request to sqs endpoint.
 // https://sqs.<region>.amazonaws.com/<account_id>/<queue_name>"
 type SQSConf struct {
 	AccountID   string `toml:"account_id"`
@@ -40,8 +39,16 @@ type SQSConf struct {
 	Region      string `toml:"region"`
 	URL         string `toml:"url"`
 	Concurrency uint   `toml:"concurrency"`
+	WaitTimeSec uint   `toml:"wait_time_sec"`
 }
 
+type confValidator interface {
+	Validate() error
+}
+
+type confValidators []confValidator
+
+// QueueURL builds sqs endpoint from sqs configuration
 func (c SQSConf) QueueURL() string {
 	var url string
 	if c.URL != "" {
@@ -52,8 +59,9 @@ func (c SQSConf) QueueURL() string {
 	return url
 }
 
-func (c HealthCheckConf) ShouldSupport() bool {
-	return c.URL != ""
+// ShouldHealthcheckSupport returns either healthcheck_url is registered or not.
+func (c WorkerConf) ShouldHealthcheckSupport() bool {
+	return c.HealthcheckURL != ""
 }
 
 // <!-- validation section start
@@ -63,22 +71,25 @@ func isURL(urlStr string) bool {
 	return err == nil && strings.HasPrefix(uri.Scheme, "http")
 }
 
+// Validate returns error if worker configuration is invalid.
 func (c WorkerConf) Validate() error {
 	if !isURL(c.WorkerURL) {
 		return errors.New("worker.worker_url is not HTTP URL: " + c.WorkerURL)
 	}
-	levelMap := map[string]struct{}{
-		"DEBUG": struct{}{},
-		"INFO":  struct{}{},
-		"WARN":  struct{}{},
-		"ERROR": struct{}{},
+
+	if c.HealthcheckURL != "" {
+		if !isURL(c.HealthcheckURL) {
+			return errors.New("worker.healthcheck_url is not HTTP URL: " + c.HealthcheckURL)
+		}
+		if c.HealthcheckMaxElapsedSec == 0 {
+			return errors.New("worker.healthcheck_max_elapsed_sec is required")
+		}
 	}
-	if _, ok := levelMap[c.LogLevel]; !ok {
-		return errors.New("worker.log_level is invalid: " + c.LogLevel)
-	}
+
 	return nil
 }
 
+// Validate returns error if sqs configuration is invalid.
 func (c SQSConf) Validate() error {
 	if c.URL == "" {
 		if c.AccountID == "" {
@@ -98,15 +109,22 @@ func (c SQSConf) Validate() error {
 	return nil
 }
 
-func (c HealthCheckConf) Validate() error {
-	if c.URL != "" {
-		if !isURL(c.URL) {
-			return errors.New("healthcheck.url is not HTTP URL: " + c.URL)
-		}
-		if c.MaxElapsedSec == 0 {
-			return errors.New("healthcheck.max_elapsed_sec is required")
-		}
+// Validate returns error if main configuration is invalid.
+func (c MainConf) Validate() error {
+	levelMap := map[string]struct{}{
+		"DEBUG": struct{}{},
+		"INFO":  struct{}{},
+		"WARN":  struct{}{},
+		"ERROR": struct{}{},
 	}
+	if _, ok := levelMap[c.LogLevel]; !ok {
+		return errors.New("main.log_level is invalid: " + c.LogLevel)
+	}
+
+	if c.StatServerPort == 0 {
+		return errors.New("main.stat_server_port is required")
+	}
+
 	return nil
 }
 
@@ -114,14 +132,14 @@ func (c HealthCheckConf) Validate() error {
 
 // <!-- default value section start
 
+type mainConfOption func(c *MainConf)
 type workerConfOption func(c *WorkerConf)
 type sqsConfOption func(c *SQSConf)
-type healthcheckConfOption func(c *HealthCheckConf)
 
-func intervalSec(s uint64) workerConfOption {
-	return func(c *WorkerConf) {
-		if c.IntervalSeconds == 0 {
-			c.IntervalSeconds = s
+func waitTimeSec(s uint) sqsConfOption {
+	return func(c *SQSConf) {
+		if c.WaitTimeSec == 0 {
+			c.WaitTimeSec = s
 		}
 	}
 }
@@ -134,18 +152,18 @@ func maxProcessCount(i uint) workerConfOption {
 	}
 }
 
-func logLevel(l string) workerConfOption {
-	return func(c *WorkerConf) {
+func logLevel(l string) mainConfOption {
+	return func(c *MainConf) {
 		if c.LogLevel == "" {
 			c.LogLevel = l
 		}
 	}
 }
 
-func maxRequestMillisec(ms int64) healthcheckConfOption {
-	return func(c *HealthCheckConf) {
-		if c.URL != "" && c.MaxRequestMS == 0 {
-			c.MaxRequestMS = ms
+func healthcheckMaxRequestMillisec(ms int64) workerConfOption {
+	return func(c *WorkerConf) {
+		if c.HealthcheckURL != "" && c.HealthcheckMaxRequestMS == 0 {
+			c.HealthcheckMaxRequestMS = ms
 		}
 	}
 }
@@ -166,47 +184,38 @@ func (c *Conf) workerInit(opts ...workerConfOption) {
 	}
 }
 
-func (c *Conf) healthcheckInit(opts ...healthcheckConfOption) {
-	for _, o := range opts {
-		o(&c.HealthCheck)
-	}
-}
-
 func (c *Conf) sqsInit(opts ...sqsConfOption) {
 	for _, o := range opts {
 		o(&c.SQS)
 	}
 }
 
-// Init confのデフォルト値はここで埋める
-func (c *Conf) Init() {
-	c.workerInit(intervalSec(1), maxProcessCount(1), logLevel("INFO"))
-	c.healthcheckInit(maxRequestMillisec(1000))
-	c.sqsInit(concurrency(1))
+func (c *Conf) mainInit(opts ...mainConfOption) {
+	for _, o := range opts {
+		o(&c.Main)
+	}
 }
 
-// Validate confのバリデーションはここで行う
+// Init fills default value for each sections.
+func (c *Conf) Init() {
+	c.mainInit(logLevel("INFO"))
+	c.workerInit(maxProcessCount(1), healthcheckMaxRequestMillisec(1000))
+	c.sqsInit(waitTimeSec(20), concurrency(1))
+}
+
+// Validate processes Validate method for each sections. return error if exists.
 func (c *Conf) Validate() error {
-	if err := c.Worker.Validate(); err != nil {
-		return err
-	}
-
-	if err := c.SQS.Validate(); err != nil {
-		return err
-	}
-
-	if err := c.HealthCheck.Validate(); err != nil {
-		return err
-	}
-
-	if c.Stat.ServerPort == 0 {
-		return errors.New("stat.server_port is required")
+	validators := confValidators{c.Main, c.Worker, c.SQS}
+	for _, c := range validators {
+		if err := c.Validate(); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-// NewConf : confのオブジェクトを返す
+// NewConf returns aggregated sqsd configuration object.
 func NewConf(filepath string) (*Conf, error) {
 	config, err := toml.LoadFile(filepath)
 	if err != nil {
