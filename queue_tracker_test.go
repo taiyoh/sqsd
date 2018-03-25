@@ -20,20 +20,16 @@ func TestQueueTracker(t *testing.T) {
 
 	now := time.Now()
 
-	q1 := &Queue{
-		Msg: &sqs.Message{
-			MessageId:     aws.String("id:1"),
-			Body:          aws.String("hoge"),
-			ReceiptHandle: aws.String("foo"),
-		},
+	q1 := Queue{
+		ID:         "id:1",
+		Payload:    "hoge",
+		Receipt:    "foo",
 		ReceivedAt: now.Add(1),
 	}
-	q2 := &Queue{
-		Msg: &sqs.Message{
-			MessageId:     aws.String("id:2"),
-			Body:          aws.String("fuga"),
-			ReceiptHandle: aws.String("bar"),
-		},
+	q2 := Queue{
+		ID:         "id:2",
+		Payload:    "fuga",
+		Receipt:    "bar",
 		ReceivedAt: now,
 	}
 
@@ -55,12 +51,12 @@ func TestQueueTracker(t *testing.T) {
 	mu.Unlock()
 
 	receivedQueue := <-tracker.NextQueue()
-	if receivedQueue.ID() != q1.ID() {
+	if receivedQueue.ID != q1.ID {
 		t.Error("wrong order")
 	}
 
 	summaries := tracker.CurrentSummaries()
-	if summaries[0].ID != q1.ID() {
+	if summaries[0].ID != q1.ID {
 		t.Error("wrong order")
 	}
 
@@ -75,12 +71,12 @@ func TestQueueTracker(t *testing.T) {
 	mu.Unlock()
 
 	receivedQueue = <-tracker.NextQueue()
-	if receivedQueue.ID() != q2.ID() {
+	if receivedQueue.ID != q2.ID {
 		t.Error("wrong order")
 	}
 
 	summaries = tracker.CurrentSummaries()
-	if summaries[0].ID != q2.ID() {
+	if summaries[0].ID != q2.ID {
 		t.Error("wrong order")
 	}
 }
@@ -124,7 +120,7 @@ func TestCurrentSummaries(t *testing.T) {
 		if !exists {
 			t.Errorf("job not found: %s", summary.ID)
 		}
-		if summary.Payload != *(data.(*Queue)).Msg.Body {
+		if summary.Payload != data.(Queue).Payload {
 			t.Errorf("job payload is wrong: %s", summary.Payload)
 		}
 	}

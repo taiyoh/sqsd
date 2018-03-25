@@ -17,7 +17,7 @@ type StatResponseIFace interface {
 }
 
 type StatCurrentJobsResponse struct {
-	CurrentJobs []*QueueSummary `json:"current_jobs"`
+	CurrentJobs []QueueSummary `json:"current_jobs"`
 }
 
 func (r *StatCurrentJobsResponse) JSONString() string {

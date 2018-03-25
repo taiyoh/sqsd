@@ -32,10 +32,10 @@ func (r *Resource) GetMessages(ctx context.Context) ([]*sqs.Message, error) {
 	return resp.Messages, err
 }
 
-func (r *Resource) DeleteMessage(msg *sqs.Message) error {
+func (r *Resource) DeleteMessage(receipt string) error {
 	_, err := r.Client.DeleteMessage(&sqs.DeleteMessageInput{
 		QueueUrl:      aws.String(r.URL),
-		ReceiptHandle: aws.String(*msg.ReceiptHandle),
+		ReceiptHandle: aws.String(receipt),
 	})
 	return err
 }
