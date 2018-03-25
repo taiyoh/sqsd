@@ -15,7 +15,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc := NewMockClient()
 	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
 	rs := NewResource(mc, sc)
-	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
+	rs.WaitTimeSec = 1
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	pr := NewMessageProducer(rs, tr, 1)
 	if pr == nil {
@@ -136,7 +136,7 @@ func TestReceiverRun(t *testing.T) {
 	mc := NewMockClient()
 	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
 	rs := NewResource(mc, sc)
-	rs.ReceiveParams.WaitTimeSeconds = aws.Int64(1)
+	rs.WaitTimeSec = 1
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	pr := NewMessageProducer(rs, tr, 1)
 
