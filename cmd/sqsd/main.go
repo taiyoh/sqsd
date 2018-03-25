@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
@@ -125,13 +127,24 @@ func main() {
 	go waitSignal(cancel, wg)
 	go RunStatServer(tracker, config.Main.StatServerPort, ctx, wg)
 
-	awsConf := &aws.Config{
+	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(config.SQS.Region),
-	}
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
+		EndpointResolver: endpoints.ResolverFunc(func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
+			if service == endpoints.SqsServiceID && config.SQS.URL != "" {
+				uri, _ := url.ParseRequestURI(config.SQS.URL)
+				return endpoints.ResolvedEndpoint{
+					URL: fmt.Sprintf("%s://%s", uri.Scheme, uri.Host),
+				}, nil
+			}
+			return endpoints.DefaultResolver().EndpointFor(service, region, optFns...)
+		}),
 	}))
-	resource := sqsd.NewResource(sqs.New(sess, awsConf), config.SQS)
+	/*
+		sess := session.Must(session.NewSessionWithOptions(session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+		}))
+	*/
+	resource := sqsd.NewResource(sqs.New(sess), config.SQS)
 
 	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.URL)
 	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
