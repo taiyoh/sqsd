@@ -139,11 +139,6 @@ func main() {
 			return endpoints.DefaultResolver().EndpointFor(service, region, optFns...)
 		}),
 	}))
-	/*
-		sess := session.Must(session.NewSessionWithOptions(session.Options{
-			SharedConfigState: session.SharedConfigEnable,
-		}))
-	*/
 	resource := sqsd.NewResource(sqs.New(sess), config.SQS)
 
 	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.URL)
