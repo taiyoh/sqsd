@@ -55,7 +55,7 @@ func TestHandleJob(t *testing.T) {
 
 		receivedRes := <-receivedChan
 
-		if receivedRes.JobID != queue.ID() {
+		if receivedRes.JobID != queue.ID {
 			t.Error("wrong job processed")
 		}
 
@@ -80,7 +80,7 @@ func TestHandleJob(t *testing.T) {
 
 		receivedRes := <-receivedChan
 
-		if receivedRes.JobID != queue.ID() {
+		if receivedRes.JobID != queue.ID {
 			t.Error("wrong job processed")
 		}
 
@@ -108,7 +108,7 @@ func TestHandleJob(t *testing.T) {
 
 		receivedRes := <-receivedChan
 
-		if receivedRes.JobID != queue.ID() {
+		if receivedRes.JobID != queue.ID {
 			t.Error("wrong queue processed")
 		}
 

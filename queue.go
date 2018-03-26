@@ -7,7 +7,9 @@ import (
 )
 
 type Queue struct {
-	Msg        *sqs.Message
+	ID         string
+	Payload    string
+	Receipt    string
 	ReceivedAt time.Time
 }
 
@@ -17,21 +19,19 @@ type QueueSummary struct {
 	Payload    string `json:"payload"`
 }
 
-func NewQueue(msg *sqs.Message) *Queue {
-	return &Queue{
-		Msg:        msg,
+func NewQueue(msg *sqs.Message) Queue {
+	return Queue{
+		ID:         *msg.MessageId,
+		Payload:    *msg.Body,
+		Receipt:    *msg.ReceiptHandle,
 		ReceivedAt: time.Now(),
 	}
 }
 
-func (q *Queue) ID() string {
-	return *q.Msg.MessageId
-}
-
-func (q *Queue) Summary() *QueueSummary {
-	return &QueueSummary{
-		ID:         q.ID(),
+func (q Queue) Summary() QueueSummary {
+	return QueueSummary{
+		ID:         q.ID,
 		ReceivedAt: q.ReceivedAt.Unix(),
-		Payload:    *q.Msg.Body,
+		Payload:    q.Payload,
 	}
 }

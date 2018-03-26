@@ -101,8 +101,9 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 
 	mc.Resp.Messages = []*sqs.Message{
 		&sqs.Message{
-			MessageId: aws.String("id:1"),
-			Body:      aws.String(`foobar`),
+			MessageId:     aws.String("id:1"),
+			Body:          aws.String(`foobar`),
+			ReceiptHandle: aws.String("reciept-1"),
 		},
 	}
 	mc.Err = nil
@@ -119,7 +120,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 		}
 
 		receivedqueue := <-tr.NextQueue()
-		if receivedqueue.ID() != *mc.Resp.Messages[0].MessageId {
+		if receivedqueue.ID != *mc.Resp.Messages[0].MessageId {
 			t.Error("wrong queue received")
 		}
 

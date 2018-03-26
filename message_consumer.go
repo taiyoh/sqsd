@@ -12,7 +12,7 @@ type MessageConsumer struct {
 	Resource         *Resource
 	URL              string
 	OnHandleJobEnds  func(jobID string, ok bool, err error)
-	OnHandleJobStart func(q *Queue)
+	OnHandleJobStart func(q Queue)
 	Logger           Logger
 }
 
@@ -21,7 +21,7 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *
 		Tracker:          tracker,
 		Resource:         resource,
 		URL:              url,
-		OnHandleJobStart: func(q *Queue) {},
+		OnHandleJobStart: func(q Queue) {},
 		OnHandleJobEnds:  func(jobID string, ok bool, err error) {},
 		Logger:           tracker.Logger,
 	}
@@ -47,27 +47,27 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
-func (c *MessageConsumer) HandleJob(ctx context.Context, q *Queue) {
+func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	c.OnHandleJobStart(q)
-	c.Logger.Debugf("job[%s] HandleJob start.", q.ID())
+	c.Logger.Debugf("job[%s] HandleJob start.", q.ID)
 	ok, err := c.CallWorker(ctx, q)
 	if err != nil {
-		c.Logger.Errorf("job[%s] HandleJob request error: %s", q.ID(), err)
+		c.Logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
 	}
 	if ok {
-		c.Resource.DeleteMessage(q.Msg)
+		c.Resource.DeleteMessage(q.Receipt)
 	}
 	c.Tracker.Complete(q)
-	c.Logger.Debugf("job[%s] HandleJob finished.", q.ID())
-	c.OnHandleJobEnds(q.ID(), ok, err)
+	c.Logger.Debugf("job[%s] HandleJob finished.", q.ID)
+	c.OnHandleJobEnds(q.ID, ok, err)
 }
 
-func (c *MessageConsumer) CallWorker(ctx context.Context, q *Queue) (bool, error) {
-	req, _ := http.NewRequest("POST", c.URL, strings.NewReader(*q.Msg.Body))
+func (c *MessageConsumer) CallWorker(ctx context.Context, q Queue) (bool, error) {
+	req, _ := http.NewRequest("POST", c.URL, strings.NewReader(q.Payload))
 	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "github.com/taiyoh/sqsd-"+GetVersion())
-	req.Header.Set("X-Sqsd-Msgid", q.ID())
+	req.Header.Set("X-Sqsd-Msgid", q.ID)
 	req.Header.Set("X-Sqsd-First-Received-At", q.ReceivedAt.Format("2006-01-02T15:04:05Z0700"))
 	client := &http.Client{}
 	resp, err := client.Do(req)

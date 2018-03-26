@@ -2,12 +2,9 @@ package sqsd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strconv"
 	"testing"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
 func TestReqMethodValidate(t *testing.T) {
@@ -45,8 +42,8 @@ func TestRenderJSON(t *testing.T) {
 	}
 	w.ResBytes = []byte{} // clear
 	RenderJSON(w, &StatCurrentJobsResponse{
-		CurrentJobs: []*QueueSummary{
-			&QueueSummary{ID: "1", Payload: "p1", ReceivedAt: 10},
+		CurrentJobs: []QueueSummary{
+			QueueSummary{ID: "1", Payload: "p1", ReceivedAt: 10},
 		},
 	})
 	var r StatCurrentJobsResponse
@@ -66,13 +63,11 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 	h := &StatHandler{tr}
 
 	for i := 1; i <= 5; i++ {
-		q := &Queue{
-			Msg: &sqs.Message{
-				MessageId: aws.String("id:" + strconv.Itoa(i)),
-				Body:      aws.String(`foobar`),
-			},
-		}
-		tr.Register(q)
+		tr.Register(Queue{
+			ID:      fmt.Sprintf("id:%d", i),
+			Payload: "foobar",
+			Receipt: fmt.Sprintf("reciept:%d", i),
+		})
 	}
 
 	summaryController := h.WorkerCurrentSummaryHandler()
