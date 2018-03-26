@@ -1,8 +1,10 @@
 package sqsd
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"strings"
 
@@ -218,13 +220,14 @@ func (c *Conf) Validate() error {
 
 // NewConf returns aggregated sqsd configuration object.
 func NewConf(filepath string) (*Conf, error) {
-	config, err := toml.LoadFile(filepath)
+	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
-
 	sqsdConf := &Conf{}
-	config.Unmarshal(sqsdConf)
+	if err := toml.NewDecoder(bytes.NewBuffer(data)).Decode(sqsdConf); err != nil {
+		return nil, err
+	}
 	sqsdConf.Init()
 
 	if err := sqsdConf.Validate(); err != nil {
