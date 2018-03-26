@@ -32,9 +32,11 @@ func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 }
 
 func (t *QueueTracker) Register(q Queue) {
-	t.queueStack <- struct{}{} // blocking
-	t.CurrentWorkings.Store(q.ID, q)
-	t.queueChan <- q
+	if _, exists := t.CurrentWorkings.Load(q.ID); !exists {
+		t.queueStack <- struct{}{} // blocking
+		t.CurrentWorkings.Store(q.ID, q)
+		t.queueChan <- q
+	}
 }
 
 func (t *QueueTracker) Complete(q Queue) {

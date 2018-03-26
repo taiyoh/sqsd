@@ -97,6 +97,28 @@ func TestJobWorking(t *testing.T) {
 	if !tr.JobWorking {
 		t.Error("JobWorking not changed to false")
 	}
+
+	now := time.Now()
+
+	q1 := Queue{
+		ID:         "id:1",
+		Payload:    "hoge",
+		Receipt:    "foo",
+		ReceivedAt: now,
+	}
+	q1_duplicates := Queue{
+		ID:         "id:1",
+		Payload:    "fuga",
+		Receipt:    "bar",
+		ReceivedAt: now.Add(3),
+	}
+	tr.Register(q1)
+	tr.Register(q1_duplicates)
+
+	summaries := tr.CurrentSummaries()
+	if len(summaries) != 1 {
+		t.Error("both queue are registered!")
+	}
 }
 
 func TestCurrentSummaries(t *testing.T) {
