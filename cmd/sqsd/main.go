@@ -26,7 +26,7 @@ var (
 	date   string
 )
 
-func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
+func waitSignal(cancel context.CancelFunc, logger sqsd.Logger, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer cancel()
 	sigCh := make(chan os.Signal, 1)
@@ -41,13 +41,13 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 		case sig := <-sigCh:
 			switch sig {
 			case syscall.SIGTERM:
-				log.Println("SIGTERM caught. shutdown process...")
+				logger.Info("SIGTERM caught. shutdown process...")
 				return
 			case syscall.SIGINT:
-				log.Println("SIGINT caught. shutdown process...")
+				logger.Info("SIGINT caught. shutdown process...")
 				return
 			case os.Interrupt:
-				log.Println("os.Interrupt caught. shutdown process...")
+				logger.Info("os.Interrupt caught. shutdown process...")
 				return
 			}
 		}
@@ -56,6 +56,8 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 
 func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	logger := tr.Logger
 	handler := &sqsd.StatHandler{Tracker: tr}
 
 	srv := &http.Server{
@@ -63,31 +65,28 @@ func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *syn
 		Handler: handler.BuildServeMux(),
 	}
 
+	logger.Info("stat server start.")
+
 	syncWait := &sync.WaitGroup{}
-	syncWait.Add(1)
+	syncWait.Add(2)
 	go func() {
 		defer syncWait.Done()
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal(err)
+			logger.Error(err.Error())
+			return
 		}
 	}()
-	syncWait.Add(1)
 	go func() {
 		defer syncWait.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				if err := srv.Shutdown(ctx); err != nil {
-					log.Fatal(err)
-				}
-				return
-			}
+		<-ctx.Done()
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Error(err.Error())
+			return
 		}
 	}()
 	syncWait.Wait()
 
-	log.Println("stat server closed.")
-
+	logger.Info("stat server stop.")
 }
 
 func main() {
@@ -121,12 +120,6 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	wg := &sync.WaitGroup{}
-
-	wg.Add(2)
-	go waitSignal(cancel, wg)
-	go runStatServer(ctx, tracker, config.Main.StatServerPort, wg)
-
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(config.SQS.Region),
 		EndpointResolver: endpoints.ResolverFunc(func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
@@ -143,7 +136,12 @@ func main() {
 
 	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.URL)
 	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
-	wg.Add(2)
+
+	wg := &sync.WaitGroup{}
+
+	wg.Add(4)
+	go waitSignal(cancel, logger, wg)
+	go runStatServer(ctx, tracker, config.Main.StatServerPort, wg)
 	go msgConsumer.Run(ctx, wg)
 	go msgProducer.Run(ctx, wg)
 
