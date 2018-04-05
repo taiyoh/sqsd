@@ -54,7 +54,7 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 	}
 }
 
-func RunStatServer(tr *sqsd.QueueTracker, port int, ctx context.Context, wg *sync.WaitGroup) {
+func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	handler := &sqsd.StatHandler{Tracker: tr}
 
@@ -125,7 +125,7 @@ func main() {
 
 	wg.Add(2)
 	go waitSignal(cancel, wg)
-	go RunStatServer(tracker, config.Main.StatServerPort, ctx, wg)
+	go runStatServer(ctx, tracker, config.Main.StatServerPort, wg)
 
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(config.SQS.Region),
