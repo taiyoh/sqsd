@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/logutils"
 )
 
+// Logger is interface for sqsd logging object
 type Logger interface {
 	Debug(msg string)
 	Debugf(tmpl string, msgs ...interface{})
@@ -24,7 +25,8 @@ type logger struct {
 	logger *log.Logger
 }
 
-func NewLogger(logLevel string) *logger {
+// NewLogger returns Logger implementation
+func NewLogger(logLevel string) Logger {
 	filter := &logutils.LevelFilter{
 		Levels:   []logutils.LogLevel{"DEBUG", "INFO", "WARN", "ERROR"},
 		MinLevel: logutils.LogLevel(logLevel),

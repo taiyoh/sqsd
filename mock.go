@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 )
 
+// MockClient provides mocking sqs library from aws-sdk-go for test
 type MockClient struct {
 	sqsiface.SQSAPI
 	Resp             *sqs.ReceiveMessageOutput
@@ -25,6 +26,7 @@ type MockClient struct {
 	RecvFunc         func(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error)
 }
 
+// NewMockClient returns MockClient object
 func NewMockClient() *MockClient {
 	c := &MockClient{
 		Resp: &sqs.ReceiveMessageOutput{
@@ -48,11 +50,13 @@ func NewMockClient() *MockClient {
 	return c
 }
 
+// ReceiveMessageWithContext is mock for same name method
 func (c *MockClient) ReceiveMessageWithContext(ctx aws.Context, param *sqs.ReceiveMessageInput, opts ...request.Option) (*sqs.ReceiveMessageOutput, error) {
 	o, e := c.RecvFunc(param)
 	return o, e
 }
 
+// DeleteMessage is mock for same name method
 func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
 	c.mu.Lock()
 	c.DelRequestCount++
@@ -60,6 +64,7 @@ func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageO
 	return &sqs.DeleteMessageOutput{}, nil
 }
 
+// MockServer provides test server with several response like error, long-time, and ok
 func MockServer() *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/error", func(w http.ResponseWriter, r *http.Request) {
@@ -79,6 +84,7 @@ func MockServer() *httptest.Server {
 	return httptest.NewServer(mux)
 }
 
+// MockResponseWriter provides stat handler's response writer
 type MockResponseWriter struct {
 	http.ResponseWriter
 	header     http.Header
@@ -87,6 +93,7 @@ type MockResponseWriter struct {
 	Err        error
 }
 
+// NewMockResponseWriter returns MockResponseWriter object
 func NewMockResponseWriter() *MockResponseWriter {
 	return &MockResponseWriter{
 		header:     http.Header{},
@@ -95,19 +102,23 @@ func NewMockResponseWriter() *MockResponseWriter {
 	}
 }
 
+// Header returns http.Header object
 func (w *MockResponseWriter) Header() http.Header {
 	return w.header
 }
 
+// Write provides setting arguments to property itself
 func (w *MockResponseWriter) Write(b []byte) (int, error) {
 	w.ResBytes = b
 	return len(b), w.Err
 }
 
+// WriteHeader provides setting arguments to property itself
 func (w *MockResponseWriter) WriteHeader(s int) {
 	w.StatusCode = s
 }
 
+// ResponseString returns string given from Write method
 func (w *MockResponseWriter) ResponseString() string {
 	return bytes.NewBuffer(w.ResBytes).String()
 }
