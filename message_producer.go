@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// MessageProducer provides receiving queues from SQS, and send to tracker
 type MessageProducer struct {
 	Resource        *Resource
 	Tracker         *QueueTracker
@@ -14,6 +15,7 @@ type MessageProducer struct {
 	Concurrency     int
 }
 
+// NewMessageProducer returns MessageProducer object
 func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency uint) *MessageProducer {
 	return &MessageProducer{
 		Resource: resource,
@@ -26,6 +28,7 @@ func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency u
 	}
 }
 
+// Run executes DoHandle method asyncronously
 func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	p.Logger.Infof("MessageProducer start. concurrency=%d", p.Concurrency)
@@ -52,10 +55,12 @@ func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	p.Logger.Info("MessageProducer closed.")
 }
 
+// HandleEmpty executes HandleEmptyFunc parameter
 func (p *MessageProducer) HandleEmpty() {
 	p.HandleEmptyFunc()
 }
 
+// DoHandle receiving queues from SQS, and sending queues to tracker
 func (p *MessageProducer) DoHandle(ctx context.Context) {
 	if !p.Tracker.IsWorking() {
 		p.Logger.Debug("tracker not working")
