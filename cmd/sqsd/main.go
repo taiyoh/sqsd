@@ -117,14 +117,6 @@ func main() {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	wg := &sync.WaitGroup{}
-
-	wg.Add(2)
-	go waitSignal(cancel, wg)
-	go runStatServer(ctx, tracker, config.Main.StatServerPort, wg)
-
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(config.SQS.Region),
 		EndpointResolver: endpoints.ResolverFunc(func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
@@ -141,7 +133,14 @@ func main() {
 
 	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.URL)
 	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
-	wg.Add(2)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg := &sync.WaitGroup{}
+
+	wg.Add(4)
+	go waitSignal(cancel, wg)
+	go runStatServer(ctx, tracker, config.Main.StatServerPort, wg)
 	go msgConsumer.Run(ctx, wg)
 	go msgProducer.Run(ctx, wg)
 
