@@ -54,7 +54,7 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 	}
 }
 
-func RunStatServer(tr *sqsd.QueueTracker, port int, ctx context.Context, wg *sync.WaitGroup) {
+func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	handler := &sqsd.StatHandler{Tracker: tr}
 
@@ -63,31 +63,29 @@ func RunStatServer(tr *sqsd.QueueTracker, port int, ctx context.Context, wg *syn
 		Handler: handler.BuildServeMux(),
 	}
 
+	logger := tr.Logger
+
 	syncWait := &sync.WaitGroup{}
-	syncWait.Add(1)
+	syncWait.Add(2)
 	go func() {
 		defer syncWait.Done()
+		logger.Info("stat server open.")
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal(err)
+			logger.Error(err.Error())
+			return
 		}
 	}()
-	syncWait.Add(1)
 	go func() {
 		defer syncWait.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				if err := srv.Shutdown(ctx); err != nil {
-					log.Fatal(err)
-				}
-				return
-			}
+		<-ctx.Done()
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Error(err.Error())
+			return
 		}
 	}()
 	syncWait.Wait()
 
-	log.Println("stat server closed.")
-
+	logger.Info("stat server closed.")
 }
 
 func main() {
@@ -125,7 +123,7 @@ func main() {
 
 	wg.Add(2)
 	go waitSignal(cancel, wg)
-	go RunStatServer(tracker, config.Main.StatServerPort, ctx, wg)
+	go runStatServer(ctx, tracker, config.Main.StatServerPort, wg)
 
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(config.SQS.Region),
