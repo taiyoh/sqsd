@@ -106,14 +106,14 @@ func TestJobWorking(t *testing.T) {
 		Receipt:    "foo",
 		ReceivedAt: now,
 	}
-	q1_duplicates := Queue{
+	q1Duplicates := Queue{
 		ID:         "id:1",
 		Payload:    "fuga",
 		Receipt:    "bar",
 		ReceivedAt: now.Add(3),
 	}
 	tr.Register(q1)
-	tr.Register(q1_duplicates)
+	tr.Register(q1Duplicates)
 
 	summaries := tr.CurrentSummaries()
 	if len(summaries) != 1 {
