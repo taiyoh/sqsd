@@ -12,6 +12,7 @@ import (
 	"github.com/cenkalti/backoff"
 )
 
+// QueueTracker provides recieving queues from MessageProvider, and sending queues to MessageConsumer
 type QueueTracker struct {
 	CurrentWorkings *sync.Map
 	JobWorking      bool
@@ -20,10 +21,11 @@ type QueueTracker struct {
 	queueStack      chan struct{}
 }
 
+// NewQueueTracker returns QueueTracker object
 func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 	procCount := int(maxProcCount)
 	return &QueueTracker{
-		CurrentWorkings: new(sync.Map),
+		CurrentWorkings: &sync.Map{},
 		JobWorking:      true,
 		Logger:          logger,
 		queueChan:       make(chan Queue, procCount),
@@ -31,6 +33,7 @@ func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 	}
 }
 
+// Register provides registering queues to tracker. But existing queue is ignored. And when queue stack is filled, wait until a slot opens up
 func (t *QueueTracker) Register(q Queue) {
 	if _, exists := t.CurrentWorkings.Load(q.ID); !exists {
 		t.queueStack <- struct{}{} // blocking
@@ -39,11 +42,13 @@ func (t *QueueTracker) Register(q Queue) {
 	}
 }
 
+// Complete provides finalizing queue tracking. Deleting queue from itself and opening up one queue stack
 func (t *QueueTracker) Complete(q Queue) {
 	t.CurrentWorkings.Delete(q.ID)
 	<-t.queueStack // unblock
 }
 
+// CurrentSummaries returns QueueSummary list from its owned
 func (t *QueueTracker) CurrentSummaries() []QueueSummary {
 	currentList := []QueueSummary{}
 	t.CurrentWorkings.Range(func(key, val interface{}) bool {
@@ -56,22 +61,27 @@ func (t *QueueTracker) CurrentSummaries() []QueueSummary {
 	return currentList
 }
 
+// NextQueue returns channel for MessageConsumer
 func (t *QueueTracker) NextQueue() <-chan Queue {
 	return t.queueChan
 }
 
+// Pause provides stopping receiving queues
 func (t *QueueTracker) Pause() {
 	t.JobWorking = false
 }
 
+// Resume provides starting recieving queues
 func (t *QueueTracker) Resume() {
 	t.JobWorking = true
 }
 
+// IsWorking returns whether recieving queue is alive or not
 func (t *QueueTracker) IsWorking() bool {
 	return t.JobWorking
 }
 
+// HealthCheck provides checking worker status using specified endpoing.
 func (t *QueueTracker) HealthCheck(c HealthcheckConf) bool {
 	if !c.ShouldSupport() {
 		return true
