@@ -24,13 +24,14 @@ type MainConf struct {
 	LogLevel       string `toml:"log_level"`
 }
 
-// WorkerConf provides parameters for request to worker endpoint.
+// WorkerConf is configuration parameters for request to worker endpoint.
 type WorkerConf struct {
 	URL             string          `toml:"url"`
 	MaxProcessCount uint            `toml:"max_process_count"`
 	Healthcheck     HealthcheckConf `toml:"healthcheck"`
 }
 
+// HealthcheckConf is configuration parameters for healthcheck to worker before request to SQS.
 type HealthcheckConf struct {
 	URL           string `toml:"url"`
 	MaxElapsedSec int64  `toml:"max_elapsed_sec"`
@@ -75,7 +76,7 @@ func (c SQSConf) QueueURL() string {
 	return url
 }
 
-// ShouldHealthcheckSupport returns either healthcheck_url is registered or not.
+// ShouldSupport returns either healthcheck_url is registered or not.
 func (c HealthcheckConf) ShouldSupport() bool {
 	return c.URL != ""
 }
