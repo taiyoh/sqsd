@@ -26,7 +26,7 @@ var (
 	date   string
 )
 
-func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
+func waitSignal(cancel context.CancelFunc, logger sqsd.Logger, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer cancel()
 	sigCh := make(chan os.Signal, 1)
@@ -41,13 +41,13 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 		case sig := <-sigCh:
 			switch sig {
 			case syscall.SIGTERM:
-				log.Println("SIGTERM caught. shutdown process...")
+				logger.Info("SIGTERM caught. shutdown process...")
 				return
 			case syscall.SIGINT:
-				log.Println("SIGINT caught. shutdown process...")
+				logger.Info("SIGINT caught. shutdown process...")
 				return
 			case os.Interrupt:
-				log.Println("os.Interrupt caught. shutdown process...")
+				logger.Info("os.Interrupt caught. shutdown process...")
 				return
 			}
 		}
@@ -56,6 +56,8 @@ func waitSignal(cancel context.CancelFunc, wg *sync.WaitGroup) {
 
 func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	logger := tr.Logger
 	handler := &sqsd.StatHandler{Tracker: tr}
 
 	srv := &http.Server{
@@ -63,13 +65,12 @@ func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *syn
 		Handler: handler.BuildServeMux(),
 	}
 
-	logger := tr.Logger
+	logger.Info("stat server start.")
 
 	syncWait := &sync.WaitGroup{}
 	syncWait.Add(2)
 	go func() {
 		defer syncWait.Done()
-		logger.Info("stat server open.")
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			logger.Error(err.Error())
 			return
@@ -85,7 +86,7 @@ func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *syn
 	}()
 	syncWait.Wait()
 
-	logger.Info("stat server closed.")
+	logger.Info("stat server stop.")
 }
 
 func main() {
@@ -117,6 +118,8 @@ func main() {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(config.SQS.Region),
 		EndpointResolver: endpoints.ResolverFunc(func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
@@ -134,12 +137,10 @@ func main() {
 	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.URL)
 	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	wg := &sync.WaitGroup{}
 
 	wg.Add(4)
-	go waitSignal(cancel, wg)
+	go waitSignal(cancel, logger, wg)
 	go runStatServer(ctx, tracker, config.Main.StatServerPort, wg)
 	go msgConsumer.Run(ctx, wg)
 	go msgProducer.Run(ctx, wg)
