@@ -3,13 +3,10 @@ package sqsd
 import (
 	"bytes"
 	"context"
-	"errors"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
-
-	"github.com/cenkalti/backoff"
 )
 
 // QueueTracker provides recieving queues from MessageProvider, and sending queues to MessageConsumer
@@ -87,30 +84,25 @@ func (t *QueueTracker) HealthCheck(c HealthcheckConf) bool {
 		return true
 	}
 
-	ebo := backoff.NewExponentialBackOff()
-	ebo.MaxElapsedTime = time.Duration(c.MaxElapsedSec) * time.Second
+	b := NewBackOff(c.MaxElapsedSec)
 	client := &http.Client{}
 
-	err := backoff.Retry(func() error {
+	for b.Continue() {
 		req, _ := http.NewRequest("GET", c.URL, bytes.NewBuffer([]byte("")))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.MaxRequestMS)*time.Millisecond)
 		defer cancel()
 		resp, err := client.Do(req.WithContext(ctx))
 		if err != nil {
 			t.Logger.Warnf("healthcheck request failed. %s", err)
-			return err
+			continue
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Logger.Warnf("healthcheck response code != 200: %s", resp.Status)
-			return errors.New("response status code != 200")
+			continue
 		}
 		t.Logger.Info("healthcheck request success.")
-		return nil
-	}, ebo)
-	if err != nil {
-		return false
+		return true
 	}
-
-	return true
+	return false
 }
