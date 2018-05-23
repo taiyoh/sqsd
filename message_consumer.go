@@ -7,6 +7,7 @@ import (
 	"sync"
 )
 
+// MessageConsumer provides receiving queues from tracker, requesting queue to worker, and deleting queue from SQS.
 type MessageConsumer struct {
 	Tracker          *QueueTracker
 	Resource         *Resource
@@ -16,6 +17,7 @@ type MessageConsumer struct {
 	Logger           Logger
 }
 
+// NewMessageConsumer returns MessageConsumer object
 func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *MessageConsumer {
 	return &MessageConsumer{
 		Tracker:          tracker,
@@ -27,9 +29,10 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *
 	}
 }
 
+// Run provides receiving queue and execute HandleJob asyncronously.
 func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	syncWait := new(sync.WaitGroup)
+	syncWait := &sync.WaitGroup{}
 	c.Logger.Info("MessageConsumer start.")
 	for {
 		select {
@@ -47,6 +50,7 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
+// HandleJob provides sending queue to worker, and deleting queue when worker response is success.
 func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	c.OnHandleJobStart(q)
 	c.Logger.Debugf("job[%s] HandleJob start.", q.ID)
@@ -62,6 +66,7 @@ func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	c.OnHandleJobEnds(q.ID, ok, err)
 }
 
+// CallWorker provides requesting queue to worker process using HTTP protocol.
 func (c *MessageConsumer) CallWorker(ctx context.Context, q Queue) (bool, error) {
 	req, _ := http.NewRequest("POST", c.URL, strings.NewReader(q.Payload))
 	req = req.WithContext(ctx)

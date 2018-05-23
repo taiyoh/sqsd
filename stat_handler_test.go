@@ -11,14 +11,14 @@ func TestReqMethodValidate(t *testing.T) {
 	req := &http.Request{}
 	w := NewMockResponseWriter()
 	req.Method = "GET"
-	if !ReqMethodValidate(w, req, "GET") {
+	if !reqMethodValidate(w, req, "GET") {
 		t.Error("validation failed")
 	}
 	if len(w.ResBytes) > 0 {
 		t.Error("response inserted")
 	}
 	req.Method = "POST"
-	if ReqMethodValidate(w, req, "GET") {
+	if reqMethodValidate(w, req, "GET") {
 		t.Error("validation failed")
 	}
 	if w.ResponseString() != "Method Not Allowed" {
@@ -31,7 +31,7 @@ func TestReqMethodValidate(t *testing.T) {
 
 func TestRenderJSON(t *testing.T) {
 	w := NewMockResponseWriter()
-	RenderJSON(w, &StatSuccessResponse{
+	renderJSON(w, &StatSuccessResponse{
 		Success: true,
 	})
 	if w.ResponseString() != `{"success":true}` {
@@ -41,7 +41,7 @@ func TestRenderJSON(t *testing.T) {
 		t.Error("response type failed")
 	}
 	w.ResBytes = []byte{} // clear
-	RenderJSON(w, &StatCurrentJobsResponse{
+	renderJSON(w, &StatCurrentJobsResponse{
 		CurrentJobs: []QueueSummary{
 			QueueSummary{ID: "1", Payload: "p1", ReceivedAt: 10},
 		},
