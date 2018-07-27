@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -15,8 +14,6 @@ func TestQueueTracker(t *testing.T) {
 	if tracker == nil {
 		t.Error("job tracker not loaded.")
 	}
-
-	mu := new(sync.Mutex)
 
 	now := time.Now()
 
@@ -34,21 +31,23 @@ func TestQueueTracker(t *testing.T) {
 	}
 
 	allJobRegistered := false
+	firstJobInsertNotify := make(chan struct{})
+	secondJobInsertNotify := make(chan struct{})
+
 	go func() {
 		tracker.Register(q1)
+		firstJobInsertNotify <- struct{}{}
 		tracker.Register(q2)
-		mu.Lock()
 		allJobRegistered = true
-		mu.Unlock()
+		secondJobInsertNotify <- struct{}{}
 	}()
 
-	time.Sleep(5 * time.Millisecond)
+	<-firstJobInsertNotify
+	time.Sleep(10 * time.Millisecond)
 
-	mu.Lock()
 	if allJobRegistered {
 		t.Error("2 jobs inserted")
 	}
-	mu.Unlock()
 
 	receivedQueue := <-tracker.NextQueue()
 	if receivedQueue.ID != q1.ID {
@@ -62,13 +61,12 @@ func TestQueueTracker(t *testing.T) {
 
 	tracker.Complete(receivedQueue)
 
-	time.Sleep(10 * time.Microsecond)
+	<-secondJobInsertNotify
+	time.Sleep(10 * time.Millisecond)
 
-	mu.Lock()
 	if !allJobRegistered {
 		t.Error("second job not registered")
 	}
-	mu.Unlock()
 
 	receivedQueue = <-tracker.NextQueue()
 	if receivedQueue.ID != q2.ID {
