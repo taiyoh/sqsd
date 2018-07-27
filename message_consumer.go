@@ -61,7 +61,7 @@ func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	if ok {
 		c.Resource.DeleteMessage(q.Receipt)
 	}
-	c.Tracker.Complete(q)
+	c.Tracker.Complete(q, ok)
 	c.Logger.Debugf("job[%s] HandleJob finished.", q.ID)
 	c.OnHandleJobEnds(q.ID, ok, err)
 }

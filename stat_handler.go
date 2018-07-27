@@ -52,6 +52,21 @@ func (r *StatCurrentSummaryResponse) JSONString() string {
 	return string(buf)
 }
 
+type ScoreBoardResponse struct {
+	TotalHandled   int `json:"total_handled"`
+	TotalSucceeded int `json:"total_succeeded"`
+	TotalFailed    int `json:"total_failed"`
+	MaxWorker      int `json:"max_worker"`
+	BusyWorker     int `json:"busy_worker"`
+	IdleWorker     int `json:"idle_worker"`
+}
+
+// JSONString returns json string building from itself
+func (r *ScoreBoardResponse) JSONString() string {
+	buf, _ := json.Marshal(r)
+	return string(buf)
+}
+
 func reqMethodValidate(w http.ResponseWriter, r *http.Request, m string) bool {
 	if r.Method == m {
 		return true
@@ -119,11 +134,31 @@ func (h *StatHandler) WorkerResumeHandler() func(http.ResponseWriter, *http.Requ
 	}
 }
 
+// ScoreBoardHandler returns http.HandlerFunc implementation for /scoreboard request
+func (h *StatHandler) ScoreBoardHandler() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !reqMethodValidate(w, r, "GET") {
+			return
+		}
+
+		busy := len(h.Tracker.queueStack)
+
+		renderJSON(w, &ScoreBoardResponse{
+			TotalHandled:   int(h.Tracker.ScoreBoard.TotalSucceeded + h.Tracker.ScoreBoard.TotalFailed),
+			TotalSucceeded: int(h.Tracker.ScoreBoard.TotalSucceeded),
+			TotalFailed:    int(h.Tracker.ScoreBoard.TotalFailed),
+			BusyWorker:     busy,
+			IdleWorker:     h.Tracker.ScoreBoard.MaxWorker - busy,
+		})
+	}
+}
+
 // BuildServeMux returns http.ServeMux object with registered endpoints
 func (h *StatHandler) BuildServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/stats", stats_api.Handler)
+	mux.HandleFunc("/scoreboard", h.ScoreBoardHandler())
 	mux.HandleFunc("/worker/current", h.WorkerCurrentSummaryHandler())
 	mux.HandleFunc("/worker/current/jobs", h.WorkerCurrentJobsHandler())
 	mux.HandleFunc("/worker/pause", h.WorkerPauseHandler())

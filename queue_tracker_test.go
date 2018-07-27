@@ -60,7 +60,7 @@ func TestQueueTracker(t *testing.T) {
 		t.Error("wrong order")
 	}
 
-	tracker.Complete(receivedQueue)
+	tracker.Complete(receivedQueue, true)
 
 	time.Sleep(10 * time.Microsecond)
 
