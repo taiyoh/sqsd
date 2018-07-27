@@ -2,6 +2,7 @@ package sqsd
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -81,7 +82,7 @@ func (c *MessageConsumer) CallWorker(ctx context.Context, q Queue) (bool, error)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return false, nil
+		return false, errors.New("CallWorker failed. worker response status: " + resp.Status)
 	}
 
 	return true, nil
