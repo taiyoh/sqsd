@@ -13,7 +13,7 @@ type MessageConsumer struct {
 	Tracker          *QueueTracker
 	Resource         *Resource
 	URL              string
-	OnHandleJobEnds  func(jobID string, ok bool, err error)
+	OnHandleJobEnds  func(jobID string, err error)
 	OnHandleJobStart func(q Queue)
 	Logger           Logger
 }
@@ -25,7 +25,7 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *
 		Resource:         resource,
 		URL:              url,
 		OnHandleJobStart: func(q Queue) {},
-		OnHandleJobEnds:  func(jobID string, ok bool, err error) {},
+		OnHandleJobEnds:  func(jobID string, err error) {},
 		Logger:           tracker.Logger,
 	}
 }
@@ -55,20 +55,19 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	c.OnHandleJobStart(q)
 	c.Logger.Debugf("job[%s] HandleJob start.", q.ID)
-	ok, err := c.CallWorker(ctx, q)
+	err := c.CallWorker(ctx, q)
 	if err != nil {
 		c.Logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
-	}
-	if ok {
+	} else {
 		c.Resource.DeleteMessage(q.Receipt)
 	}
 	c.Tracker.Complete(q)
 	c.Logger.Debugf("job[%s] HandleJob finished.", q.ID)
-	c.OnHandleJobEnds(q.ID, ok, err)
+	c.OnHandleJobEnds(q.ID, err)
 }
 
 // CallWorker provides requesting queue to worker process using HTTP protocol.
-func (c *MessageConsumer) CallWorker(ctx context.Context, q Queue) (bool, error) {
+func (c *MessageConsumer) CallWorker(ctx context.Context, q Queue) error {
 	req, _ := http.NewRequest("POST", c.URL, strings.NewReader(q.Payload))
 	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
@@ -78,12 +77,12 @@ func (c *MessageConsumer) CallWorker(ctx context.Context, q Queue) (bool, error)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return false, errors.New("CallWorker failed. worker response status: " + resp.Status)
+		return errors.New("CallWorker failed. worker response status: " + resp.Status)
 	}
 
-	return true, nil
+	return nil
 }
