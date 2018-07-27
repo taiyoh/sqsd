@@ -147,6 +147,7 @@ func (h *StatHandler) ScoreBoardHandler() func(http.ResponseWriter, *http.Reques
 			TotalHandled:   int(h.Tracker.ScoreBoard.TotalSucceeded + h.Tracker.ScoreBoard.TotalFailed),
 			TotalSucceeded: int(h.Tracker.ScoreBoard.TotalSucceeded),
 			TotalFailed:    int(h.Tracker.ScoreBoard.TotalFailed),
+			MaxWorker:      h.Tracker.ScoreBoard.MaxWorker,
 			BusyWorker:     busy,
 			IdleWorker:     h.Tracker.ScoreBoard.MaxWorker - busy,
 		})
