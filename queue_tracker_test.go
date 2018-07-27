@@ -62,7 +62,6 @@ func TestQueueTracker(t *testing.T) {
 	tracker.Complete(receivedQueue)
 
 	<-secondJobInsertNotify
-	time.Sleep(10 * time.Millisecond)
 
 	if !allJobRegistered {
 		t.Error("second job not registered")
