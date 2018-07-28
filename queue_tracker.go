@@ -26,6 +26,10 @@ type ScoreBoard struct {
 	MaxWorker      int
 }
 
+func (s *ScoreBoard) TotalHandled() int64 {
+	return s.TotalSucceeded + s.TotalFailed
+}
+
 func (s *ScoreBoard) ReportScore(success bool) {
 	if success {
 		atomic.AddInt64(&s.TotalSucceeded, 1)

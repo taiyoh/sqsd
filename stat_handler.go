@@ -144,7 +144,7 @@ func (h *StatHandler) ScoreBoardHandler() func(http.ResponseWriter, *http.Reques
 		busy := len(h.Tracker.queueStack)
 
 		renderJSON(w, &ScoreBoardResponse{
-			TotalHandled:   int(h.Tracker.ScoreBoard.TotalSucceeded + h.Tracker.ScoreBoard.TotalFailed),
+			TotalHandled:   int(h.Tracker.ScoreBoard.TotalHandled()),
 			TotalSucceeded: int(h.Tracker.ScoreBoard.TotalSucceeded),
 			TotalFailed:    int(h.Tracker.ScoreBoard.TotalFailed),
 			MaxWorker:      h.Tracker.ScoreBoard.MaxWorker,
