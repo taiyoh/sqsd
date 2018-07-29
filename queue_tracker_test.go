@@ -42,7 +42,7 @@ func TestQueueTracker(t *testing.T) {
 		mu.Unlock()
 	}()
 
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	mu.Lock()
 	if allJobRegistered {
@@ -62,7 +62,7 @@ func TestQueueTracker(t *testing.T) {
 
 	tracker.Complete(receivedQueue)
 
-	time.Sleep(10 * time.Microsecond)
+	time.Sleep(1 * time.Second)
 
 	mu.Lock()
 	if !allJobRegistered {

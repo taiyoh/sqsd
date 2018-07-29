@@ -11,7 +11,6 @@ import (
 
 type HandleJobResponse struct {
 	JobID string
-	Ok    bool
 	Err   error
 }
 
@@ -23,10 +22,9 @@ func TestHandleJob(t *testing.T) {
 	msgc := NewMessageConsumer(r, tr, "")
 
 	receivedChan := make(chan *HandleJobResponse)
-	msgc.OnHandleJobEnds = func(jobID string, ok bool, err error) {
+	msgc.OnHandleJobEnds = func(jobID string, err error) {
 		receivedChan <- &HandleJobResponse{
 			JobID: jobID,
-			Ok:    ok,
 			Err:   err,
 		}
 	}
@@ -59,12 +57,8 @@ func TestHandleJob(t *testing.T) {
 			t.Error("wrong job processed")
 		}
 
-		if receivedRes.Ok {
-			t.Error("error not returns")
-		}
-
-		if receivedRes.Err != nil {
-			t.Error("error found")
+		if receivedRes.Err == nil {
+			t.Error("error not found")
 		}
 	})
 
@@ -82,10 +76,6 @@ func TestHandleJob(t *testing.T) {
 
 		if receivedRes.JobID != queue.ID {
 			t.Error("wrong job processed")
-		}
-
-		if !receivedRes.Ok {
-			t.Error("error returns")
 		}
 
 		if receivedRes.Err != nil {
@@ -110,10 +100,6 @@ func TestHandleJob(t *testing.T) {
 
 		if receivedRes.JobID != queue.ID {
 			t.Error("wrong queue processed")
-		}
-
-		if receivedRes.Ok {
-			t.Error("error not returns")
 		}
 
 		if receivedRes.Err == nil {
