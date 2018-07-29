@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -15,8 +14,6 @@ func TestQueueTracker(t *testing.T) {
 	if tracker == nil {
 		t.Error("job tracker not loaded.")
 	}
-
-	mu := new(sync.Mutex)
 
 	now := time.Now()
 
