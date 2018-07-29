@@ -58,7 +58,7 @@ func TestRenderJSON(t *testing.T) {
 	}
 }
 
-func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
+func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	h := &StatHandler{tr}
 
@@ -70,13 +70,13 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 		})
 	}
 
-	summaryController := h.WorkerCurrentSummaryHandler()
+	workerStatsController := h.WorkerStatsHandler()
 	req := &http.Request{}
 	req.Method = "POST"
 
 	t.Run("invalid Method for summary", func(t *testing.T) {
 		w := NewMockResponseWriter()
-		summaryController(w, req)
+		workerStatsController(w, req)
 
 		if w.StatusCode != http.StatusMethodNotAllowed {
 			t.Error("response error found")
@@ -86,18 +86,18 @@ func TestWorkerCurrentSummaryAndJobsHandler(t *testing.T) {
 	t.Run("valid Method for summary", func(t *testing.T) {
 		w := NewMockResponseWriter()
 		req.Method = "GET"
-		summaryController(w, req)
+		workerStatsController(w, req)
 
 		if w.StatusCode != http.StatusOK {
 			t.Error("response error found")
 		}
 
-		var r StatCurrentSummaryResponse
+		var r StatWorkerStatsResponse
 		if err := json.Unmarshal(w.ResBytes, &r); err != nil {
 			t.Error("json unmarshal error", err)
 		}
 
-		if r.JobsCount != 5 {
+		if len(tr.CurrentSummaries()) != 5 {
 			t.Error("job summaries invalid")
 		}
 

@@ -40,29 +40,19 @@ func (r *StatSuccessResponse) JSONString() string {
 	return string(buf)
 }
 
-// StatCurrentSummaryResponse provides response object for /worker/current request
-type StatCurrentSummaryResponse struct {
-	JobsCount int  `json:"jobs_count"`
-	IsWorking bool `json:"is_working"`
+// StatWorkerStatsResponse provides response object for /worker/stats request
+type StatWorkerStatsResponse struct {
+	IsWorking      bool `json:"is_working"`
+	TotalHandled   int  `json:"total_handled"`
+	TotalSucceeded int  `json:"total_succeeded"`
+	TotalFailed    int  `json:"total_failed"`
+	MaxWorker      int  `json:"max_worker"`
+	BusyWorker     int  `json:"busy_worker"`
+	IdleWorker     int  `json:"idle_worker"`
 }
 
 // JSONString returns json string building from itself
-func (r *StatCurrentSummaryResponse) JSONString() string {
-	buf, _ := json.Marshal(r)
-	return string(buf)
-}
-
-type ScoreBoardResponse struct {
-	TotalHandled   int `json:"total_handled"`
-	TotalSucceeded int `json:"total_succeeded"`
-	TotalFailed    int `json:"total_failed"`
-	MaxWorker      int `json:"max_worker"`
-	BusyWorker     int `json:"busy_worker"`
-	IdleWorker     int `json:"idle_worker"`
-}
-
-// JSONString returns json string building from itself
-func (r *ScoreBoardResponse) JSONString() string {
+func (r *StatWorkerStatsResponse) JSONString() string {
 	buf, _ := json.Marshal(r)
 	return string(buf)
 }
@@ -82,16 +72,21 @@ func renderJSON(w http.ResponseWriter, res StatResponseIFace) {
 	fmt.Fprint(w, res.JSONString())
 }
 
-// WorkerCurrentSummaryHandler returns http.HandlerFunc implementation for /worker/current request
-func (h *StatHandler) WorkerCurrentSummaryHandler() func(http.ResponseWriter, *http.Request) {
+// WorkerStatsHandler returns http.HandlerFunc implementation for /worker/current request
+func (h *StatHandler) WorkerStatsHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !reqMethodValidate(w, r, "GET") {
 			return
 		}
-		jobsCount := len(h.Tracker.CurrentSummaries())
-		renderJSON(w, &StatCurrentSummaryResponse{
-			JobsCount: jobsCount,
-			IsWorking: h.Tracker.IsWorking(),
+		busy := len(h.Tracker.CurrentSummaries())
+		renderJSON(w, &StatWorkerStatsResponse{
+			IsWorking:      h.Tracker.IsWorking(),
+			TotalHandled:   int(h.Tracker.ScoreBoard.TotalHandled()),
+			TotalSucceeded: int(h.Tracker.ScoreBoard.TotalSucceeded),
+			TotalFailed:    int(h.Tracker.ScoreBoard.TotalFailed),
+			MaxWorker:      h.Tracker.ScoreBoard.MaxWorker,
+			BusyWorker:     busy,
+			IdleWorker:     h.Tracker.ScoreBoard.MaxWorker - busy,
 		})
 	}
 }
@@ -134,33 +129,12 @@ func (h *StatHandler) WorkerResumeHandler() func(http.ResponseWriter, *http.Requ
 	}
 }
 
-// ScoreBoardHandler returns http.HandlerFunc implementation for /scoreboard request
-func (h *StatHandler) ScoreBoardHandler() func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !reqMethodValidate(w, r, "GET") {
-			return
-		}
-
-		busy := len(h.Tracker.queueStack)
-
-		renderJSON(w, &ScoreBoardResponse{
-			TotalHandled:   int(h.Tracker.ScoreBoard.TotalHandled()),
-			TotalSucceeded: int(h.Tracker.ScoreBoard.TotalSucceeded),
-			TotalFailed:    int(h.Tracker.ScoreBoard.TotalFailed),
-			MaxWorker:      h.Tracker.ScoreBoard.MaxWorker,
-			BusyWorker:     busy,
-			IdleWorker:     h.Tracker.ScoreBoard.MaxWorker - busy,
-		})
-	}
-}
-
 // BuildServeMux returns http.ServeMux object with registered endpoints
 func (h *StatHandler) BuildServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/stats", stats_api.Handler)
-	mux.HandleFunc("/scoreboard", h.ScoreBoardHandler())
-	mux.HandleFunc("/worker/current", h.WorkerCurrentSummaryHandler())
+	mux.HandleFunc("/worker/stats", h.WorkerStatsHandler())
 	mux.HandleFunc("/worker/current/jobs", h.WorkerCurrentJobsHandler())
 	mux.HandleFunc("/worker/pause", h.WorkerPauseHandler())
 	mux.HandleFunc("/worker/resume", h.WorkerResumeHandler())
