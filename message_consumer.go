@@ -57,11 +57,13 @@ func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	ok, err := c.CallWorker(ctx, q)
 	if err != nil {
 		c.Logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
+		q = q.ResultFailed()
 	}
 	if ok {
 		c.Resource.DeleteMessage(q.Receipt)
+		q = q.ResultSucceeded()
 	}
-	c.Tracker.Complete(q, ok)
+	c.Tracker.Complete(q)
 	c.Logger.Debugf("job[%s] HandleJob finished.", q.ID)
 	c.OnHandleJobEnds(q.ID, ok, err)
 }

@@ -6,12 +6,41 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
+type QueueResultStatus int
+
+const (
+	NotRequested   = iota // default
+	RequestSuccess = iota
+	RequestFail    = iota
+)
+
 // Queue provides transition from sqs.Message
 type Queue struct {
-	ID         string
-	Payload    string
-	Receipt    string
-	ReceivedAt time.Time
+	ID           string
+	Payload      string
+	Receipt      string
+	ReceivedAt   time.Time
+	ResultStatus QueueResultStatus
+}
+
+func (q Queue) ResultSucceeded() Queue {
+	return Queue{
+		ID:           q.ID,
+		Payload:      q.Payload,
+		Receipt:      q.Receipt,
+		ReceivedAt:   q.ReceivedAt,
+		ResultStatus: RequestSuccess,
+	}
+}
+
+func (q Queue) ResultFailed() Queue {
+	return Queue{
+		ID:           q.ID,
+		Payload:      q.Payload,
+		Receipt:      q.Receipt,
+		ReceivedAt:   q.ReceivedAt,
+		ResultStatus: RequestFail,
+	}
 }
 
 // QueueSummary provides transition from Queue for stat

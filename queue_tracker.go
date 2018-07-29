@@ -30,12 +30,12 @@ func (s *ScoreBoard) TotalHandled() int64 {
 	return s.TotalSucceeded + s.TotalFailed
 }
 
-func (s *ScoreBoard) ReportScore(success bool) {
-	if success {
-		atomic.AddInt64(&s.TotalSucceeded, 1)
-	} else {
-		atomic.AddInt64(&s.TotalFailed, 1)
-	}
+func (s *ScoreBoard) ReportSuccess() {
+	atomic.AddInt64(&s.TotalSucceeded, 1)
+}
+
+func (s *ScoreBoard) ReportFail() {
+	atomic.AddInt64(&s.TotalFailed, 1)
 }
 
 // NewQueueTracker returns QueueTracker object
@@ -63,9 +63,13 @@ func (t *QueueTracker) Register(q Queue) {
 }
 
 // Complete provides finalizing queue tracking. Deleting queue from itself and opening up one queue stack
-func (t *QueueTracker) Complete(q Queue, ok bool) {
+func (t *QueueTracker) Complete(q Queue) {
 	t.CurrentWorkings.Delete(q.ID)
-	t.ScoreBoard.ReportScore(ok)
+	if q.ResultStatus == RequestFail {
+		t.ScoreBoard.ReportFail()
+	} else if q.ResultStatus == RequestSuccess {
+		t.ScoreBoard.ReportSuccess()
+	}
 	<-t.queueStack // unblock
 }
 
