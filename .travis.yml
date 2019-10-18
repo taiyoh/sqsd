@@ -2,8 +2,11 @@ language: go
 sudo: false
 
 go:
-  - 1.9
+  - 1.13.x
+
+env:
+  - GO111MODULE=on
 
 install:
-  - make get-deps
+  - go mod tidy
   - make test

@@ -3,7 +3,7 @@ CURRENT_REVISION=$(shell git rev-parse --short HEAD)
 CURRENT_DATE=$(shell date +"%FT%T%z")
 LDFLAGS="-s -w -X github.com/taiyoh/sqsd.version=$(GIT_VERSION) -X main.commit=$(CURRENT_REVISION) -X main.date=$(CURRENT_DATE)"
 
-.PHONY: get-deps test install
+.PHONY: test install
 
 install:
 	cd cmd/sqsd && go install
@@ -11,10 +11,6 @@ install:
 test:
 	go test -v -race -timeout 30s
 	go vet
-
-get-deps:
-	go get -u github.com/golang/dep/cmd/dep
-	dep ensure
 
 build:
 	rm -rf pkg/v$(GIT_VERSION)/ && mkdir -p pkg/v$(GIT_VERSION)/dist
