@@ -20,10 +20,15 @@ type QueueTracker struct {
 	ScoreBoard      ScoreBoard
 }
 
+type macopy struct{}
+
+func (*macopy) Lock() {}
+
 type ScoreBoard struct {
 	TotalSucceeded int64
 	TotalFailed    int64
 	MaxWorker      int
+	noMacopy       macopy
 }
 
 func (s *ScoreBoard) TotalHandled() int64 {
