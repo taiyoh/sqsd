@@ -29,8 +29,6 @@ func TestHandleJob(t *testing.T) {
 		}
 	}
 
-	ctx := context.Background()
-
 	ts := MockServer()
 	defer ts.Close()
 
