@@ -24,6 +24,7 @@ type macopy struct{}
 
 func (*macopy) Lock() {}
 
+// ScoreBoard represents executed worker count manager.
 type ScoreBoard struct {
 	TotalSucceeded int64
 	TotalFailed    int64
@@ -31,14 +32,17 @@ type ScoreBoard struct {
 	noMacopy       macopy
 }
 
+// TotalHandled returns all success and fail counts.
 func (s *ScoreBoard) TotalHandled() int64 {
 	return s.TotalSucceeded + s.TotalFailed
 }
 
+// ReportSuccess provides increment success count.
 func (s *ScoreBoard) ReportSuccess() {
 	atomic.AddInt64(&s.TotalSucceeded, 1)
 }
 
+// ReportFail provides increment fail count.
 func (s *ScoreBoard) ReportFail() {
 	atomic.AddInt64(&s.TotalFailed, 1)
 }
