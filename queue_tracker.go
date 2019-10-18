@@ -2,7 +2,7 @@ package sqsd
 
 import (
 	"bytes"
-	"context"
+	"fmt"
 	"net/http"
 	"sort"
 	"sync"
@@ -113,24 +113,30 @@ func (t *QueueTracker) HealthCheck(c HealthcheckConf) bool {
 	}
 
 	b := NewBackOff(c.MaxElapsedSec)
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: time.Duration(c.MaxRequestMS) * time.Millisecond,
+	}
+	req, _ := http.NewRequest(http.MethodGet, c.URL, bytes.NewBuffer([]byte{}))
 
 	for b.Continue() {
-		req, _ := http.NewRequest("GET", c.URL, bytes.NewBuffer([]byte("")))
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.MaxRequestMS)*time.Millisecond)
-		defer cancel()
-		resp, err := client.Do(req.WithContext(ctx))
-		if err != nil {
-			t.Logger.Warnf("healthcheck request failed. %s", err)
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Logger.Warnf("healthcheck response code != 200: %s", resp.Status)
+		if err := t.healthcheckRequest(client, req); err != nil {
+			t.Logger.Warnf("healthcheck request failed: %v", err)
 			continue
 		}
 		t.Logger.Info("healthcheck request success.")
 		return true
 	}
 	return false
+}
+
+func (t *QueueTracker) healthcheckRequest(client *http.Client, req *http.Request) error {
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("response code != 200: %s", resp.Status)
+	}
+	return nil
 }
