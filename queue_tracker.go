@@ -64,9 +64,8 @@ func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 
 // Register provides registering queues to tracker. But existing queue is ignored. And when queue stack is filled, wait until a slot opens up
 func (t *QueueTracker) Register(q Queue) {
-	if _, exists := t.CurrentWorkings.Load(q.ID); !exists {
-		t.queueStack <- struct{}{} // blocking
-		t.CurrentWorkings.Store(q.ID, q)
+	if _, loaded := t.CurrentWorkings.LoadOrStore(q.ID, q); !loaded {
+		t.queueStack <- struct{}{} // for blocking
 		t.queueChan <- q
 	}
 }
