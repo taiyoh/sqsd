@@ -13,9 +13,8 @@ import (
 
 func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc := NewMockClient()
-	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
+	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
 	rs := NewResource(mc, sc)
-	rs.WaitTimeSec = 1
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 
 	handleEmptyCalled := false
@@ -135,9 +134,8 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 
 func TestReceiverRun(t *testing.T) {
 	mc := NewMockClient()
-	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
+	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
 	rs := NewResource(mc, sc)
-	rs.WaitTimeSec = 1
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	pr := NewMessageProducer(rs, tr, 1)
 
