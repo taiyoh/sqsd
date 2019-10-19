@@ -1,14 +1,16 @@
-package sqsd
+package sqsd_test
 
 import (
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/taiyoh/sqsd"
 )
 
 func TestValidateConf(t *testing.T) {
-	c := &Conf{}
+	c := &sqsd.Conf{}
 	c.Init()
 	c.SQS.AccountID = "foo"
 	c.SQS.QueueName = "bar"
@@ -89,13 +91,13 @@ func TestValidateConf(t *testing.T) {
 
 func TestNewConf(t *testing.T) {
 	d, _ := os.Getwd()
-	if _, err := NewConf(filepath.Join(d, "test", "conf", "hoge.toml")); err == nil {
+	if _, err := sqsd.NewConf(filepath.Join(d, "test", "conf", "hoge.toml")); err == nil {
 		t.Error("file not found")
 	}
-	if _, err := NewConf(filepath.Join(d, "test", "conf", "config1.toml")); err == nil {
+	if _, err := sqsd.NewConf(filepath.Join(d, "test", "conf", "config1.toml")); err == nil {
 		t.Error("invalid config but passed")
 	}
-	conf, err := NewConf(filepath.Join(d, "test", "conf", "config_valid.toml"))
+	conf, err := sqsd.NewConf(filepath.Join(d, "test", "conf", "config_valid.toml"))
 	if err != nil {
 		t.Error("invalid config??? ", err)
 	}
