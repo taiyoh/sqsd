@@ -13,6 +13,11 @@ type StatHandler struct {
 	tracker *QueueTracker
 }
 
+// NewStatHandler returns new StatHandler object.
+func NewStatHandler(tr *QueueTracker) *StatHandler {
+	return &StatHandler{tracker: tr}
+}
+
 // StatResponseIFace is interface for JSON response dumper
 type StatResponseIFace interface {
 	JSONString() string
