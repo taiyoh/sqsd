@@ -84,17 +84,17 @@ func TestQueueTracker(t *testing.T) {
 func TestJobWorking(t *testing.T) {
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 
-	if !tr.JobWorking {
+	if !tr.IsWorking() {
 		t.Error("JobWorking false")
 	}
 
 	tr.Pause()
-	if tr.JobWorking {
+	if tr.IsWorking() {
 		t.Error("JobWorking not changed to true")
 	}
 
 	tr.Resume()
-	if !tr.JobWorking {
+	if !tr.IsWorking() {
 		t.Error("JobWorking not changed to false")
 	}
 
@@ -138,11 +138,11 @@ func TestCurrentSummaries(t *testing.T) {
 
 	summaries := tr.CurrentSummaries()
 	for _, summary := range summaries {
-		data, exists := tr.CurrentWorkings.Load(summary.ID)
+		data, exists := tr.Find(summary.ID)
 		if !exists {
 			t.Errorf("job not found: %s", summary.ID)
 		}
-		if summary.Payload != data.(Queue).Payload {
+		if summary.Payload != data.Payload {
 			t.Errorf("job payload is wrong: %s", summary.Payload)
 		}
 	}

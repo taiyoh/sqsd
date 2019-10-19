@@ -137,7 +137,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 		}
 
 		for _, summary := range r.CurrentJobs {
-			if _, exists := tr.CurrentWorkings.Load(summary.ID); !exists {
+			if _, exists := tr.Find(summary.ID); !exists {
 				t.Errorf("job summary not registered: %s\n", summary.ID)
 			}
 		}

@@ -13,23 +13,22 @@ import (
 
 func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc := NewMockClient()
-	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
+	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
 	rs := NewResource(mc, sc)
-	rs.WaitTimeSec = 1
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
-	pr := NewMessageProducer(rs, tr, 1)
+
+	handleEmptyCalled := false
+
+	pr := NewMessageProducer(rs, tr, 1, func() {
+		handleEmptyCalled = true
+	})
 	if pr == nil {
 		t.Error("receiver not loaded")
 	}
 
-	handleEmptyCalled := false
-
-	pr.HandleEmptyFunc = func() {
-		handleEmptyCalled = true
-	}
 	mc.ErrRequestCount = 0
 	tr.Pause()
-	if tr.JobWorking {
+	if tr.IsWorking() {
 		t.Error("jobworking not changed")
 	}
 	t.Run("tracker is not working", func(t *testing.T) {
@@ -55,7 +54,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc.RecvRequestCount = 0
 	mc.ErrRequestCount = 0
 	handleEmptyCalled = false
-	if !tr.JobWorking {
+	if !tr.IsWorking() {
 		t.Error("jobworking flag not changed")
 	}
 	t.Run("received but empty messages", func(t *testing.T) {
@@ -135,9 +134,8 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 
 func TestReceiverRun(t *testing.T) {
 	mc := NewMockClient()
-	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
+	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
 	rs := NewResource(mc, sc)
-	rs.WaitTimeSec = 1
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 	pr := NewMessageProducer(rs, tr, 1)
 
