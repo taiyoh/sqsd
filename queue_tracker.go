@@ -12,7 +12,7 @@ import (
 
 // QueueTracker provides recieving queues from MessageProvider, and sending queues to MessageConsumer
 type QueueTracker struct {
-	CurrentWorkings *sync.Map
+	currentWorkings *sync.Map
 	jobWorking      bool
 	logger          Logger
 	queueChan       chan Queue
@@ -51,7 +51,7 @@ func (s *ScoreBoard) ReportFail() {
 func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 	procCount := int(maxProcCount)
 	return &QueueTracker{
-		CurrentWorkings: &sync.Map{},
+		currentWorkings: &sync.Map{},
 		jobWorking:      true,
 		logger:          logger,
 		queueChan:       make(chan Queue, procCount),
@@ -64,7 +64,7 @@ func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 
 // Register provides registering queues to tracker. But existing queue is ignored. And when queue stack is filled, wait until a slot opens up
 func (t *QueueTracker) Register(q Queue) {
-	if _, loaded := t.CurrentWorkings.LoadOrStore(q.ID, q); !loaded {
+	if _, loaded := t.currentWorkings.LoadOrStore(q.ID, q); !loaded {
 		t.queueStack <- struct{}{} // for blocking
 		t.queueChan <- q
 	}
@@ -72,7 +72,7 @@ func (t *QueueTracker) Register(q Queue) {
 
 // Complete provides finalizing queue tracking. Deleting queue from itself and opening up one queue stack
 func (t *QueueTracker) Complete(q Queue) {
-	t.CurrentWorkings.Delete(q.ID)
+	t.currentWorkings.Delete(q.ID)
 	if q.ResultStatus == RequestFail {
 		t.ScoreBoard.ReportFail()
 	} else if q.ResultStatus == RequestSuccess {
@@ -84,7 +84,7 @@ func (t *QueueTracker) Complete(q Queue) {
 // CurrentSummaries returns QueueSummary list from its owned
 func (t *QueueTracker) CurrentSummaries() []QueueSummary {
 	currentList := []QueueSummary{}
-	t.CurrentWorkings.Range(func(key, val interface{}) bool {
+	t.currentWorkings.Range(func(key, val interface{}) bool {
 		currentList = append(currentList, (val.(Queue)).Summary())
 		return true
 	})

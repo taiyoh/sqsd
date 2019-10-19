@@ -138,11 +138,11 @@ func TestCurrentSummaries(t *testing.T) {
 
 	summaries := tr.CurrentSummaries()
 	for _, summary := range summaries {
-		data, exists := tr.CurrentWorkings.Load(summary.ID)
+		data, exists := tr.Find(summary.ID)
 		if !exists {
 			t.Errorf("job not found: %s", summary.ID)
 		}
-		if summary.Payload != data.(Queue).Payload {
+		if summary.Payload != data.Payload {
 			t.Errorf("job payload is wrong: %s", summary.Payload)
 		}
 	}
