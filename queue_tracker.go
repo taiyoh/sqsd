@@ -13,7 +13,7 @@ import (
 // QueueTracker provides recieving queues from MessageProvider, and sending queues to MessageConsumer
 type QueueTracker struct {
 	CurrentWorkings *sync.Map
-	JobWorking      bool
+	jobWorking      bool
 	Logger          Logger
 	queueChan       chan Queue
 	queueStack      chan struct{}
@@ -52,7 +52,7 @@ func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 	procCount := int(maxProcCount)
 	return &QueueTracker{
 		CurrentWorkings: &sync.Map{},
-		JobWorking:      true,
+		jobWorking:      true,
 		Logger:          logger,
 		queueChan:       make(chan Queue, procCount),
 		queueStack:      make(chan struct{}, procCount),
@@ -101,17 +101,17 @@ func (t *QueueTracker) NextQueue() <-chan Queue {
 
 // Pause provides stopping receiving queues
 func (t *QueueTracker) Pause() {
-	t.JobWorking = false
+	t.jobWorking = false
 }
 
 // Resume provides starting recieving queues
 func (t *QueueTracker) Resume() {
-	t.JobWorking = true
+	t.jobWorking = true
 }
 
 // IsWorking returns whether recieving queue is alive or not
 func (t *QueueTracker) IsWorking() bool {
-	return t.JobWorking
+	return t.jobWorking
 }
 
 // HealthCheck provides checking worker status using specified endpoing.

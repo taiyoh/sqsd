@@ -84,17 +84,17 @@ func TestQueueTracker(t *testing.T) {
 func TestJobWorking(t *testing.T) {
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
 
-	if !tr.JobWorking {
+	if !tr.IsWorking() {
 		t.Error("JobWorking false")
 	}
 
 	tr.Pause()
-	if tr.JobWorking {
+	if tr.IsWorking() {
 		t.Error("JobWorking not changed to true")
 	}
 
 	tr.Resume()
-	if !tr.JobWorking {
+	if !tr.IsWorking() {
 		t.Error("JobWorking not changed to false")
 	}
 

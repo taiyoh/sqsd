@@ -29,7 +29,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	}
 	mc.ErrRequestCount = 0
 	tr.Pause()
-	if tr.JobWorking {
+	if tr.IsWorking() {
 		t.Error("jobworking not changed")
 	}
 	t.Run("tracker is not working", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	mc.RecvRequestCount = 0
 	mc.ErrRequestCount = 0
 	handleEmptyCalled = false
-	if !tr.JobWorking {
+	if !tr.IsWorking() {
 		t.Error("jobworking flag not changed")
 	}
 	t.Run("received but empty messages", func(t *testing.T) {
