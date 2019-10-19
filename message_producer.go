@@ -10,21 +10,25 @@ import (
 type MessageProducer struct {
 	resource        *Resource
 	tracker         *QueueTracker
-	HandleEmptyFunc func()
+	handleEmptyFunc func()
 	logger          Logger
 	Concurrency     int
 }
 
 // NewMessageProducer returns MessageProducer object
-func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency uint) *MessageProducer {
+func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency uint, emptyFuncs ...func()) *MessageProducer {
+	emptyFunc := func() {
+		time.Sleep(1 * time.Second)
+	}
+	if len(emptyFuncs) > 0 {
+		emptyFunc = emptyFuncs[0]
+	}
 	return &MessageProducer{
-		resource: resource,
-		tracker:  tracker,
-		HandleEmptyFunc: func() {
-			time.Sleep(1 * time.Second)
-		},
-		logger:      tracker.logger,
-		Concurrency: int(concurrency),
+		resource:        resource,
+		tracker:         tracker,
+		handleEmptyFunc: emptyFunc,
+		logger:          tracker.logger,
+		Concurrency:     int(concurrency),
 	}
 }
 
@@ -57,7 +61,7 @@ func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 // HandleEmpty executes HandleEmptyFunc parameter
 func (p *MessageProducer) HandleEmpty() {
-	p.HandleEmptyFunc()
+	p.handleEmptyFunc()
 }
 
 // DoHandle receiving queues from SQS, and sending queues to tracker

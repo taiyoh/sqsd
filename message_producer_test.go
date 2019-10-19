@@ -17,16 +17,16 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 	rs := NewResource(mc, sc)
 	rs.WaitTimeSec = 1
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
-	pr := NewMessageProducer(rs, tr, 1)
+
+	handleEmptyCalled := false
+
+	pr := NewMessageProducer(rs, tr, 1, func() {
+		handleEmptyCalled = true
+	})
 	if pr == nil {
 		t.Error("receiver not loaded")
 	}
 
-	handleEmptyCalled := false
-
-	pr.HandleEmptyFunc = func() {
-		handleEmptyCalled = true
-	}
 	mc.ErrRequestCount = 0
 	tr.Pause()
 	if tr.IsWorking() {
