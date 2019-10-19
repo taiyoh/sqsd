@@ -9,7 +9,7 @@ import (
 // MessageProducer provides receiving queues from SQS, and send to tracker
 type MessageProducer struct {
 	Resource        *Resource
-	Tracker         *QueueTracker
+	tracker         *QueueTracker
 	HandleEmptyFunc func()
 	logger          Logger
 	Concurrency     int
@@ -19,7 +19,7 @@ type MessageProducer struct {
 func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency uint) *MessageProducer {
 	return &MessageProducer{
 		Resource: resource,
-		Tracker:  tracker,
+		tracker:  tracker,
 		HandleEmptyFunc: func() {
 			time.Sleep(1 * time.Second)
 		},
@@ -62,7 +62,7 @@ func (p *MessageProducer) HandleEmpty() {
 
 // DoHandle receiving queues from SQS, and sending queues to tracker
 func (p *MessageProducer) DoHandle(ctx context.Context) {
-	if !p.Tracker.IsWorking() {
+	if !p.tracker.IsWorking() {
 		p.logger.Debug("tracker not working")
 		p.HandleEmpty()
 		return
@@ -80,6 +80,6 @@ func (p *MessageProducer) DoHandle(ctx context.Context) {
 	}
 	p.logger.Debugf("received %d messages. run jobs.\n", len(results))
 	for _, msg := range results {
-		p.Tracker.Register(NewQueue(msg))
+		p.tracker.Register(NewQueue(msg))
 	}
 }

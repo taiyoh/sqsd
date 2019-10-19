@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/fukata/golang-stats-api-handler"
+	stats_api "github.com/fukata/golang-stats-api-handler"
 )
 
 // StatHandler provides monitoring processing queues and process resource
 type StatHandler struct {
-	Tracker *QueueTracker
+	tracker *QueueTracker
 }
 
 // StatResponseIFace is interface for JSON response dumper
@@ -78,15 +78,15 @@ func (h *StatHandler) WorkerStatsHandler() func(http.ResponseWriter, *http.Reque
 		if !reqMethodValidate(w, r, "GET") {
 			return
 		}
-		busy := len(h.Tracker.CurrentSummaries())
+		busy := len(h.tracker.CurrentSummaries())
 		renderJSON(w, &StatWorkerStatsResponse{
-			IsWorking:      h.Tracker.IsWorking(),
-			TotalHandled:   int(h.Tracker.ScoreBoard.TotalHandled()),
-			TotalSucceeded: int(h.Tracker.ScoreBoard.TotalSucceeded),
-			TotalFailed:    int(h.Tracker.ScoreBoard.TotalFailed),
-			MaxWorker:      h.Tracker.ScoreBoard.MaxWorker,
+			IsWorking:      h.tracker.IsWorking(),
+			TotalHandled:   int(h.tracker.ScoreBoard.TotalHandled()),
+			TotalSucceeded: int(h.tracker.ScoreBoard.TotalSucceeded),
+			TotalFailed:    int(h.tracker.ScoreBoard.TotalFailed),
+			MaxWorker:      h.tracker.ScoreBoard.MaxWorker,
 			BusyWorker:     busy,
-			IdleWorker:     h.Tracker.ScoreBoard.MaxWorker - busy,
+			IdleWorker:     h.tracker.ScoreBoard.MaxWorker - busy,
 		})
 	}
 }
@@ -98,7 +98,7 @@ func (h *StatHandler) WorkerCurrentJobsHandler() func(http.ResponseWriter, *http
 			return
 		}
 		renderJSON(w, &StatCurrentJobsResponse{
-			CurrentJobs: h.Tracker.CurrentSummaries(),
+			CurrentJobs: h.tracker.CurrentSummaries(),
 		})
 	}
 }
@@ -109,7 +109,7 @@ func (h *StatHandler) WorkerPauseHandler() func(http.ResponseWriter, *http.Reque
 		if !reqMethodValidate(w, r, "POST") {
 			return
 		}
-		h.Tracker.Pause()
+		h.tracker.Pause()
 		renderJSON(w, &StatSuccessResponse{
 			Success: true,
 		})
@@ -122,7 +122,7 @@ func (h *StatHandler) WorkerResumeHandler() func(http.ResponseWriter, *http.Requ
 		if !reqMethodValidate(w, r, "POST") {
 			return
 		}
-		h.Tracker.Resume()
+		h.tracker.Resume()
 		renderJSON(w, &StatSuccessResponse{
 			Success: true,
 		})
