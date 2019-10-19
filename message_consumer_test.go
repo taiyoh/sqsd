@@ -19,15 +19,14 @@ func TestHandleJob(t *testing.T) {
 	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
 	r := NewResource(mc, sc)
 	tr := NewQueueTracker(5, NewLogger("DEBUG"))
-	msgc := NewMessageConsumer(r, tr, "")
 
 	receivedChan := make(chan *HandleJobResponse)
-	msgc.OnHandleJobEnds = func(jobID string, err error) {
+	msgc := NewMessageConsumer(r, tr, "", OnHandleJobEndFn(func(jobID string, err error) {
 		receivedChan <- &HandleJobResponse{
 			JobID: jobID,
 			Err:   err,
 		}
-	}
+	}))
 
 	ts := MockServer()
 	defer ts.Close()
