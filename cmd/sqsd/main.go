@@ -54,10 +54,9 @@ func waitSignal(cancel context.CancelFunc, logger sqsd.Logger, wg *sync.WaitGrou
 	}
 }
 
-func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *sync.WaitGroup) {
+func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, logger sqsd.Logger, port int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	logger := tr.logger
 	handler := &sqsd.StatHandler{Tracker: tr}
 
 	srv := &http.Server{
@@ -141,7 +140,7 @@ func main() {
 
 	wg.Add(4)
 	go waitSignal(cancel, logger, wg)
-	go runStatServer(ctx, tracker, config.Main.StatServerPort, wg)
+	go runStatServer(ctx, tracker, logger, config.Main.StatServerPort, wg)
 	go msgConsumer.Run(ctx, wg)
 	go msgProducer.Run(ctx, wg)
 
