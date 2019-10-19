@@ -17,7 +17,7 @@ type QueueTracker struct {
 	logger          Logger
 	queueChan       chan Queue
 	queueStack      chan struct{}
-	ScoreBoard      ScoreBoard
+	scoreBoard      scoreBoard
 }
 
 type macopy struct{}
@@ -25,7 +25,7 @@ type macopy struct{}
 func (*macopy) Lock() {}
 
 // ScoreBoard represents executed worker count manager.
-type ScoreBoard struct {
+type scoreBoard struct {
 	TotalSucceeded int64
 	TotalFailed    int64
 	MaxWorker      int
@@ -33,17 +33,17 @@ type ScoreBoard struct {
 }
 
 // TotalHandled returns all success and fail counts.
-func (s *ScoreBoard) TotalHandled() int64 {
+func (s *scoreBoard) TotalHandled() int64 {
 	return s.TotalSucceeded + s.TotalFailed
 }
 
 // ReportSuccess provides increment success count.
-func (s *ScoreBoard) ReportSuccess() {
+func (s *scoreBoard) ReportSuccess() {
 	atomic.AddInt64(&s.TotalSucceeded, 1)
 }
 
 // ReportFail provides increment fail count.
-func (s *ScoreBoard) ReportFail() {
+func (s *scoreBoard) ReportFail() {
 	atomic.AddInt64(&s.TotalFailed, 1)
 }
 
@@ -56,7 +56,7 @@ func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 		logger:          logger,
 		queueChan:       make(chan Queue, procCount),
 		queueStack:      make(chan struct{}, procCount),
-		ScoreBoard: ScoreBoard{
+		scoreBoard: scoreBoard{
 			MaxWorker: procCount,
 		},
 	}
@@ -74,9 +74,9 @@ func (t *QueueTracker) Register(q Queue) {
 func (t *QueueTracker) Complete(q Queue) {
 	t.currentWorkings.Delete(q.ID)
 	if q.ResultStatus == RequestFail {
-		t.ScoreBoard.ReportFail()
+		t.scoreBoard.ReportFail()
 	} else if q.ResultStatus == RequestSuccess {
-		t.ScoreBoard.ReportSuccess()
+		t.scoreBoard.ReportSuccess()
 	}
 	<-t.queueStack // unblock
 }

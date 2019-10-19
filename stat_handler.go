@@ -81,12 +81,12 @@ func (h *StatHandler) WorkerStatsHandler() func(http.ResponseWriter, *http.Reque
 		busy := len(h.tracker.CurrentSummaries())
 		renderJSON(w, &StatWorkerStatsResponse{
 			IsWorking:      h.tracker.IsWorking(),
-			TotalHandled:   int(h.tracker.ScoreBoard.TotalHandled()),
-			TotalSucceeded: int(h.tracker.ScoreBoard.TotalSucceeded),
-			TotalFailed:    int(h.tracker.ScoreBoard.TotalFailed),
-			MaxWorker:      h.tracker.ScoreBoard.MaxWorker,
+			TotalHandled:   int(h.tracker.scoreBoard.TotalHandled()),
+			TotalSucceeded: int(h.tracker.scoreBoard.TotalSucceeded),
+			TotalFailed:    int(h.tracker.scoreBoard.TotalFailed),
+			MaxWorker:      h.tracker.scoreBoard.MaxWorker,
 			BusyWorker:     busy,
-			IdleWorker:     h.tracker.ScoreBoard.MaxWorker - busy,
+			IdleWorker:     h.tracker.scoreBoard.MaxWorker - busy,
 		})
 	}
 }
