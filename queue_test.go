@@ -1,10 +1,11 @@
-package sqsd
+package sqsd_test
 
 import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/taiyoh/sqsd"
 )
 
 func TestQueueSummary(t *testing.T) {
@@ -13,7 +14,7 @@ func TestQueueSummary(t *testing.T) {
 		Body:          aws.String(`{"from":"user_1","to":"room_1","msg":"Hello!"}`),
 		ReceiptHandle: aws.String("reciept-foobar"),
 	}
-	queue := NewQueue(sqsMsg)
+	queue := sqsd.NewQueue(sqsMsg)
 	summary := queue.Summary()
 	if summary.ID != queue.ID {
 		t.Error("different id")

@@ -1,4 +1,4 @@
-package sqsd
+package sqsd_test
 
 import (
 	"context"
@@ -6,10 +6,11 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/taiyoh/sqsd"
 )
 
 func TestResource(t *testing.T) {
-	c := NewMockClient()
+	c := sqsd.NewMockClient()
 	c.Resp.Messages = []*sqs.Message{
 		&sqs.Message{
 			MessageId:     aws.String("foo"),
@@ -17,8 +18,8 @@ func TestResource(t *testing.T) {
 			ReceiptHandle: aws.String("aaaaaaaaaaaaa"),
 		},
 	}
-	sc := SQSConf{URL: "http://example.com/foo", WaitTimeSec: 10}
-	r := NewResource(c, sc)
+	sc := sqsd.SQSConf{URL: "http://example.com/foo", WaitTimeSec: 10}
+	r := sqsd.NewResource(c, sc)
 	if r == nil {
 		t.Error("Resource object not created")
 	}
