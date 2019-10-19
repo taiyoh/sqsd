@@ -2,7 +2,7 @@ package sqsd
 
 import (
 	"bytes"
-	"context"
+	"fmt"
 	"net/http"
 	"sort"
 	"sync"
@@ -20,20 +20,29 @@ type QueueTracker struct {
 	ScoreBoard      ScoreBoard
 }
 
+type macopy struct{}
+
+func (*macopy) Lock() {}
+
+// ScoreBoard represents executed worker count manager.
 type ScoreBoard struct {
 	TotalSucceeded int64
 	TotalFailed    int64
 	MaxWorker      int
+	noMacopy       macopy
 }
 
+// TotalHandled returns all success and fail counts.
 func (s *ScoreBoard) TotalHandled() int64 {
 	return s.TotalSucceeded + s.TotalFailed
 }
 
+// ReportSuccess provides increment success count.
 func (s *ScoreBoard) ReportSuccess() {
 	atomic.AddInt64(&s.TotalSucceeded, 1)
 }
 
+// ReportFail provides increment fail count.
 func (s *ScoreBoard) ReportFail() {
 	atomic.AddInt64(&s.TotalFailed, 1)
 }
@@ -55,9 +64,8 @@ func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 
 // Register provides registering queues to tracker. But existing queue is ignored. And when queue stack is filled, wait until a slot opens up
 func (t *QueueTracker) Register(q Queue) {
-	if _, exists := t.CurrentWorkings.Load(q.ID); !exists {
-		t.queueStack <- struct{}{} // blocking
-		t.CurrentWorkings.Store(q.ID, q)
+	if _, loaded := t.CurrentWorkings.LoadOrStore(q.ID, q); !loaded {
+		t.queueStack <- struct{}{} // for blocking
 		t.queueChan <- q
 	}
 }
@@ -113,24 +121,30 @@ func (t *QueueTracker) HealthCheck(c HealthcheckConf) bool {
 	}
 
 	b := NewBackOff(c.MaxElapsedSec)
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: time.Duration(c.MaxRequestMS) * time.Millisecond,
+	}
+	req, _ := http.NewRequest(http.MethodGet, c.URL, bytes.NewBuffer([]byte{}))
 
 	for b.Continue() {
-		req, _ := http.NewRequest("GET", c.URL, bytes.NewBuffer([]byte("")))
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.MaxRequestMS)*time.Millisecond)
-		defer cancel()
-		resp, err := client.Do(req.WithContext(ctx))
-		if err != nil {
-			t.Logger.Warnf("healthcheck request failed. %s", err)
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Logger.Warnf("healthcheck response code != 200: %s", resp.Status)
+		if err := t.healthcheckRequest(client, req); err != nil {
+			t.Logger.Warnf("healthcheck request failed: %v", err)
 			continue
 		}
 		t.Logger.Info("healthcheck request success.")
 		return true
 	}
 	return false
+}
+
+func (t *QueueTracker) healthcheckRequest(client *http.Client, req *http.Request) error {
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("response code != 200: %s", resp.Status)
+	}
+	return nil
 }
