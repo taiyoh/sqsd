@@ -12,7 +12,7 @@ type MessageProducer struct {
 	tracker         *QueueTracker
 	handleEmptyFunc func()
 	logger          Logger
-	Concurrency     int
+	concurrency     int
 }
 
 // NewMessageProducer returns MessageProducer object
@@ -28,17 +28,17 @@ func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency u
 		tracker:         tracker,
 		handleEmptyFunc: emptyFunc,
 		logger:          tracker.logger,
-		Concurrency:     int(concurrency),
+		concurrency:     int(concurrency),
 	}
 }
 
 // Run executes DoHandle method asyncronously
 func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	p.logger.Infof("MessageProducer start. concurrency=%d", p.Concurrency)
+	p.logger.Infof("MessageProducer start. concurrency=%d", p.concurrency)
 	syncWait := &sync.WaitGroup{}
-	syncWait.Add(p.Concurrency)
-	for i := 0; i < p.Concurrency; i++ {
+	syncWait.Add(p.concurrency)
+	for i := 0; i < p.concurrency; i++ {
 		go func() {
 			defer syncWait.Done()
 			for {
