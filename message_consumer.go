@@ -11,7 +11,7 @@ import (
 // MessageConsumer provides receiving queues from tracker, requesting queue to worker, and deleting queue from SQS.
 type MessageConsumer struct {
 	tracker          *QueueTracker
-	Resource         *Resource
+	resource         *Resource
 	URL              string
 	OnHandleJobEnds  func(jobID string, err error)
 	OnHandleJobStart func(q Queue)
@@ -22,7 +22,7 @@ type MessageConsumer struct {
 func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *MessageConsumer {
 	return &MessageConsumer{
 		tracker:          tracker,
-		Resource:         resource,
+		resource:         resource,
 		URL:              url,
 		OnHandleJobStart: func(q Queue) {},
 		OnHandleJobEnds:  func(jobID string, err error) {},
@@ -60,7 +60,7 @@ func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 		c.logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
 		q = q.ResultFailed()
 	} else {
-		c.Resource.DeleteMessage(q.Receipt)
+		c.resource.DeleteMessage(q.Receipt)
 		q = q.ResultSucceeded()
 	}
 	c.tracker.Complete(q)
