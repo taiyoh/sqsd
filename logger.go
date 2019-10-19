@@ -21,9 +21,10 @@ type Logger interface {
 }
 
 type logger struct {
-	Logger
 	logger *log.Logger
 }
+
+var _ Logger = (*logger)(nil)
 
 // NewLogger returns Logger implementation
 func NewLogger(logLevel string) Logger {

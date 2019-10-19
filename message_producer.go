@@ -11,7 +11,7 @@ type MessageProducer struct {
 	Resource        *Resource
 	Tracker         *QueueTracker
 	HandleEmptyFunc func()
-	Logger          Logger
+	logger          Logger
 	Concurrency     int
 }
 
@@ -23,7 +23,7 @@ func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency u
 		HandleEmptyFunc: func() {
 			time.Sleep(1 * time.Second)
 		},
-		Logger:      tracker.Logger,
+		logger:      tracker.logger,
 		Concurrency: int(concurrency),
 	}
 }
@@ -31,7 +31,7 @@ func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency u
 // Run executes DoHandle method asyncronously
 func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	p.Logger.Infof("MessageProducer start. concurrency=%d", p.Concurrency)
+	p.logger.Infof("MessageProducer start. concurrency=%d", p.Concurrency)
 	syncWait := &sync.WaitGroup{}
 	syncWait.Add(p.Concurrency)
 	for i := 0; i < p.Concurrency; i++ {
@@ -49,10 +49,10 @@ func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	}
 	go func() {
 		<-ctx.Done()
-		p.Logger.Info("context cancel detected. stop MessageProducer...")
+		p.logger.Info("context cancel detected. stop MessageProducer...")
 	}()
 	syncWait.Wait()
-	p.Logger.Info("MessageProducer closed.")
+	p.logger.Info("MessageProducer closed.")
 }
 
 // HandleEmpty executes HandleEmptyFunc parameter
@@ -63,22 +63,22 @@ func (p *MessageProducer) HandleEmpty() {
 // DoHandle receiving queues from SQS, and sending queues to tracker
 func (p *MessageProducer) DoHandle(ctx context.Context) {
 	if !p.Tracker.IsWorking() {
-		p.Logger.Debug("tracker not working")
+		p.logger.Debug("tracker not working")
 		p.HandleEmpty()
 		return
 	}
 	results, err := p.Resource.GetMessages(ctx)
 	if err != nil {
-		p.Logger.Errorf("GetMessages Error: %s", err)
+		p.logger.Errorf("GetMessages Error: %s", err)
 		p.HandleEmpty()
 		return
 	}
 	if len(results) == 0 {
-		p.Logger.Debug("received no messages")
+		p.logger.Debug("received no messages")
 		p.HandleEmpty()
 		return
 	}
-	p.Logger.Debugf("received %d messages. run jobs.\n", len(results))
+	p.logger.Debugf("received %d messages. run jobs.\n", len(results))
 	for _, msg := range results {
 		p.Tracker.Register(NewQueue(msg))
 	}

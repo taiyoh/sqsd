@@ -14,7 +14,7 @@ import (
 type QueueTracker struct {
 	CurrentWorkings *sync.Map
 	jobWorking      bool
-	Logger          Logger
+	logger          Logger
 	queueChan       chan Queue
 	queueStack      chan struct{}
 	ScoreBoard      ScoreBoard
@@ -53,7 +53,7 @@ func NewQueueTracker(maxProcCount uint, logger Logger) *QueueTracker {
 	return &QueueTracker{
 		CurrentWorkings: &sync.Map{},
 		jobWorking:      true,
-		Logger:          logger,
+		logger:          logger,
 		queueChan:       make(chan Queue, procCount),
 		queueStack:      make(chan struct{}, procCount),
 		ScoreBoard: ScoreBoard{
@@ -128,10 +128,10 @@ func (t *QueueTracker) HealthCheck(c HealthcheckConf) bool {
 
 	for b.Continue() {
 		if err := t.healthcheckRequest(client, req); err != nil {
-			t.Logger.Warnf("healthcheck request failed: %v", err)
+			t.logger.Warnf("healthcheck request failed: %v", err)
 			continue
 		}
-		t.Logger.Info("healthcheck request success.")
+		t.logger.Info("healthcheck request success.")
 		return true
 	}
 	return false

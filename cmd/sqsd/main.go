@@ -57,7 +57,7 @@ func waitSignal(cancel context.CancelFunc, logger sqsd.Logger, wg *sync.WaitGrou
 func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, port int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	logger := tr.Logger
+	logger := tr.logger
 	handler := &sqsd.StatHandler{Tracker: tr}
 
 	srv := &http.Server{

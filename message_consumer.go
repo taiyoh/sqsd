@@ -15,7 +15,7 @@ type MessageConsumer struct {
 	URL              string
 	OnHandleJobEnds  func(jobID string, err error)
 	OnHandleJobStart func(q Queue)
-	Logger           Logger
+	logger           Logger
 }
 
 // NewMessageConsumer returns MessageConsumer object
@@ -26,7 +26,7 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *
 		URL:              url,
 		OnHandleJobStart: func(q Queue) {},
 		OnHandleJobEnds:  func(jobID string, err error) {},
-		Logger:           tracker.Logger,
+		logger:           tracker.logger,
 	}
 }
 
@@ -34,12 +34,12 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string) *
 func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	syncWait := &sync.WaitGroup{}
-	c.Logger.Info("MessageConsumer start.")
+	c.logger.Info("MessageConsumer start.")
 	for {
 		select {
 		case <-ctx.Done():
 			syncWait.Wait()
-			c.Logger.Info("MessageConsumer closed.")
+			c.logger.Info("MessageConsumer closed.")
 			return
 		case q := <-c.Tracker.NextQueue():
 			syncWait.Add(1)
@@ -54,17 +54,17 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 // HandleJob provides sending queue to worker, and deleting queue when worker response is success.
 func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	c.OnHandleJobStart(q)
-	c.Logger.Debugf("job[%s] HandleJob start.", q.ID)
+	c.logger.Debugf("job[%s] HandleJob start.", q.ID)
 	err := c.CallWorker(ctx, q)
 	if err != nil {
-		c.Logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
+		c.logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
 		q = q.ResultFailed()
 	} else {
 		c.Resource.DeleteMessage(q.Receipt)
 		q = q.ResultSucceeded()
 	}
 	c.Tracker.Complete(q)
-	c.Logger.Debugf("job[%s] HandleJob finished.", q.ID)
+	c.logger.Debugf("job[%s] HandleJob finished.", q.ID)
 	c.OnHandleJobEnds(q.ID, err)
 }
 
