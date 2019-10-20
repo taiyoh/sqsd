@@ -22,7 +22,7 @@ func TestHandleJob(t *testing.T) {
 	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
 
 	receivedChan := make(chan *HandleJobResponse)
-	msgc := sqsd.NewMessageConsumer(r, tr, "", sqsd.OnHandleJobEndFn(func(jobID string, err error) {
+	msgc := sqsd.NewMessageConsumer(r, tr, sqsd.NewHTTPHandler(""), sqsd.OnHandleJobEndFn(func(jobID string, err error) {
 		receivedChan <- &HandleJobResponse{
 			JobID: jobID,
 			Err:   err,
@@ -40,7 +40,7 @@ func TestHandleJob(t *testing.T) {
 	go msgc.Run(ctx, wg)
 
 	t.Run("job failed", func(t *testing.T) {
-		msgc.URL = ts.URL + "/error"
+		msgc.ChangeHandler(sqsd.NewHTTPHandler(ts.URL + "/error"))
 		queue := sqsd.NewQueue(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageNG"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
@@ -66,7 +66,7 @@ func TestHandleJob(t *testing.T) {
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		})
-		msgc.URL = ts.URL + "/ok"
+		msgc.ChangeHandler(sqsd.NewHTTPHandler(ts.URL + "/ok"))
 
 		tr.Register(queue)
 
@@ -88,7 +88,7 @@ func TestHandleJob(t *testing.T) {
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
 		})
-		msgc.URL = ts.URL + "/long"
+		msgc.ChangeHandler(sqsd.NewHTTPHandler(ts.URL + "/long"))
 
 		tr.Register(queue)
 

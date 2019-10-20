@@ -133,7 +133,7 @@ func main() {
 	}))
 	resource := sqsd.NewResource(sqs.New(sess), config.SQS)
 
-	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, config.Worker.URL)
+	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, sqsd.NewHTTPHandler(config.Worker.URL))
 	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
 
 	wg := &sync.WaitGroup{}
