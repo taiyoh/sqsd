@@ -86,9 +86,6 @@ func isURL(urlStr string) bool {
 
 // Validate returns error if worker configuration is invalid.
 func (c WorkerConf) Validate() error {
-	if c.MaxProcessCount == 0 {
-		return errors.New("worker.max_process_count is required")
-	}
 	if c.InvokeType != "http" {
 		return nil
 	}
