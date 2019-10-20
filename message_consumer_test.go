@@ -1,4 +1,4 @@
-package sqsd
+package sqsd_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/taiyoh/sqsd"
 )
 
 type HandleJobResponse struct {
@@ -15,20 +16,20 @@ type HandleJobResponse struct {
 }
 
 func TestHandleJob(t *testing.T) {
-	mc := NewMockClient()
-	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
-	r := NewResource(mc, sc)
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
+	mc := sqsd.NewMockClient()
+	sc := sqsd.SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
+	r := sqsd.NewResource(mc, sc)
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
 
 	receivedChan := make(chan *HandleJobResponse)
-	msgc := NewMessageConsumer(r, tr, "", OnHandleJobEndFn(func(jobID string, err error) {
+	msgc := sqsd.NewMessageConsumer(r, tr, "", sqsd.OnHandleJobEndFn(func(jobID string, err error) {
 		receivedChan <- &HandleJobResponse{
 			JobID: jobID,
 			Err:   err,
 		}
 	}))
 
-	ts := MockServer()
+	ts := sqsd.MockServer()
 	defer ts.Close()
 
 	wg := &sync.WaitGroup{}
@@ -40,7 +41,7 @@ func TestHandleJob(t *testing.T) {
 
 	t.Run("job failed", func(t *testing.T) {
 		msgc.URL = ts.URL + "/error"
-		queue := NewQueue(&sqs.Message{
+		queue := sqsd.NewQueue(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageNG"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
@@ -60,7 +61,7 @@ func TestHandleJob(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		queue := NewQueue(&sqs.Message{
+		queue := sqsd.NewQueue(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageOK"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
@@ -82,7 +83,7 @@ func TestHandleJob(t *testing.T) {
 	})
 
 	t.Run("context cancelled", func(t *testing.T) {
-		queue := NewQueue(&sqs.Message{
+		queue := sqsd.NewQueue(&sqs.Message{
 			MessageId:     aws.String("TestHandleMessageErr"),
 			Body:          aws.String(`{"hoge":"fuga"}`),
 			ReceiptHandle: aws.String("aaaaaaaaaa"),
