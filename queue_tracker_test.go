@@ -17,7 +17,7 @@ func TestQueueTracker(t *testing.T) {
 		t.Error("job tracker not loaded.")
 	}
 
-	var mu sync.Mutex
+	mu := new(sync.Mutex)
 
 	now := time.Now()
 
@@ -157,7 +157,7 @@ func TestHealthCheck(t *testing.T) {
 		t.Error("healthcheck should not support.")
 	}
 
-	ts := sqsd.MockServer()
+	ts := MockServer()
 	defer ts.Close()
 
 	t.Run("error returns", func(t *testing.T) {

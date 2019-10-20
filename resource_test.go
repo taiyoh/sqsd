@@ -10,7 +10,7 @@ import (
 )
 
 func TestResource(t *testing.T) {
-	c := sqsd.NewMockClient()
+	c := NewMockClient()
 	c.Resp.Messages = []*sqs.Message{
 		&sqs.Message{
 			MessageId:     aws.String("foo"),

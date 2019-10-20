@@ -26,7 +26,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	req.Method = "POST"
 
 	t.Run("invalid Method for summary", func(t *testing.T) {
-		w := sqsd.NewMockResponseWriter()
+		w := NewMockResponseWriter()
 		workerStatsController(w, req)
 
 		if w.StatusCode != http.StatusMethodNotAllowed {
@@ -35,7 +35,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	})
 
 	t.Run("valid Method for summary", func(t *testing.T) {
-		w := sqsd.NewMockResponseWriter()
+		w := NewMockResponseWriter()
 		req.Method = "GET"
 		workerStatsController(w, req)
 
@@ -61,7 +61,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	req.Method = "POST"
 
 	t.Run("invalid Method for jobs", func(t *testing.T) {
-		w := sqsd.NewMockResponseWriter()
+		w := NewMockResponseWriter()
 		jobsController(w, req)
 
 		if w.StatusCode == http.StatusOK {
@@ -70,7 +70,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	})
 
 	t.Run("valid Method for jobs", func(t *testing.T) {
-		w := sqsd.NewMockResponseWriter()
+		w := NewMockResponseWriter()
 		req.Method = "GET"
 		jobsController(w, req)
 
@@ -105,7 +105,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req.Method = "GET"
 	t.Run("pause failed", func(t *testing.T) {
-		w := sqsd.NewMockResponseWriter()
+		w := NewMockResponseWriter()
 		pauseController(w, req)
 
 		if w.StatusCode != http.StatusMethodNotAllowed {
@@ -119,7 +119,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req.Method = "POST"
 	t.Run("pause success", func(t *testing.T) {
-		w := sqsd.NewMockResponseWriter()
+		w := NewMockResponseWriter()
 		pauseController(w, req)
 
 		if w.StatusCode != http.StatusOK {
@@ -135,7 +135,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req.Method = "GET"
 	t.Run("resume failed", func(t *testing.T) {
-		w := sqsd.NewMockResponseWriter()
+		w := NewMockResponseWriter()
 		resumeController(w, req)
 
 		if w.StatusCode != http.StatusMethodNotAllowed {
@@ -149,7 +149,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req.Method = "POST"
 	t.Run("resume success", func(t *testing.T) {
-		w := sqsd.NewMockResponseWriter()
+		w := NewMockResponseWriter()
 		resumeController(w, req)
 
 		if w.StatusCode != http.StatusOK {

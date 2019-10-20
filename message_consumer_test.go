@@ -16,7 +16,7 @@ type HandleJobResponse struct {
 }
 
 func TestHandleJob(t *testing.T) {
-	mc := sqsd.NewMockClient()
+	mc := NewMockClient()
 	sc := sqsd.SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 20}
 	r := sqsd.NewResource(mc, sc)
 	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
@@ -29,7 +29,7 @@ func TestHandleJob(t *testing.T) {
 		}
 	}))
 
-	ts := sqsd.MockServer()
+	ts := MockServer()
 	defer ts.Close()
 
 	wg := &sync.WaitGroup{}

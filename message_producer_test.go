@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewReceiverAndDoHandle(t *testing.T) {
-	mc := sqsd.NewMockClient()
+	mc := NewMockClient()
 	sc := sqsd.SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
 	rs := sqsd.NewResource(mc, sc)
 	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
@@ -134,7 +134,7 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 }
 
 func TestReceiverRun(t *testing.T) {
-	mc := sqsd.NewMockClient()
+	mc := NewMockClient()
 	sc := sqsd.SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
 	rs := sqsd.NewResource(mc, sc)
 	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
