@@ -1,4 +1,4 @@
-package sqsd
+package sqsd_test
 
 import (
 	"bytes"

@@ -1,4 +1,4 @@
-package sqsd
+package sqsd_test
 
 import (
 	"strconv"
@@ -8,10 +8,11 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/taiyoh/sqsd"
 )
 
 func TestQueueTracker(t *testing.T) {
-	tracker := NewQueueTracker(1, NewLogger("DEBUG"))
+	tracker := sqsd.NewQueueTracker(1, sqsd.NewLogger("DEBUG"))
 	if tracker == nil {
 		t.Error("job tracker not loaded.")
 	}
@@ -20,13 +21,13 @@ func TestQueueTracker(t *testing.T) {
 
 	now := time.Now()
 
-	q1 := Queue{
+	q1 := sqsd.Queue{
 		ID:         "id:1",
 		Payload:    "hoge",
 		Receipt:    "foo",
 		ReceivedAt: now.Add(1),
 	}
-	q2 := Queue{
+	q2 := sqsd.Queue{
 		ID:         "id:2",
 		Payload:    "fuga",
 		Receipt:    "bar",
@@ -82,7 +83,7 @@ func TestQueueTracker(t *testing.T) {
 }
 
 func TestJobWorking(t *testing.T) {
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
 
 	if !tr.IsWorking() {
 		t.Error("JobWorking false")
@@ -100,13 +101,13 @@ func TestJobWorking(t *testing.T) {
 
 	now := time.Now()
 
-	q1 := Queue{
+	q1 := sqsd.Queue{
 		ID:         "id:1",
 		Payload:    "hoge",
 		Receipt:    "foo",
 		ReceivedAt: now,
 	}
-	q1Duplicates := Queue{
+	q1Duplicates := sqsd.Queue{
 		ID:         "id:1",
 		Payload:    "fuga",
 		Receipt:    "bar",
@@ -122,7 +123,7 @@ func TestJobWorking(t *testing.T) {
 }
 
 func TestCurrentSummaries(t *testing.T) {
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
 	now := time.Now()
 	for i := 1; i <= 2; i++ {
 		iStr := strconv.Itoa(i)
@@ -131,7 +132,7 @@ func TestCurrentSummaries(t *testing.T) {
 			Body:          aws.String("bar" + iStr),
 			ReceiptHandle: aws.String("baz" + iStr),
 		}
-		q := NewQueue(msg)
+		q := sqsd.NewQueue(msg)
 		q.ReceivedAt = now.Add(time.Duration(i))
 		tr.Register(q)
 	}
@@ -149,8 +150,8 @@ func TestCurrentSummaries(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
-	hc := HealthcheckConf{}
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
+	hc := sqsd.HealthcheckConf{}
 
 	if !tr.HealthCheck(hc) {
 		t.Error("healthcheck should not support.")
