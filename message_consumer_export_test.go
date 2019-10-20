@@ -1,5 +1,5 @@
 package sqsd
 
-func (c *MessageConsumer) ChangeHandler(h Handler) {
-	c.handler = h
+func (c *MessageConsumer) ChangeInvoker(invoker WorkerInvoker) {
+	c.invoker = invoker
 }

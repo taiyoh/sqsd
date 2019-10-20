@@ -25,7 +25,7 @@ type MainConf struct {
 
 // WorkerConf is configuration parameters for request to worker endpoint.
 type WorkerConf struct {
-	Type            string          `toml:"type"`
+	InvokeType      string          `toml:"invoke_type"`
 	URL             string          `toml:"url"`
 	MaxProcessCount uint            `toml:"max_process_count"`
 	Healthcheck     HealthcheckConf `toml:"healthcheck"`
@@ -89,7 +89,7 @@ func (c WorkerConf) Validate() error {
 	if c.MaxProcessCount == 0 {
 		return errors.New("worker.max_process_count is required")
 	}
-	if c.Type != "http" {
+	if c.InvokeType != "http" {
 		return nil
 	}
 	if !isURL(c.URL) {
@@ -167,10 +167,10 @@ func maxProcessCount(i uint) WorkerConfOption {
 	}
 }
 
-func workerType(typ string) WorkerConfOption {
+func workerInvokeType(typ string) WorkerConfOption {
 	return func(c *WorkerConf) {
-		if c.Type == "" {
-			c.Type = typ
+		if c.InvokeType == "" {
+			c.InvokeType = typ
 		}
 	}
 }
@@ -206,7 +206,7 @@ func (c *Conf) Init() {
 	for _, o := range []MainConfOption{logLevel("INFO")} {
 		o(&c.Main)
 	}
-	for _, o := range []WorkerConfOption{maxProcessCount(1), workerType("http")} {
+	for _, o := range []WorkerConfOption{maxProcessCount(1), workerInvokeType("http")} {
 		o(&c.Worker)
 	}
 	for _, o := range []HealthcheckConfOption{maxRequestMillisec(1000)} {

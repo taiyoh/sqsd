@@ -9,7 +9,7 @@ import (
 type MessageConsumer struct {
 	tracker          *QueueTracker
 	resource         *Resource
-	handler          Handler
+	invoker          WorkerInvoker
 	onHandleJobEnds  func(jobID string, err error)
 	onHandleJobStart func(q Queue)
 	logger           Logger
@@ -33,11 +33,11 @@ func OnHandleJobEndFn(fn func(jobID string, err error)) MessageConsumerHandleFn 
 }
 
 // NewMessageConsumer returns MessageConsumer object
-func NewMessageConsumer(resource *Resource, tracker *QueueTracker, h Handler, fns ...MessageConsumerHandleFn) *MessageConsumer {
+func NewMessageConsumer(resource *Resource, tracker *QueueTracker, invoker WorkerInvoker, fns ...MessageConsumerHandleFn) *MessageConsumer {
 	c := &MessageConsumer{
 		tracker:          tracker,
 		resource:         resource,
-		handler:          h,
+		invoker:          invoker,
 		onHandleJobStart: func(q Queue) {},
 		onHandleJobEnds:  func(jobID string, err error) {},
 		logger:           tracker.logger,
@@ -73,7 +73,7 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	c.onHandleJobStart(q)
 	c.logger.Debugf("job[%s] HandleJob start.", q.ID)
-	err := c.handler.Run(ctx, q)
+	err := c.invoker.Invoke(ctx, q)
 	if err != nil {
 		c.logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
 		q = q.ResultFailed()

@@ -7,27 +7,27 @@ import (
 	"strings"
 )
 
-// Handler provides abstruct interface for worker invokation.
-type Handler interface {
-	Run(context.Context, Queue) error
+// WorkerInvoker provides abstruct interface for worker invokation.
+type WorkerInvoker interface {
+	Invoke(context.Context, Queue) error
 }
 
-type httpHandler struct {
+type httpInvoker struct {
 	url string
 	cli *http.Client
 }
 
-var _ Handler = (*httpHandler)(nil)
+var _ WorkerInvoker = (*httpInvoker)(nil)
 
-// NewHTTPHandler returns Handler object for HTTP invokation.
-func NewHTTPHandler(url string) Handler {
-	return &httpHandler{
+// NewHTTPInvoker returns WorkerInvoker object for HTTP invokation.
+func NewHTTPInvoker(url string) WorkerInvoker {
+	return &httpInvoker{
 		url: url,
 		cli: &http.Client{},
 	}
 }
 
-func (h *httpHandler) Run(ctx context.Context, q Queue) error {
+func (h *httpInvoker) Invoke(ctx context.Context, q Queue) error {
 	req, _ := http.NewRequest(http.MethodPost, h.url, strings.NewReader(q.Payload))
 	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")

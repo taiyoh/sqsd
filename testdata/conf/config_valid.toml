@@ -3,7 +3,7 @@ stat_server_port = 4080
 log_level        = "INFO"
 
 [worker]
-type              = "direct"
+invoke_type       = "direct"
 max_process_count = 40
 
 [sqs]
