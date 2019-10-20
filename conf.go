@@ -1,11 +1,10 @@
 package sqsd
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/pelletier/go-toml"
@@ -26,6 +25,7 @@ type MainConf struct {
 
 // WorkerConf is configuration parameters for request to worker endpoint.
 type WorkerConf struct {
+	Type            string          `toml:"type"`
 	URL             string          `toml:"url"`
 	MaxProcessCount uint            `toml:"max_process_count"`
 	Healthcheck     HealthcheckConf `toml:"healthcheck"`
@@ -48,8 +48,7 @@ type SQSConf struct {
 	WaitTimeSec int64  `toml:"wait_time_sec"`
 }
 
-// ConfSection is interface for Conf.Init and Conf.Validate
-type ConfSection interface {
+type confSection interface {
 	Validate() error
 }
 
@@ -67,13 +66,10 @@ type SQSConfOption func(c *SQSConf)
 
 // QueueURL builds sqs endpoint from sqs configuration
 func (c SQSConf) QueueURL() string {
-	var url string
 	if c.URL != "" {
-		url = c.URL
-	} else {
-		url = fmt.Sprintf("https://sqs.%s.amazonaws.com/%s/%s", c.Region, c.AccountID, c.QueueName)
+		return c.URL
 	}
-	return url
+	return fmt.Sprintf("https://sqs.%s.amazonaws.com/%s/%s", c.Region, c.AccountID, c.QueueName)
 }
 
 // ShouldSupport returns either healthcheck_url is registered or not.
@@ -90,6 +86,12 @@ func isURL(urlStr string) bool {
 
 // Validate returns error if worker configuration is invalid.
 func (c WorkerConf) Validate() error {
+	if c.MaxProcessCount == 0 {
+		return errors.New("worker.max_process_count is required")
+	}
+	if c.Type != "http" {
+		return nil
+	}
 	if !isURL(c.URL) {
 		return errors.New("worker.url is not HTTP URL: " + c.URL)
 	}
@@ -108,20 +110,20 @@ func (c WorkerConf) Validate() error {
 
 // Validate returns error if sqs configuration is invalid.
 func (c SQSConf) Validate() error {
-	if c.URL == "" {
-		if c.AccountID == "" {
-			return errors.New("sqs.account_id is required")
-		}
-		if c.QueueName == "" {
-			return errors.New("sqs.queue_name is required")
-		}
-	} else {
+	if c.Region == "" {
+		return errors.New("sqs.region is required")
+	}
+	if c.URL != "" {
 		if !isURL(c.URL) {
 			return errors.New("sqs.url is not HTTP URL: " + c.URL)
 		}
+		return nil
 	}
-	if c.Region == "" {
-		return errors.New("sqs.region is required")
+	if c.AccountID == "" {
+		return errors.New("sqs.account_id is required")
+	}
+	if c.QueueName == "" {
+		return errors.New("sqs.queue_name is required")
 	}
 	return nil
 }
@@ -165,6 +167,14 @@ func maxProcessCount(i uint) WorkerConfOption {
 	}
 }
 
+func workerType(typ string) WorkerConfOption {
+	return func(c *WorkerConf) {
+		if c.Type == "" {
+			c.Type = typ
+		}
+	}
+}
+
 func logLevel(l string) MainConfOption {
 	return func(c *MainConf) {
 		if c.LogLevel == "" {
@@ -184,7 +194,7 @@ func maxRequestMillisec(ms int64) HealthcheckConfOption {
 func concurrency(i uint) SQSConfOption {
 	return func(c *SQSConf) {
 		if c.Concurrency == 0 {
-			c.Concurrency = 1
+			c.Concurrency = i
 		}
 	}
 }
@@ -196,7 +206,7 @@ func (c *Conf) Init() {
 	for _, o := range []MainConfOption{logLevel("INFO")} {
 		o(&c.Main)
 	}
-	for _, o := range []WorkerConfOption{maxProcessCount(1)} {
+	for _, o := range []WorkerConfOption{maxProcessCount(1), workerType("http")} {
 		o(&c.Worker)
 	}
 	for _, o := range []HealthcheckConfOption{maxRequestMillisec(1000)} {
@@ -209,24 +219,22 @@ func (c *Conf) Init() {
 
 // Validate processes Validate method for each sections. return error if exists.
 func (c *Conf) Validate() error {
-	confs := []ConfSection{c.Main, c.Worker, c.SQS}
-	for _, c := range confs {
+	for _, c := range []confSection{c.Main, c.Worker, c.SQS} {
 		if err := c.Validate(); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
 // NewConf returns aggregated sqsd configuration object.
 func NewConf(filepath string) (*Conf, error) {
-	data, err := ioutil.ReadFile(filepath)
+	f, err := os.Open(filepath)
 	if err != nil {
 		return nil, err
 	}
 	sqsdConf := &Conf{}
-	if err := toml.NewDecoder(bytes.NewBuffer(data)).Decode(sqsdConf); err != nil {
+	if err := toml.NewDecoder(f).Decode(sqsdConf); err != nil {
 		return nil, err
 	}
 	sqsdConf.Init()

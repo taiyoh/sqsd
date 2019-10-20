@@ -3,6 +3,7 @@ stat_server_port = {{or .stat_server_port 5956}}
 log_level        = "{{or .log_level "INFO"}}"
 
 [worker]
+type              = "http"
 url               = "{{.worker_url}}"
 max_process_count = {{or .max_process_count 1}}
 
