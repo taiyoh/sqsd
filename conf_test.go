@@ -91,16 +91,25 @@ func TestValidateConf(t *testing.T) {
 
 func TestNewConf(t *testing.T) {
 	d, _ := os.Getwd()
-	if _, err := sqsd.NewConf(filepath.Join(d, "test", "conf", "hoge.toml")); err == nil {
-		t.Error("file not found")
+	confdir := filepath.Join(d, "testdata", "conf")
+
+	for _, tt := range []struct {
+		label       string
+		filename    string
+		errExpected bool
+	}{
+		{"file not found", "hoge.toml", true},
+		{"invalid config1", "config1.toml", true},
+		{"valid config1", "config_valid.toml", false},
+		{"valid config2", "config_valid2.toml", false},
+	} {
+		f := filepath.Join(confdir, tt.filename)
+		if _, err := sqsd.NewConf(f); (err != nil) != tt.errExpected {
+			t.Errorf("expected: %s, err: %v", tt.label, err)
+		}
 	}
-	if _, err := sqsd.NewConf(filepath.Join(d, "test", "conf", "config1.toml")); err == nil {
-		t.Error("invalid config but passed")
-	}
-	conf, err := sqsd.NewConf(filepath.Join(d, "test", "conf", "config_valid.toml"))
-	if err != nil {
-		t.Error("invalid config??? ", err)
-	}
+
+	conf, _ := sqsd.NewConf(filepath.Join(confdir, "config_valid.toml"))
 	if conf.SQS.QueueURL() != "https://sqs.ap-northeast-1.amazonaws.com/foobar/hoge" {
 		t.Error("QueueURL not loaded correctly. " + conf.SQS.QueueURL())
 	}

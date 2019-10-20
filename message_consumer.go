@@ -2,9 +2,6 @@ package sqsd
 
 import (
 	"context"
-	"errors"
-	"net/http"
-	"strings"
 	"sync"
 )
 
@@ -12,7 +9,7 @@ import (
 type MessageConsumer struct {
 	tracker          *QueueTracker
 	resource         *Resource
-	URL              string
+	invoker          WorkerInvoker
 	onHandleJobEnds  func(jobID string, err error)
 	onHandleJobStart func(q Queue)
 	logger           Logger
@@ -36,11 +33,11 @@ func OnHandleJobEndFn(fn func(jobID string, err error)) MessageConsumerHandleFn 
 }
 
 // NewMessageConsumer returns MessageConsumer object
-func NewMessageConsumer(resource *Resource, tracker *QueueTracker, url string, fns ...MessageConsumerHandleFn) *MessageConsumer {
+func NewMessageConsumer(resource *Resource, tracker *QueueTracker, invoker WorkerInvoker, fns ...MessageConsumerHandleFn) *MessageConsumer {
 	c := &MessageConsumer{
 		tracker:          tracker,
 		resource:         resource,
-		URL:              url,
+		invoker:          invoker,
 		onHandleJobStart: func(q Queue) {},
 		onHandleJobEnds:  func(jobID string, err error) {},
 		logger:           tracker.logger,
@@ -76,7 +73,7 @@ func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
 func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	c.onHandleJobStart(q)
 	c.logger.Debugf("job[%s] HandleJob start.", q.ID)
-	err := c.CallWorker(ctx, q)
+	err := c.invoker.Invoke(ctx, q)
 	if err != nil {
 		c.logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
 		q = q.ResultFailed()
@@ -87,25 +84,4 @@ func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 	c.tracker.Complete(q)
 	c.logger.Debugf("job[%s] HandleJob finished.", q.ID)
 	c.onHandleJobEnds(q.ID, err)
-}
-
-// CallWorker provides requesting queue to worker process using HTTP protocol.
-func (c *MessageConsumer) CallWorker(ctx context.Context, q Queue) error {
-	req, _ := http.NewRequest("POST", c.URL, strings.NewReader(q.Payload))
-	req = req.WithContext(ctx)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "github.com/taiyoh/sqsd-"+GetVersion())
-	req.Header.Set("X-Sqsd-Msgid", q.ID)
-	req.Header.Set("X-Sqsd-First-Received-At", q.ReceivedAt.Format("2006-01-02T15:04:05Z0700"))
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return errors.New("CallWorker failed. worker response status: " + resp.Status)
-	}
-
-	return nil
 }
