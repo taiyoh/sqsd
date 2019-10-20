@@ -1,4 +1,4 @@
-package sqsd
+package sqsd_test
 
 import (
 	"context"
@@ -9,17 +9,18 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/taiyoh/sqsd"
 )
 
 func TestNewReceiverAndDoHandle(t *testing.T) {
-	mc := NewMockClient()
-	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
-	rs := NewResource(mc, sc)
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
+	mc := sqsd.NewMockClient()
+	sc := sqsd.SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
+	rs := sqsd.NewResource(mc, sc)
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
 
 	handleEmptyCalled := false
 
-	pr := NewMessageProducer(rs, tr, 1, func() {
+	pr := sqsd.NewMessageProducer(rs, tr, 1, func() {
 		handleEmptyCalled = true
 	})
 	if pr == nil {
@@ -133,11 +134,11 @@ func TestNewReceiverAndDoHandle(t *testing.T) {
 }
 
 func TestReceiverRun(t *testing.T) {
-	mc := NewMockClient()
-	sc := SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
-	rs := NewResource(mc, sc)
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
-	pr := NewMessageProducer(rs, tr, 1)
+	mc := sqsd.NewMockClient()
+	sc := sqsd.SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
+	rs := sqsd.NewResource(mc, sc)
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
+	pr := sqsd.NewMessageProducer(rs, tr, 1)
 
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
