@@ -80,7 +80,7 @@ func renderJSON(w http.ResponseWriter, res StatResponseIFace) {
 // WorkerStatsHandler returns http.HandlerFunc implementation for /worker/current request
 func (h *StatHandler) WorkerStatsHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !reqMethodValidate(w, r, "GET") {
+		if !reqMethodValidate(w, r, http.MethodGet) {
 			return
 		}
 		busy := len(h.tracker.CurrentSummaries())
@@ -99,7 +99,7 @@ func (h *StatHandler) WorkerStatsHandler() func(http.ResponseWriter, *http.Reque
 // WorkerCurrentJobsHandler returns http.HandlerFunc implementation for /worker/current/jobs request
 func (h *StatHandler) WorkerCurrentJobsHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !reqMethodValidate(w, r, "GET") {
+		if !reqMethodValidate(w, r, http.MethodGet) {
 			return
 		}
 		renderJSON(w, &StatCurrentJobsResponse{
@@ -111,7 +111,7 @@ func (h *StatHandler) WorkerCurrentJobsHandler() func(http.ResponseWriter, *http
 // WorkerPauseHandler returns http.HandlerFunc implementation for /worker/pause request
 func (h *StatHandler) WorkerPauseHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !reqMethodValidate(w, r, "POST") {
+		if !reqMethodValidate(w, r, http.MethodPost) {
 			return
 		}
 		h.tracker.Pause()
@@ -124,7 +124,7 @@ func (h *StatHandler) WorkerPauseHandler() func(http.ResponseWriter, *http.Reque
 // WorkerResumeHandler returns http.HandlerFunc implementation for /worker/resume request
 func (h *StatHandler) WorkerResumeHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !reqMethodValidate(w, r, "POST") {
+		if !reqMethodValidate(w, r, http.MethodPost) {
 			return
 		}
 		h.tracker.Resume()

@@ -1,69 +1,20 @@
-package sqsd
+package sqsd_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
+
+	"github.com/taiyoh/sqsd"
 )
 
-func TestReqMethodValidate(t *testing.T) {
-	req := &http.Request{}
-	w := NewMockResponseWriter()
-	req.Method = "GET"
-	if !reqMethodValidate(w, req, "GET") {
-		t.Error("validation failed")
-	}
-	if len(w.ResBytes) > 0 {
-		t.Error("response inserted")
-	}
-	req.Method = "POST"
-	if reqMethodValidate(w, req, "GET") {
-		t.Error("validation failed")
-	}
-	if w.ResponseString() != "Method Not Allowed" {
-		t.Error("response body failed")
-	}
-	if w.StatusCode != http.StatusMethodNotAllowed {
-		t.Error("response code failed")
-	}
-}
-
-func TestRenderJSON(t *testing.T) {
-	w := NewMockResponseWriter()
-	renderJSON(w, &StatSuccessResponse{
-		Success: true,
-	})
-	if w.ResponseString() != `{"success":true}` {
-		t.Errorf("response body failed: %s\n", w.ResponseString())
-	}
-	if w.Header().Get("Content-Type") != "application/json" {
-		t.Error("response type failed")
-	}
-	w.ResBytes = []byte{} // clear
-	renderJSON(w, &StatCurrentJobsResponse{
-		CurrentJobs: []QueueSummary{
-			QueueSummary{ID: "1", Payload: "p1", ReceivedAt: 10},
-		},
-	})
-	var r StatCurrentJobsResponse
-	if err := json.Unmarshal(w.ResBytes, &r); err != nil {
-		t.Error("json unmarshal error", err)
-	}
-	if len(r.CurrentJobs) != 1 {
-		t.Error("current_jobs count invalid")
-	}
-	if r.CurrentJobs[0].ID != "1" {
-		t.Error("job id invalid")
-	}
-}
-
 func TestWorkerStatsAndJobsHandler(t *testing.T) {
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
-	h := &StatHandler{tr}
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
+	h := sqsd.NewStatHandler(tr)
 
 	for i := 1; i <= 5; i++ {
-		tr.Register(Queue{
+		tr.Register(sqsd.Queue{
 			ID:      fmt.Sprintf("id:%d", i),
 			Payload: "foobar",
 			Receipt: fmt.Sprintf("reciept:%d", i),
@@ -75,7 +26,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	req.Method = "POST"
 
 	t.Run("invalid Method for summary", func(t *testing.T) {
-		w := NewMockResponseWriter()
+		w := sqsd.NewMockResponseWriter()
 		workerStatsController(w, req)
 
 		if w.StatusCode != http.StatusMethodNotAllowed {
@@ -84,7 +35,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	})
 
 	t.Run("valid Method for summary", func(t *testing.T) {
-		w := NewMockResponseWriter()
+		w := sqsd.NewMockResponseWriter()
 		req.Method = "GET"
 		workerStatsController(w, req)
 
@@ -92,7 +43,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 			t.Error("response error found")
 		}
 
-		var r StatWorkerStatsResponse
+		var r sqsd.StatWorkerStatsResponse
 		if err := json.Unmarshal(w.ResBytes, &r); err != nil {
 			t.Error("json unmarshal error", err)
 		}
@@ -110,7 +61,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	req.Method = "POST"
 
 	t.Run("invalid Method for jobs", func(t *testing.T) {
-		w := NewMockResponseWriter()
+		w := sqsd.NewMockResponseWriter()
 		jobsController(w, req)
 
 		if w.StatusCode == http.StatusOK {
@@ -119,7 +70,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 	})
 
 	t.Run("valid Method for jobs", func(t *testing.T) {
-		w := NewMockResponseWriter()
+		w := sqsd.NewMockResponseWriter()
 		req.Method = "GET"
 		jobsController(w, req)
 
@@ -127,7 +78,7 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 			t.Error("response error found")
 		}
 
-		var r StatCurrentJobsResponse
+		var r sqsd.StatCurrentJobsResponse
 		if err := json.Unmarshal(w.ResBytes, &r); err != nil {
 			t.Error("json unmarshal error", err)
 		}
@@ -145,8 +96,8 @@ func TestWorkerStatsAndJobsHandler(t *testing.T) {
 }
 
 func TestWorkerPauseAndResumeHandler(t *testing.T) {
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
-	h := &StatHandler{tr}
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
+	h := sqsd.NewStatHandler(tr)
 
 	pauseController := h.WorkerPauseHandler()
 
@@ -154,7 +105,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req.Method = "GET"
 	t.Run("pause failed", func(t *testing.T) {
-		w := NewMockResponseWriter()
+		w := sqsd.NewMockResponseWriter()
 		pauseController(w, req)
 
 		if w.StatusCode != http.StatusMethodNotAllowed {
@@ -168,7 +119,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req.Method = "POST"
 	t.Run("pause success", func(t *testing.T) {
-		w := NewMockResponseWriter()
+		w := sqsd.NewMockResponseWriter()
 		pauseController(w, req)
 
 		if w.StatusCode != http.StatusOK {
@@ -184,7 +135,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req.Method = "GET"
 	t.Run("resume failed", func(t *testing.T) {
-		w := NewMockResponseWriter()
+		w := sqsd.NewMockResponseWriter()
 		resumeController(w, req)
 
 		if w.StatusCode != http.StatusMethodNotAllowed {
@@ -198,7 +149,7 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 
 	req.Method = "POST"
 	t.Run("resume success", func(t *testing.T) {
-		w := NewMockResponseWriter()
+		w := sqsd.NewMockResponseWriter()
 		resumeController(w, req)
 
 		if w.StatusCode != http.StatusOK {
@@ -213,8 +164,8 @@ func TestWorkerPauseAndResumeHandler(t *testing.T) {
 }
 
 func TestStatHandlerServeMux(t *testing.T) {
-	tr := NewQueueTracker(5, NewLogger("DEBUG"))
-	h := &StatHandler{tr}
+	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
+	h := sqsd.NewStatHandler(tr)
 
 	if m := h.BuildServeMux(); m == nil {
 		t.Error("ServeMux not returned.")
