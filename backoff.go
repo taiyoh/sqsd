@@ -2,38 +2,30 @@ package sqsd
 
 import (
 	"time"
-
-	"github.com/jpillora/backoff"
 )
 
 // BackOff provides exponential backoff using elapsedtime
 type BackOff struct {
-	ebo     *backoff.Backoff
-	isFirst bool
+	dur   time.Duration
+	endAt time.Time
 }
 
 // NewBackOff returns BackOff struct
 func NewBackOff(elapsedSec int64) *BackOff {
-	b := &backoff.Backoff{
-		Min:    time.Second,
-		Max:    time.Duration(elapsedSec) * time.Second,
-		Factor: float64(elapsedSec),
-		Jitter: false,
-	}
 	return &BackOff{
-		ebo:     b,
-		isFirst: true,
+		dur: time.Duration(elapsedSec) * time.Second,
 	}
 }
 
 // Continue returns whether loop should continue or not with backoff sleep.
 func (b *BackOff) Continue() bool {
-	if b.isFirst {
-		b.isFirst = false
+	now := time.Now()
+	if b.endAt.IsZero() {
+		b.endAt = now.Add(b.dur)
 		return true
 	}
-	if b.ebo.Attempt() < b.ebo.Factor {
-		time.Sleep(b.ebo.Duration())
+	if now.Before(b.endAt) {
+		time.Sleep(time.Second)
 		return true
 	}
 	return false
