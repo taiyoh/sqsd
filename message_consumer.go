@@ -49,8 +49,7 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, invoker Worke
 }
 
 // Run provides receiving queue and execute HandleJob asyncronously.
-func (c *MessageConsumer) Run(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (c *MessageConsumer) Run(ctx context.Context) {
 	syncWait := &sync.WaitGroup{}
 	c.logger.Info("MessageConsumer start.")
 	for {

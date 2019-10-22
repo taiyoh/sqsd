@@ -33,8 +33,7 @@ func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency u
 }
 
 // Run executes DoHandle method asyncronously
-func (p *MessageProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (p *MessageProducer) Run(ctx context.Context) {
 	p.logger.Infof("MessageProducer start. concurrency=%d", p.concurrency)
 	syncWait := &sync.WaitGroup{}
 	syncWait.Add(p.concurrency)
