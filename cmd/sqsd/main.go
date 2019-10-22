@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -136,14 +137,31 @@ func main() {
 	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, sqsd.NewHTTPInvoker(config.Worker.URL))
 	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
 
+	eg, ctx := errgroup.WithContext(ctx)
+
 	wg := &sync.WaitGroup{}
-
 	wg.Add(4)
-	go waitSignal(cancel, logger, wg)
-	go runStatServer(ctx, tracker, logger, config.Main.StatServerPort, wg)
-	go msgConsumer.Run(ctx, wg)
-	go msgProducer.Run(ctx, wg)
 
+	eg.Go(func() error {
+		waitSignal(cancel, logger, wg)
+		return nil
+	})
+	eg.Go(func() error {
+		runStatServer(ctx, tracker, logger, config.Main.StatServerPort, wg)
+		return nil
+	})
+	eg.Go(func() error {
+		msgConsumer.Run(ctx, wg)
+		return nil
+	})
+	eg.Go(func() error {
+		msgProducer.Run(ctx, wg)
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		logger.Infof("process error: %v", err)
+	}
 	wg.Wait()
 	logger.Info("sqsd ends.")
 }
