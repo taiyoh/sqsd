@@ -5,12 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -43,37 +41,6 @@ func waitSignal(cancel context.CancelFunc, logger sqsd.Logger) error {
 	case os.Interrupt:
 		logger.Info("os.Interrupt caught. shutdown process...")
 	}
-	return nil
-}
-
-func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, logger sqsd.Logger, port int) error {
-	handler := sqsd.NewStatHandler(tr)
-
-	srv := &http.Server{
-		Addr:    ":" + strconv.Itoa(port),
-		Handler: handler.BuildServeMux(),
-	}
-
-	logger.Info("stat server start.")
-	defer logger.Info("stat server stop.")
-
-	eg, ctx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			return err
-		}
-		return nil
-	})
-	eg.Go(func() error {
-		<-ctx.Done()
-		return srv.Shutdown(ctx)
-	})
-
-	if err := eg.Wait(); err != nil {
-		logger.Infof("stat server err: %v", err)
-		return err
-	}
-
 	return nil
 }
 
@@ -140,7 +107,7 @@ func main() {
 		return waitSignal(cancel, logger)
 	})
 	eg.Go(func() error {
-		return runStatServer(ctx, tracker, logger, config.Main.StatServerPort)
+		return sqsd.RunStatServer(ctx, tracker, config.Main.StatServerPort)
 	})
 	eg.Go(func() error {
 		return sqsd.RunProducerAndConsumer(

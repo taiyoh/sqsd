@@ -1,11 +1,13 @@
 package sqsd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	stats_api "github.com/fukata/golang-stats-api-handler"
+	"golang.org/x/sync/errgroup"
 )
 
 // StatHandler provides monitoring processing queues and process resource
@@ -145,4 +147,38 @@ func (h *StatHandler) BuildServeMux() *http.ServeMux {
 	mux.HandleFunc("/worker/resume", h.WorkerResumeHandler())
 
 	return mux
+}
+
+// RunStatServer provides running stat server.
+func RunStatServer(ctx context.Context, tr *QueueTracker, port int) error {
+	handler := NewStatHandler(tr)
+
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: handler.BuildServeMux(),
+	}
+
+	logger := tr.logger
+
+	logger.Info("stat server start.")
+	defer logger.Info("stat server stop.")
+
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			return err
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		<-ctx.Done()
+		return srv.Shutdown(ctx)
+	})
+
+	if err := eg.Wait(); err != nil {
+		logger.Infof("stat server err: %v", err)
+		return err
+	}
+
+	return nil
 }
