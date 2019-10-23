@@ -16,15 +16,13 @@ func RunProducerAndConsumer(
 	resource := NewResource(api, conf)
 	msgConsumer := NewMessageConsumer(resource, tracker, invoker)
 	msgProducer := NewMessageProducer(resource, tracker, conf.Concurrency)
-	eg, ctx := errgroup.WithContext(ctx)
 
+	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		msgConsumer.Run(ctx)
-		return nil
+		return msgConsumer.Run(ctx)
 	})
 	eg.Go(func() error {
-		msgProducer.Run(ctx)
-		return nil
+		return msgProducer.Run(ctx)
 	})
 
 	return eg.Wait()

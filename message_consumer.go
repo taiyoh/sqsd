@@ -2,7 +2,8 @@ package sqsd
 
 import (
 	"context"
-	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // MessageConsumer provides receiving queues from tracker, requesting queue to worker, and deleting queue from SQS.
@@ -49,23 +50,33 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, invoker Worke
 }
 
 // Run provides receiving queue and execute HandleJob asyncronously.
-func (c *MessageConsumer) Run(ctx context.Context) {
-	syncWait := &sync.WaitGroup{}
+func (c *MessageConsumer) Run(ctx context.Context) error {
 	c.logger.Info("MessageConsumer start.")
-	for {
-		select {
-		case <-ctx.Done():
-			syncWait.Wait()
-			c.logger.Info("MessageConsumer closed.")
-			return
-		case q := <-c.tracker.NextQueue():
-			syncWait.Add(1)
-			go func() {
-				defer syncWait.Done()
-				c.HandleJob(ctx, q)
-			}()
+	defer c.logger.Info("MessageConsumer closed.")
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		<-ctx.Done()
+		return context.Canceled
+	})
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case q := <-c.tracker.NextQueue():
+				eg.Go(func() error {
+					c.HandleJob(egCtx, q)
+					return nil
+				})
+			}
 		}
+	}()
+	err := eg.Wait()
+	if err == context.Canceled {
+		return nil
 	}
+	return err
 }
 
 // HandleJob provides sending queue to worker, and deleting queue when worker response is success.

@@ -32,7 +32,6 @@ func NewMockClient() *MockClient {
 		Resp: &sqs.ReceiveMessageOutput{
 			Messages: []*sqs.Message{},
 		},
-		mu: sync.Mutex{},
 	}
 	c.RecvFunc = func(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
 		c.mu.Lock()
@@ -52,6 +51,9 @@ func NewMockClient() *MockClient {
 
 // ReceiveMessageWithContext is mock for same name method
 func (c *MockClient) ReceiveMessageWithContext(ctx aws.Context, param *sqs.ReceiveMessageInput, opts ...request.Option) (*sqs.ReceiveMessageOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return c.Resp, err
+	}
 	o, e := c.RecvFunc(param)
 	return o, e
 }
@@ -59,8 +61,8 @@ func (c *MockClient) ReceiveMessageWithContext(ctx aws.Context, param *sqs.Recei
 // DeleteMessage is mock for same name method
 func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.DelRequestCount++
-	c.mu.Unlock()
 	return &sqs.DeleteMessageOutput{}, nil
 }
 

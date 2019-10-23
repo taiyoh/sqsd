@@ -138,16 +138,17 @@ func TestReceiverRun(t *testing.T) {
 	sc := sqsd.SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
 	rs := sqsd.NewResource(mc, sc)
 	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
-	pr := sqsd.NewMessageProducer(rs, tr, 1)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	eg, ctx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		pr.Run(ctx)
-		return nil
+	pr := sqsd.NewMessageProducer(rs, tr, 1, func() {
+		time.Sleep(100 * time.Millisecond)
 	})
 
-	time.Sleep(10 * time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return pr.Run(egCtx)
+	})
+
+	time.Sleep(50 * time.Millisecond)
 	cancel()
 	eg.Wait()
 }
