@@ -49,6 +49,20 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, invoker Worke
 	return c
 }
 
+func (c *MessageConsumer) nextQueueLoop(ctx context.Context, eg *errgroup.Group) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case q := <-c.tracker.NextQueue():
+			eg.Go(func() error {
+				c.HandleJob(ctx, q)
+				return nil
+			})
+		}
+	}
+}
+
 // Run provides receiving queue and execute HandleJob asyncronously.
 func (c *MessageConsumer) Run(ctx context.Context) error {
 	c.logger.Info("MessageConsumer start.")
@@ -59,19 +73,8 @@ func (c *MessageConsumer) Run(ctx context.Context) error {
 		<-ctx.Done()
 		return context.Canceled
 	})
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case q := <-c.tracker.NextQueue():
-				eg.Go(func() error {
-					c.HandleJob(egCtx, q)
-					return nil
-				})
-			}
-		}
-	}()
+	go c.nextQueueLoop(egCtx, eg)
+
 	err := eg.Wait()
 	if err == context.Canceled {
 		return nil

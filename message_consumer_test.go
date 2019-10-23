@@ -36,8 +36,7 @@ func TestHandleJob(t *testing.T) {
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		msgc.Run(ctx)
-		return nil
+		return msgc.Run(ctx)
 	})
 
 	t.Run("job failed", func(t *testing.T) {
