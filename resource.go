@@ -36,8 +36,8 @@ func (r *Resource) GetMessages(ctx context.Context) ([]*sqs.Message, error) {
 }
 
 // DeleteMessage provides queue deletion from SQS using aws sqs library
-func (r *Resource) DeleteMessage(receipt string) error {
-	_, err := r.client.DeleteMessage(&sqs.DeleteMessageInput{
+func (r *Resource) DeleteMessage(ctx context.Context, receipt string) error {
+	_, err := r.client.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
 		QueueUrl:      aws.String(r.url),
 		ReceiptHandle: aws.String(receipt),
 	})

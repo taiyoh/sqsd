@@ -59,11 +59,15 @@ func (c *MockClient) ReceiveMessageWithContext(ctx aws.Context, param *sqs.Recei
 }
 
 // DeleteMessage is mock for same name method
-func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
+func (c *MockClient) DeleteMessageWithContext(ctx aws.Context, input *sqs.DeleteMessageInput, opts ...request.Option) (*sqs.DeleteMessageOutput, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.DelRequestCount++
-	return &sqs.DeleteMessageOutput{}, nil
+	output := &sqs.DeleteMessageOutput{}
+	if err := ctx.Err(); err != nil {
+		return output, err
+	}
+	return output, nil
 }
 
 // MockServer provides test server with several response like error, long-time, and ok

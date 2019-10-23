@@ -88,7 +88,7 @@ func (c *MessageConsumer) HandleJob(ctx context.Context, q Queue) {
 		c.logger.Errorf("job[%s] HandleJob request error: %s", q.ID, err)
 		q = q.ResultFailed()
 	} else {
-		c.resource.DeleteMessage(q.Receipt)
+		c.resource.DeleteMessage(ctx, q.Receipt)
 		q = q.ResultSucceeded()
 	}
 	c.tracker.Complete(q)
