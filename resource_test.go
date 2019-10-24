@@ -30,7 +30,7 @@ func TestResource(t *testing.T) {
 		t.Error("what's wrong???")
 	}
 
-	if err := r.DeleteMessage(*c.Resp.Messages[0].ReceiptHandle); err != nil {
+	if err := r.DeleteMessage(ctx, *c.Resp.Messages[0].ReceiptHandle); err != nil {
 		t.Error("error founds")
 	}
 }

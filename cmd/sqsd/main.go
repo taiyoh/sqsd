@@ -5,20 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
-	"sync"
 	"syscall"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -26,9 +19,7 @@ var (
 	date   string
 )
 
-func waitSignal(cancel context.CancelFunc, logger sqsd.Logger, wg *sync.WaitGroup) {
-	defer wg.Done()
-	defer cancel()
+func waitSignal(ctx context.Context, logger sqsd.Logger) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh,
 		syscall.SIGTERM,
@@ -38,57 +29,23 @@ func waitSignal(cancel context.CancelFunc, logger sqsd.Logger, wg *sync.WaitGrou
 
 	for {
 		select {
+		case <-ctx.Done():
+			return context.Canceled
 		case sig := <-sigCh:
 			switch sig {
 			case syscall.SIGTERM:
 				logger.Info("SIGTERM caught. shutdown process...")
-				return
 			case syscall.SIGINT:
 				logger.Info("SIGINT caught. shutdown process...")
-				return
 			case os.Interrupt:
 				logger.Info("os.Interrupt caught. shutdown process...")
-				return
 			}
+			return context.Canceled
 		}
 	}
 }
 
-func runStatServer(ctx context.Context, tr *sqsd.QueueTracker, logger sqsd.Logger, port int, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	handler := sqsd.NewStatHandler(tr)
-
-	srv := &http.Server{
-		Addr:    ":" + strconv.Itoa(port),
-		Handler: handler.BuildServeMux(),
-	}
-
-	logger.Info("stat server start.")
-
-	syncWait := &sync.WaitGroup{}
-	syncWait.Add(2)
-	go func() {
-		defer syncWait.Done()
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			logger.Error(err.Error())
-			return
-		}
-	}()
-	go func() {
-		defer syncWait.Done()
-		<-ctx.Done()
-		if err := srv.Shutdown(ctx); err != nil {
-			logger.Error(err.Error())
-			return
-		}
-	}()
-	syncWait.Wait()
-
-	logger.Info("stat server stop.")
-}
-
-func main() {
+func initializeApp() *sqsd.Conf {
 	var confPath string
 	var versionFlg bool
 	flag.StringVar(&confPath, "config", "config.toml", "config path")
@@ -97,7 +54,8 @@ func main() {
 
 	if versionFlg {
 		fmt.Printf("version: %s\ncommit: %s\nbuild date: %s\n", sqsd.GetVersion(), commit, date)
-		return
+		os.Exit(0)
+		return nil
 	}
 
 	if !filepath.IsAbs(confPath) {
@@ -109,6 +67,12 @@ func main() {
 		log.Fatalf("config file: %s, err: %s\n", confPath, err)
 	}
 
+	return config
+}
+
+func main() {
+	config := initializeApp()
+
 	logger := sqsd.NewLogger(config.Main.LogLevel)
 
 	tracker := sqsd.NewQueueTracker(config.Worker.MaxProcessCount, logger)
@@ -117,33 +81,22 @@ func main() {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	defer logger.Info("sqsd ends.")
 
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(config.SQS.Region),
-		EndpointResolver: endpoints.ResolverFunc(func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
-			if service == endpoints.SqsServiceID && config.SQS.URL != "" {
-				uri, _ := url.ParseRequestURI(config.SQS.URL)
-				return endpoints.ResolvedEndpoint{
-					URL: fmt.Sprintf("%s://%s", uri.Scheme, uri.Host),
-				}, nil
-			}
-			return endpoints.DefaultResolver().EndpointFor(service, region, optFns...)
-		}),
-	}))
-	resource := sqsd.NewResource(sqs.New(sess), config.SQS)
+	eg, ctx := errgroup.WithContext(context.Background())
 
-	msgConsumer := sqsd.NewMessageConsumer(resource, tracker, sqsd.NewHTTPInvoker(config.Worker.URL))
-	msgProducer := sqsd.NewMessageProducer(resource, tracker, config.SQS.Concurrency)
+	eg.Go(func() error {
+		return waitSignal(ctx, logger)
+	})
+	eg.Go(func() error {
+		return sqsd.RunStatServer(ctx, tracker, config.Main.StatServerPort)
+	})
+	eg.Go(func() error {
+		invoker := sqsd.NewHTTPInvoker(config.Worker.URL)
+		return sqsd.RunProducerAndConsumer(ctx, tracker, invoker, config.SQS)
+	})
 
-	wg := &sync.WaitGroup{}
-
-	wg.Add(4)
-	go waitSignal(cancel, logger, wg)
-	go runStatServer(ctx, tracker, logger, config.Main.StatServerPort, wg)
-	go msgConsumer.Run(ctx, wg)
-	go msgProducer.Run(ctx, wg)
-
-	wg.Wait()
-	logger.Info("sqsd ends.")
+	if err := eg.Wait(); err != nil && err != context.Canceled {
+		logger.Infof("process error: %v", err)
+	}
 }

@@ -4,19 +4,26 @@ import (
 	"context"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 )
+
+// SQSAPI provides partial interface for AWS SQS.
+type SQSAPI interface {
+	// sqsiface.SQSAPI
+	ReceiveMessageWithContext(aws.Context, *sqs.ReceiveMessageInput, ...request.Option) (*sqs.ReceiveMessageOutput, error)
+	DeleteMessageWithContext(aws.Context, *sqs.DeleteMessageInput, ...request.Option) (*sqs.DeleteMessageOutput, error)
+}
 
 // Resource is wrapper for aws sqs library
 type Resource struct {
-	client      sqsiface.SQSAPI
+	client      SQSAPI
 	url         string
 	waitTimeSec int64
 }
 
 // NewResource returns Resouce object
-func NewResource(client sqsiface.SQSAPI, c SQSConf) *Resource {
+func NewResource(client SQSAPI, c SQSConf) *Resource {
 	return &Resource{
 		client:      client,
 		url:         c.QueueURL(),
@@ -36,8 +43,8 @@ func (r *Resource) GetMessages(ctx context.Context) ([]*sqs.Message, error) {
 }
 
 // DeleteMessage provides queue deletion from SQS using aws sqs library
-func (r *Resource) DeleteMessage(receipt string) error {
-	_, err := r.client.DeleteMessage(&sqs.DeleteMessageInput{
+func (r *Resource) DeleteMessage(ctx context.Context, receipt string) error {
+	_, err := r.client.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
 		QueueUrl:      aws.String(r.url),
 		ReceiptHandle: aws.String(receipt),
 	})

@@ -3,13 +3,13 @@ package sqsd_test
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestNewReceiverAndDoHandle(t *testing.T) {
@@ -138,14 +138,17 @@ func TestReceiverRun(t *testing.T) {
 	sc := sqsd.SQSConf{URL: "http://example.com/foo/bar/queue", WaitTimeSec: 1}
 	rs := sqsd.NewResource(mc, sc)
 	tr := sqsd.NewQueueTracker(5, sqsd.NewLogger("DEBUG"))
-	pr := sqsd.NewMessageProducer(rs, tr, 1)
+	pr := sqsd.NewMessageProducer(rs, tr, 1, func() {
+		time.Sleep(100 * time.Millisecond)
+	})
 
-	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
-	wg.Add(1)
-	go pr.Run(ctx, wg)
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return pr.Run(egCtx)
+	})
 
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	cancel()
-	wg.Wait()
+	eg.Wait()
 }

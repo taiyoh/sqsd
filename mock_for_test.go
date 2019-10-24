@@ -11,12 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"github.com/taiyoh/sqsd"
 )
 
 // MockClient provides mocking sqs library from aws-sdk-go for test
 type MockClient struct {
-	sqsiface.SQSAPI
 	Resp             *sqs.ReceiveMessageOutput
 	RecvRequestCount int
 	DelRequestCount  int
@@ -26,13 +25,14 @@ type MockClient struct {
 	RecvFunc         func(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error)
 }
 
+var _ sqsd.SQSAPI = (*MockClient)(nil)
+
 // NewMockClient returns MockClient object
 func NewMockClient() *MockClient {
 	c := &MockClient{
 		Resp: &sqs.ReceiveMessageOutput{
 			Messages: []*sqs.Message{},
 		},
-		mu: sync.Mutex{},
 	}
 	c.RecvFunc = func(param *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
 		c.mu.Lock()
@@ -52,16 +52,23 @@ func NewMockClient() *MockClient {
 
 // ReceiveMessageWithContext is mock for same name method
 func (c *MockClient) ReceiveMessageWithContext(ctx aws.Context, param *sqs.ReceiveMessageInput, opts ...request.Option) (*sqs.ReceiveMessageOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return c.Resp, err
+	}
 	o, e := c.RecvFunc(param)
 	return o, e
 }
 
 // DeleteMessage is mock for same name method
-func (c *MockClient) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
+func (c *MockClient) DeleteMessageWithContext(ctx aws.Context, input *sqs.DeleteMessageInput, opts ...request.Option) (*sqs.DeleteMessageOutput, error) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.DelRequestCount++
-	c.mu.Unlock()
-	return &sqs.DeleteMessageOutput{}, nil
+	output := &sqs.DeleteMessageOutput{}
+	if err := ctx.Err(); err != nil {
+		return output, err
+	}
+	return output, nil
 }
 
 // MockServer provides test server with several response like error, long-time, and ok

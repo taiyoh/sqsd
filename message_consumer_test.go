@@ -2,12 +2,12 @@ package sqsd_test
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
+	"golang.org/x/sync/errgroup"
 )
 
 type HandleJobResponse struct {
@@ -32,12 +32,12 @@ func TestHandleJob(t *testing.T) {
 	ts := MockServer()
 	defer ts.Close()
 
-	wg := &sync.WaitGroup{}
-
 	ctx, cancel := context.WithCancel(context.Background())
 
-	wg.Add(1)
-	go msgc.Run(ctx, wg)
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return msgc.Run(ctx)
+	})
 
 	t.Run("job failed", func(t *testing.T) {
 		msgc.ChangeInvoker(sqsd.NewHTTPInvoker(ts.URL + "/error"))
@@ -110,5 +110,5 @@ func TestHandleJob(t *testing.T) {
 		t.Error("job remains")
 	}
 
-	wg.Wait()
+	eg.Wait()
 }
