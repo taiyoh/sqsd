@@ -2,6 +2,7 @@ package sqsd
 
 import (
 	"context"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -50,15 +51,18 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, invoker Worke
 }
 
 func (c *MessageConsumer) nextQueueLoop(ctx context.Context, eg *errgroup.Group) {
+	var mu sync.Mutex
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case q := <-c.tracker.NextQueue():
+			mu.Lock()
 			eg.Go(func() error {
 				c.HandleJob(ctx, q)
 				return nil
 			})
+			mu.Unlock()
 		}
 	}
 }
