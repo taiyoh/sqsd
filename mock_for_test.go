@@ -11,12 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"github.com/taiyoh/sqsd"
 )
 
 // MockClient provides mocking sqs library from aws-sdk-go for test
 type MockClient struct {
-	sqsiface.SQSAPI
 	Resp             *sqs.ReceiveMessageOutput
 	RecvRequestCount int
 	DelRequestCount  int
@@ -25,6 +24,8 @@ type MockClient struct {
 	mu               sync.Mutex
 	RecvFunc         func(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error)
 }
+
+var _ sqsd.SQSAPI = (*MockClient)(nil)
 
 // NewMockClient returns MockClient object
 func NewMockClient() *MockClient {
