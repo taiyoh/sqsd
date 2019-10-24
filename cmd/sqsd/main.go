@@ -5,16 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
 	"golang.org/x/sync/errgroup"
 )
@@ -24,8 +19,7 @@ var (
 	date   string
 )
 
-func waitSignal(cancel context.CancelFunc, logger sqsd.Logger) error {
-	defer cancel()
+func waitSignal(ctx context.Context, logger sqsd.Logger) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh,
 		syscall.SIGTERM,
@@ -33,31 +27,22 @@ func waitSignal(cancel context.CancelFunc, logger sqsd.Logger) error {
 		os.Interrupt)
 	defer signal.Stop(sigCh)
 
-	switch <-sigCh {
-	case syscall.SIGTERM:
-		logger.Info("SIGTERM caught. shutdown process...")
-	case syscall.SIGINT:
-		logger.Info("SIGINT caught. shutdown process...")
-	case os.Interrupt:
-		logger.Info("os.Interrupt caught. shutdown process...")
-	}
-	return nil
-}
-
-func newSQSAPI(conf sqsd.SQSConf) *sqs.SQS {
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(conf.Region),
-		EndpointResolver: endpoints.ResolverFunc(func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
-			if service == endpoints.SqsServiceID && conf.URL != "" {
-				uri, _ := url.ParseRequestURI(conf.URL)
-				return endpoints.ResolvedEndpoint{
-					URL: fmt.Sprintf("%s://%s", uri.Scheme, uri.Host),
-				}, nil
+	for {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		case sig := <-sigCh:
+			switch sig {
+			case syscall.SIGTERM:
+				logger.Info("SIGTERM caught. shutdown process...")
+			case syscall.SIGINT:
+				logger.Info("SIGINT caught. shutdown process...")
+			case os.Interrupt:
+				logger.Info("os.Interrupt caught. shutdown process...")
 			}
-			return endpoints.DefaultResolver().EndpointFor(service, region, optFns...)
-		}),
-	}))
-	return sqs.New(sess)
+			return context.Canceled
+		}
+	}
 }
 
 func initializeApp() *sqsd.Conf {
@@ -98,28 +83,20 @@ func main() {
 
 	defer logger.Info("sqsd ends.")
 
-	sqsAPI := newSQSAPI(config.SQS)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, ctx := errgroup.WithContext(context.Background())
 
 	eg.Go(func() error {
-		return waitSignal(cancel, logger)
+		return waitSignal(ctx, logger)
 	})
 	eg.Go(func() error {
 		return sqsd.RunStatServer(ctx, tracker, config.Main.StatServerPort)
 	})
 	eg.Go(func() error {
-		return sqsd.RunProducerAndConsumer(
-			ctx,
-			sqsAPI,
-			tracker,
-			sqsd.NewHTTPInvoker(config.Worker.URL),
-			config.SQS,
-		)
+		invoker := sqsd.NewHTTPInvoker(config.Worker.URL)
+		return sqsd.RunProducerAndConsumer(ctx, tracker, invoker, config.SQS)
 	})
 
-	if err := eg.Wait(); err != nil {
+	if err := eg.Wait(); err != nil && err != context.Canceled {
 		logger.Infof("process error: %v", err)
 	}
 }
