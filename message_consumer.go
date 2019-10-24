@@ -51,20 +51,22 @@ func NewMessageConsumer(resource *Resource, tracker *QueueTracker, invoker Worke
 }
 
 func (c *MessageConsumer) nextQueueLoop(ctx context.Context, eg *errgroup.Group) {
-	var mu sync.Mutex
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case q := <-c.tracker.NextQueue():
-			mu.Lock()
-			eg.Go(func() error {
-				c.HandleJob(ctx, q)
-				return nil
-			})
-			mu.Unlock()
+	go func() {
+		var mu sync.Mutex
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case q := <-c.tracker.NextQueue():
+				mu.Lock()
+				eg.Go(func() error {
+					c.HandleJob(ctx, q)
+					return nil
+				})
+				mu.Unlock()
+			}
 		}
-	}
+	}()
 }
 
 // Run provides receiving queue and execute HandleJob asyncronously.
@@ -72,18 +74,10 @@ func (c *MessageConsumer) Run(ctx context.Context) error {
 	c.logger.Info("MessageConsumer start.")
 	defer c.logger.Info("MessageConsumer closed.")
 
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		<-ctx.Done()
-		return context.Canceled
-	})
-	go c.nextQueueLoop(egCtx, eg)
-
-	err := eg.Wait()
-	if err == context.Canceled {
-		return nil
+	if err := runErrGroup(ctx, c.nextQueueLoop); err != nil {
+		return err
 	}
-	return err
+	return nil
 }
 
 // HandleJob provides sending queue to worker, and deleting queue when worker response is success.

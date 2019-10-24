@@ -18,13 +18,21 @@ func RunProducerAndConsumer(ctx context.Context, tracker *QueueTracker, invoker 
 	msgConsumer := NewMessageConsumer(resource, tracker, invoker)
 	msgProducer := NewMessageProducer(resource, tracker, conf.Concurrency)
 
-	eg, ctx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		return msgConsumer.Run(ctx)
+	return runErrGroup(ctx, func(ctx context.Context, eg *errgroup.Group) {
+		eg.Go(func() error { return msgConsumer.Run(ctx) })
+		eg.Go(func() error { return msgProducer.Run(ctx) })
 	})
-	eg.Go(func() error {
-		return msgProducer.Run(ctx)
-	})
+}
 
-	return eg.Wait()
+func runErrGroup(ctx context.Context, fn func(context.Context, *errgroup.Group)) error {
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		<-ctx.Done()
+		return context.Canceled
+	})
+	fn(egCtx, eg)
+	if err := eg.Wait(); err != nil && err != context.Canceled {
+		return err
+	}
+	return nil
 }

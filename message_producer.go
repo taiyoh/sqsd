@@ -33,31 +33,26 @@ func NewMessageProducer(resource *Resource, tracker *QueueTracker, concurrency u
 	}
 }
 
-// Run executes DoHandle method asyncronously
-func (p *MessageProducer) Run(ctx context.Context) error {
-	c := p.concurrency
-	p.logger.Infof("MessageProducer start. concurrency=%d", c)
-	defer p.logger.Info("MessageProducer closed.")
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	for i := 0; i < c; i++ {
+func (p *MessageProducer) runConcurrencyHandle(ctx context.Context, eg *errgroup.Group) {
+	for i := 0; i < p.concurrency; i++ {
 		eg.Go(func() error {
-			for p.DoHandle(egCtx) {
+			for p.DoHandle(ctx) {
 				// do handle
 			}
 			return nil
 		})
 	}
-	eg.Go(func() error {
-		<-ctx.Done()
-		p.logger.Info("context cancel detected. stop MessageProducer...")
-		return context.Canceled
-	})
-	err := eg.Wait()
-	if err == context.Canceled {
-		return nil
+}
+
+// Run executes DoHandle method asyncronously
+func (p *MessageProducer) Run(ctx context.Context) error {
+	p.logger.Infof("MessageProducer start. concurrency=%d", p.concurrency)
+	defer p.logger.Info("MessageProducer closed.")
+
+	if err := runErrGroup(ctx, p.runConcurrencyHandle); err != nil {
+		return err
 	}
-	return err
+	return nil
 }
 
 // HandleEmpty executes HandleEmptyFunc parameter
