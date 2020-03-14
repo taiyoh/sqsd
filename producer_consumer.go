@@ -20,7 +20,8 @@ func RunProducerAndConsumer(ctx context.Context, tracker *QueueTracker, invoker 
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		return msgConsumer.Run(ctx)
+		msgConsumer.Run(ctx)
+		return nil
 	})
 	eg.Go(func() error {
 		return msgProducer.Run(ctx)

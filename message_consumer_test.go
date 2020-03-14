@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/taiyoh/sqsd"
-	"golang.org/x/sync/errgroup"
 )
 
 type HandleJobResponse struct {
@@ -33,11 +32,9 @@ func TestHandleJob(t *testing.T) {
 	defer ts.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	eg, ctx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		return msgc.Run(ctx)
-	})
+	go msgc.Run(ctx)
 
 	t.Run("job failed", func(t *testing.T) {
 		msgc.ChangeInvoker(sqsd.NewHTTPInvoker(ts.URL + "/error"))
@@ -109,6 +106,4 @@ func TestHandleJob(t *testing.T) {
 	if len(summaries) != 0 {
 		t.Error("job remains")
 	}
-
-	eg.Wait()
 }
