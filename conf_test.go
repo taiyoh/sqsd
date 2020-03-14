@@ -2,8 +2,6 @@ package sqsd_test
 
 import (
 	"os"
-	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/taiyoh/sqsd"
@@ -90,39 +88,51 @@ func TestValidateConf(t *testing.T) {
 }
 
 func TestNewConf(t *testing.T) {
-	d, _ := os.Getwd()
-	confdir := filepath.Join(d, "testdata", "conf")
+	os.Unsetenv("WORKER_DESTINATION_URL")
+	os.Setenv("AWS_ACCESS_KEY_ID", "xxxxxxxx")
+	os.Setenv("SQS_QUEUE_NAME", "foobar")
+	defer func() {
+		os.Unsetenv("WORKER_DESTINATION_URL")
+		os.Unsetenv("AWS_ACCESS_KEY_ID")
+		os.Unsetenv("SQS_QUEUE_NAME")
+	}()
 
 	for _, tt := range []struct {
-		label       string
-		filename    string
-		errExpected bool
+		label string
+		url   string
 	}{
-		{"file not found", "hoge.toml", true},
-		{"invalid config1", "config1.toml", true},
-		{"valid config1", "config_valid.toml", false},
-		{"valid config2", "config_valid2.toml", false},
+		{
+			label: "no worker_url defined",
+			url:   "",
+		},
+		{
+			label: "invalid url",
+			url:   "fofo://bababa!ofoffo",
+		},
 	} {
-		f := filepath.Join(confdir, tt.filename)
-		if _, err := sqsd.NewConf(f); (err != nil) != tt.errExpected {
-			t.Errorf("expected: %s, err: %v", tt.label, err)
+		t.Run(tt.label, func(t *testing.T) {
+			defer os.Unsetenv("WORKER_DESTINATION_URL")
+			os.Setenv("WORKER_DESTINATION_URL", tt.url)
+			if _, err := sqsd.NewConf(); err == nil {
+				t.Fatal("error not exists")
+			}
+		})
+	}
+	t.Run("valid url", func(t *testing.T) {
+		defer func() {
+			os.Unsetenv("WORKER_DESTINATION_URL")
+		}()
+		u := "http://example.com/worker"
+		os.Setenv("WORKER_DESTINATION_URL", u)
+		conf, err := sqsd.NewConf()
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-
-	conf, _ := sqsd.NewConf(filepath.Join(confdir, "config_valid.toml"))
-	if conf.SQS.QueueURL() != "https://sqs.ap-northeast-1.amazonaws.com/foobar/hoge" {
-		t.Error("QueueURL not loaded correctly. " + conf.SQS.QueueURL())
-	}
-	if conf.Main.StatServerPort != 4080 {
-		t.Error("Main.StatServerPort not loaded correctly. " + strconv.Itoa(conf.Main.StatServerPort))
-	}
-
-	conf.SQS.URL = "http://localhost:4649/foo/bar"
-	if conf.SQS.QueueURL() != "http://localhost:4649/foo/bar" {
-		t.Error("SQS.URL has priority than building url." + conf.SQS.QueueURL())
-	}
-
-	if conf.SQS.Concurrency != 5 {
-		t.Error("SQS.Concurrency should be 5")
-	}
+		if conf.Worker.URL != u {
+			t.Errorf("expected url: %s, actual: %s", u, conf.Worker.URL)
+		}
+		if qu := conf.SQS.QueueURL(); qu != "https://sqs.us-east-1.amazonaws.com/xxxxxxxx/foobar" {
+			t.Errorf("expected: https://sqs.us-east-1.amazonaws.com/xxxxxxxx/foobar, actual: %s", qu)
+		}
+	})
 }

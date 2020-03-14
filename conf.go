@@ -4,48 +4,47 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 
-	"github.com/pelletier/go-toml"
+	"github.com/kelseyhightower/envconfig"
 )
 
 // Conf aggregates configuration for sqsd.
 type Conf struct {
-	Main   MainConf   `toml:"main"`
-	Worker WorkerConf `toml:"worker"`
-	SQS    SQSConf    `toml:"sqs"`
+	Main   MainConf
+	Worker WorkerConf
+	SQS    SQSConf
 }
 
 // MainConf provides misc parameters for sqsd. not worker and sqs.
 type MainConf struct {
-	StatServerPort int    `toml:"stat_server_port"`
-	LogLevel       string `toml:"log_level"`
+	StatServerPort int    `envconfig:"STAT_SERVER_PORT" default:"5956"`
+	LogLevel       string `envconfig:"LOG_LEVEL"        default:"INFO"`
 }
 
 // WorkerConf is configuration parameters for request to worker endpoint.
 type WorkerConf struct {
-	InvokeType      string          `toml:"invoke_type"`
-	URL             string          `toml:"url"`
-	MaxProcessCount uint            `toml:"max_process_count"`
-	Healthcheck     HealthcheckConf `toml:"healthcheck"`
+	InvokeType      string `envconfig:"WORKER_INVOKE_TYPE"       default:"http"`
+	URL             string `envconfig:"WORKER_DESTINATION_URL"   required:"true"`
+	MaxProcessCount uint   `envconfig:"WORKER_MAX_PROCESS_COUNT" default:"1"`
+	Healthcheck     HealthcheckConf
 }
 
 // HealthcheckConf is configuration parameters for healthcheck to worker before request to SQS.
 type HealthcheckConf struct {
-	URL           string `toml:"url"`
-	MaxElapsedSec int64  `toml:"max_elapsed_sec"`
-	MaxRequestMS  int64  `toml:"max_request_ms"`
+	URL           string `envconfig:"HEALTHCHECK_URL"`
+	MaxElapsedSec int64  `envconfig:"HEALTHCHECK_MAX_ELAPSED_SECONDS" default:"10"`
+	MaxRequestMS  int64  `envconfig:"HEALTHCHECK_MAX_REQUEST_MS"      default:"1000"`
 }
 
 // SQSConf provides parameters for request to sqs endpoint.
 type SQSConf struct {
-	AccountID   string `toml:"account_id"`
-	QueueName   string `toml:"queue_name"`
-	Region      string `toml:"region"`
-	URL         string `toml:"url"`
-	Concurrency uint   `toml:"concurrency"`
-	WaitTimeSec int64  `toml:"wait_time_sec"`
+	AccountID   string `envconfig:"AWS_ACCESS_KEY_ID"`
+	Region      string `envconfig:"AWS_REGION"            default:"us-east-1"`
+	QueueName   string `envconfig:"SQS_QUEUE_NAME"`
+	URL         string `envconfig:"SQS_QUEUE_URL"`
+	Concurrency uint   `envconfig:"SQS_CONCURRENCY"       default:"1"`
+	WaitTimeSec int64  `envconfig:"SQS_WAIT_TIME_SECONDS" default:"20"`
 }
 
 type confSection interface {
@@ -225,13 +224,9 @@ func (c *Conf) Validate() error {
 }
 
 // NewConf returns aggregated sqsd configuration object.
-func NewConf(filepath string) (*Conf, error) {
-	f, err := os.Open(filepath)
-	if err != nil {
-		return nil, err
-	}
+func NewConf() (*Conf, error) {
 	sqsdConf := &Conf{}
-	if err := toml.NewDecoder(f).Decode(sqsdConf); err != nil {
+	if err := envconfig.Process("", sqsdConf); err != nil {
 		return nil, err
 	}
 	sqsdConf.Init()

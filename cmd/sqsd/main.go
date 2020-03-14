@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/taiyoh/sqsd"
@@ -45,33 +44,20 @@ func waitSignal(ctx context.Context, logger sqsd.Logger) error {
 	}
 }
 
-func initializeApp() *sqsd.Conf {
-	var confPath string
+func main() {
 	var versionFlg bool
-	flag.StringVar(&confPath, "config", "config.toml", "config path")
 	flag.BoolVar(&versionFlg, "version", false, "version")
 	flag.Parse()
 
 	if versionFlg {
 		fmt.Printf("version: %s\ncommit: %s\nbuild date: %s\n", sqsd.GetVersion(), commit, date)
 		os.Exit(0)
-		return nil
 	}
 
-	if !filepath.IsAbs(confPath) {
-		d, _ := os.Getwd()
-		confPath = filepath.Join(d, confPath)
-	}
-	config, err := sqsd.NewConf(confPath)
+	config, err := sqsd.NewConf()
 	if err != nil {
-		log.Fatalf("config file: %s, err: %s\n", confPath, err)
+		log.Fatalf("initialize config error. err: %v\n", err)
 	}
-
-	return config
-}
-
-func main() {
-	config := initializeApp()
 
 	logger := sqsd.NewLogger(config.Main.LogLevel)
 
