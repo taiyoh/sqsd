@@ -85,14 +85,14 @@ func isURL(urlStr string) bool {
 
 // Validate returns error if worker configuration is invalid.
 func (c WorkerConf) Validate() error {
-	if c.InvokeType != "http" {
+	if c.InvokeType != "http" && c.InvokeType != "sam" {
 		return nil
 	}
 	if !isURL(c.URL) {
 		return errors.New("worker.url is not HTTP URL: " + c.URL)
 	}
 
-	if c.Healthcheck.URL != "" {
+	if c.InvokeType == "http" && c.Healthcheck.URL != "" {
 		if !isURL(c.Healthcheck.URL) {
 			return errors.New("worker.healthcheck.url is not HTTP URL: " + c.Healthcheck.URL)
 		}
