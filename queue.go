@@ -6,12 +6,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
+// QueueResultStatus represents status for Queue result.
 type QueueResultStatus int
 
 const (
-	NotRequested   = iota // default
-	RequestSuccess = iota
-	RequestFail    = iota
+	// NotRequested represents queue has no result.
+	NotRequested QueueResultStatus = iota // default
+	// RequestSuccess represents queue request has succeeded.
+	RequestSuccess
+	// RequestFail represents queue request has failed.
+	RequestFail
 )
 
 // Queue provides transition from sqs.Message
@@ -23,6 +27,7 @@ type Queue struct {
 	ResultStatus QueueResultStatus
 }
 
+// ResultSucceeded returns Queue has RequestSuccess status.
 func (q Queue) ResultSucceeded() Queue {
 	return Queue{
 		ID:           q.ID,
@@ -33,6 +38,7 @@ func (q Queue) ResultSucceeded() Queue {
 	}
 }
 
+// ResultFailed returns Queue has RequestFail status.
 func (q Queue) ResultFailed() Queue {
 	return Queue{
 		ID:           q.ID,
