@@ -17,15 +17,13 @@ func TestQueueTracker(t *testing.T) {
 		t.Error("job tracker not loaded.")
 	}
 
-	mu := new(sync.Mutex)
-
 	now := time.Now()
 
 	q1 := sqsd.Queue{
 		ID:         "id:1",
 		Payload:    "hoge",
 		Receipt:    "foo",
-		ReceivedAt: now.Add(1),
+		ReceivedAt: now.Add(-1 * time.Second),
 	}
 	q2 := sqsd.Queue{
 		ID:         "id:2",
@@ -34,52 +32,32 @@ func TestQueueTracker(t *testing.T) {
 		ReceivedAt: now,
 	}
 
-	allJobRegistered := false
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
-		tracker.Register(q1)
-		tracker.Register(q2)
-		mu.Lock()
-		allJobRegistered = true
-		mu.Unlock()
+		defer wg.Done()
+		for _, q := range []sqsd.Queue{q1, q2} {
+			tracker.Register(q)
+		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	for idx, queueID := range []string{
+		q1.ID, q2.ID,
+	} {
+		receivedQueue := <-tracker.NextQueue()
+		if receivedQueue.ID != queueID {
+			t.Errorf("index:%d wrong order. expected: %s, actual: %s", idx, queueID, receivedQueue.ID)
+		}
 
-	mu.Lock()
-	if allJobRegistered {
-		t.Error("2 jobs inserted")
-	}
-	mu.Unlock()
+		summaries := tracker.CurrentSummaries()
+		if summaries[0].ID != queueID {
+			t.Errorf("index:%d wrong order.", idx)
+		}
 
-	receivedQueue := <-tracker.NextQueue()
-	if receivedQueue.ID != q1.ID {
-		t.Error("wrong order")
-	}
-
-	summaries := tracker.CurrentSummaries()
-	if summaries[0].ID != q1.ID {
-		t.Error("wrong order")
+		tracker.Complete(receivedQueue)
 	}
 
-	tracker.Complete(receivedQueue)
-
-	time.Sleep(1 * time.Second)
-
-	mu.Lock()
-	if !allJobRegistered {
-		t.Error("second job not registered")
-	}
-	mu.Unlock()
-
-	receivedQueue = <-tracker.NextQueue()
-	if receivedQueue.ID != q2.ID {
-		t.Error("wrong order")
-	}
-
-	summaries = tracker.CurrentSummaries()
-	if summaries[0].ID != q2.ID {
-		t.Error("wrong order")
-	}
+	wg.Wait()
 }
 
 func TestJobWorking(t *testing.T) {
