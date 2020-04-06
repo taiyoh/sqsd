@@ -3,7 +3,7 @@ module github.com/taiyoh/sqsd
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.30.0
+	github.com/aws/aws-sdk-go v1.30.5
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fukata/golang-stats-api-handler v1.0.0
 	github.com/hashicorp/logutils v1.0.0
