@@ -1,4 +1,4 @@
-FROM golang:1.13.8-buster AS sqsd-builder
+FROM golang:1.14.2-buster AS sqsd-builder
 
 ADD . /app
 WORKDIR /app
