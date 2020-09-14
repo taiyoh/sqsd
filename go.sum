@@ -6,6 +6,8 @@ github.com/aws/aws-sdk-go v1.32.2 h1:X5/tQ4cuqCCUZgeOh41WFh9Eq5xe32JzWe4PSE2i1ME
 github.com/aws/aws-sdk-go v1.32.2/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
 github.com/aws/aws-sdk-go v1.34.14 h1:G0jUdSDSp63P0oo/N3c/ldo7s8mYW3Kh/GPIJ+oESVQ=
 github.com/aws/aws-sdk-go v1.34.14/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
+github.com/aws/aws-sdk-go v1.34.23 h1:ZUqMEJRjQUpZNA/OOhFmjWtWxD3n8XbOrC5rC1djl5s=
+github.com/aws/aws-sdk-go v1.34.23/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fukata/golang-stats-api-handler v1.0.0 h1:N6M25vhs1yAvwGBpFY6oBmMOZeJdcWnvA+wej8pKeko=
