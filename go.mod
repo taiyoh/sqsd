@@ -3,7 +3,7 @@ module github.com/taiyoh/sqsd
 go 1.14
 
 require (
-	github.com/aws/aws-sdk-go v1.34.14
+	github.com/aws/aws-sdk-go v1.34.28
 	github.com/fukata/golang-stats-api-handler v1.0.0
 	github.com/hashicorp/logutils v1.0.0
 	github.com/kelseyhightower/envconfig v1.4.0
