@@ -9,6 +9,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 )
 
+// Task has current working job.
 type Task struct {
 	id        string
 	receipt   string
@@ -36,10 +37,12 @@ func NewConsumer(invoker Invoker, gateway *actor.PID, parallel int) *Consumer {
 	}
 }
 
+// NewQueueActor returns property for QueueReceiver actor.
 func (csm *Consumer) NewQueueActor() *actor.Props {
 	return actor.PropsFromFunc(csm.queueReceiver)
 }
 
+// NewMonitorActor returns property for MonitoringReceiver actor.
 func (csm *Consumer) NewMonitorActor() *actor.Props {
 	return actor.PropsFromFunc(csm.monitoringReceiver)
 }
@@ -62,6 +65,7 @@ func (csm *Consumer) stop() {
 	csm.cancel = nil
 }
 
+// CurrentWorkingsMessage is message which MonitoringReceiver actor receives.
 type CurrentWorkingsMessage struct{}
 
 func (csm *Consumer) monitoringReceiver(c actor.Context) {
