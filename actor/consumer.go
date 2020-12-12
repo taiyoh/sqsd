@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/log"
 )
 
 // Task has current working job.
@@ -94,16 +95,17 @@ func (csm *Consumer) queueReceiver(c actor.Context) {
 		csm.setup(x.Queue)
 		go func(q Queue) {
 			defer csm.free(q)
-			switch csm.invoker.Invoke(csm.ctx, q) {
+			switch err := csm.invoker.Invoke(csm.ctx, q); err {
 			case nil:
 				c.Send(csm.gateway, &RemoveQueueMessage{
 					Queue:  q,
 					Sender: c.Self(),
 				})
-				return
 			default:
-				// TODO: logging
-				return
+				logger.Error("failed to invoke",
+					log.Error(err),
+					log.String("queue_id", q.ID),
+				)
 			}
 		}(x.Queue)
 		c.Respond(struct{}{})
