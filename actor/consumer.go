@@ -36,13 +36,13 @@ func NewConsumer(invoker Invoker, gateway *actor.PID, parallel int) *Consumer {
 	}
 }
 
-// NewQueueActor returns property for QueueReceiver actor.
-func (csm *Consumer) NewQueueActor() *actor.Props {
+// NewQueueActorProps returns properties for QueueReceiver actor.
+func (csm *Consumer) NewQueueActorProps() *actor.Props {
 	return actor.PropsFromFunc(csm.queueReceiver)
 }
 
-// NewMonitorActor returns property for MonitoringReceiver actor.
-func (csm *Consumer) NewMonitorActor() *actor.Props {
+// NewMonitorActorProps returns properties for MonitoringReceiver actor.
+func (csm *Consumer) NewMonitorActorProps() *actor.Props {
 	return actor.PropsFromFunc(csm.monitoringReceiver)
 }
 
