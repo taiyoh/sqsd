@@ -36,8 +36,8 @@ func TestConsumer(t *testing.T) {
 	gw := &dummyGatewayActor{}
 	gateway := sys.Root.Spawn(actor.PropsFromFunc(gw.Receive))
 	consumer := NewConsumer(testInvoker(testInvokerFn), gateway, 1)
-	queueActor := sys.Root.Spawn(consumer.NewQueueActor())
-	monitorActor := sys.Root.Spawn(consumer.NewMonitorActor())
+	queueActor := sys.Root.Spawn(consumer.NewQueueActorProps())
+	monitorActor := sys.Root.Spawn(consumer.NewMonitorActorProps())
 
 	go func() {
 		for i := 1; i <= 8; i++ {

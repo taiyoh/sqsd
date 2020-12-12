@@ -16,18 +16,24 @@ import (
 type Fetcher struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
+	parallel int
 	queueURL string
 	queue    *sqs.SQS
 	mu       sync.Mutex
 }
 
-// NewFetcherGroup returns parallelized Fetcher actor which is provided as BroadcastGroup.
-func NewFetcherGroup(queue *sqs.SQS, qURL string, parallel int) *actor.Props {
-	fetcher := &Fetcher{
+// NewFetcher returns Fetcher object.
+func NewFetcher(queue *sqs.SQS, qURL string, parallel int) *Fetcher {
+	return &Fetcher{
 		queueURL: qURL,
 		queue:    queue,
+		parallel: parallel,
 	}
-	return router.NewBroadcastPool(parallel).WithFunc(fetcher.Receive)
+}
+
+// NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
+func (f *Fetcher) NewBroadcastPool() *actor.Props {
+	return router.NewBroadcastPool(f.parallel).WithFunc(f.receive)
 }
 
 // SuccessRetrieveQueuesMessage brings Queues to message producer.
@@ -45,8 +51,8 @@ type StopGateway struct {
 	Sender *actor.PID
 }
 
-// Receive receives actor messages.
-func (f *Fetcher) Receive(c actor.Context) {
+// receive receives actor messages.
+func (f *Fetcher) receive(c actor.Context) {
 	switch x := c.Message().(type) {
 	case *StartGateway:
 		f.mu.Lock()
@@ -107,15 +113,21 @@ func (f *Fetcher) fetch(ctx context.Context) ([]Queue, error) {
 type Remover struct {
 	queueURL string
 	queue    *sqs.SQS
+	parallel int
 }
 
-// NewRemoverGroup reeturns parallelized Remover actor which is provided as RoundRobinGroup.
-func NewRemoverGroup(queue *sqs.SQS, qURL string, parallel int) *actor.Props {
-	remover := &Remover{
+// NewRemover reeturns Remover object.
+func NewRemover(queue *sqs.SQS, qURL string, parallel int) *Remover {
+	return &Remover{
 		queueURL: qURL,
 		queue:    queue,
+		parallel: parallel,
 	}
-	return router.NewRoundRobinPool(parallel).WithFunc(remover.Receive)
+}
+
+// NewRemoverGroup returns parallelized Remover properties which is provided as RoundRobinGroup.
+func (r *Remover) NewRoundRobinGroup() *actor.Props {
+	return router.NewRoundRobinPool(r.parallel).WithFunc(r.receive)
 }
 
 // RemoveQueuesMessage brings Queue to remove from SQS.
@@ -124,13 +136,13 @@ type RemoveQueueMessage struct {
 	Queue  Queue
 }
 
+// RemoveQueueResultMessage is message for deleting message from SQS.
 type RemoveQueueResultMessage struct {
 	Queue Queue
 	Err   error
 }
 
-// Receive receives actor messages.
-func (r *Remover) Receive(c actor.Context) {
+func (r *Remover) receive(c actor.Context) {
 	switch x := c.Message().(type) {
 	case *RemoveQueueMessage:
 		var err error
