@@ -98,7 +98,7 @@ func (csm *Consumer) queueReceiver(c actor.Context) {
 			switch err := csm.invoker.Invoke(csm.ctx, q); err {
 			case nil:
 				c.Send(csm.gateway, &RemoveQueueMessage{
-					Queue:  q,
+					Queue:  q.ResultSucceeded(),
 					Sender: c.Self(),
 				})
 			default:
