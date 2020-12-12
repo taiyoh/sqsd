@@ -10,7 +10,6 @@ install:
 
 test:
 	go test -v -race -timeout 30s
-	go vet
 
 PKGDIR=pkg/v$(GIT_VERSION)
 DISTDIR=$(PKGDIR)/dist
