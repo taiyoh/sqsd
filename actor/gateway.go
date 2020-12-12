@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/log"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -63,7 +64,7 @@ func (f *Fetcher) Receive(c actor.Context) {
 					if err == context.Canceled {
 						return
 					}
-					// TODO: logging
+					logger.Error("failed to fetch from SQS", log.Error(err))
 				}
 				if len(queues) > 0 {
 					_ = c.RequestFuture(sender, &SuccessRetrieveQueuesMessage{Queues: queues}, -1).Wait()
