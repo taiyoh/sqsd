@@ -24,8 +24,6 @@ type Consumer struct {
 	stack   chan struct{}
 	invoker Invoker
 	gateway *actor.PID
-	ctx     context.Context
-	cancel  context.CancelFunc
 }
 
 // NewConsumer returns Consumer actor Prop.
@@ -53,19 +51,6 @@ type PostQueue struct {
 	Queue Queue
 }
 
-func (csm *Consumer) start() {
-	csm.mu.Lock()
-	defer csm.mu.Unlock()
-	csm.ctx, csm.cancel = context.WithCancel(context.Background())
-}
-
-func (csm *Consumer) stop() {
-	csm.mu.Lock()
-	defer csm.mu.Unlock()
-	csm.cancel()
-	csm.cancel = nil
-}
-
 // CurrentWorkingsMessage is message which MonitoringReceiver actor receives.
 type CurrentWorkingsMessage struct{}
 
@@ -87,15 +72,11 @@ func (csm *Consumer) monitoringReceiver(c actor.Context) {
 
 func (csm *Consumer) queueReceiver(c actor.Context) {
 	switch x := c.Message().(type) {
-	case *actor.Started:
-		csm.start()
-	case *actor.Stopping:
-		csm.stop()
 	case *PostQueue:
 		csm.setup(x.Queue)
 		go func(q Queue) {
 			defer csm.free(q)
-			switch err := csm.invoker.Invoke(csm.ctx, q); err {
+			switch err := csm.invoker.Invoke(context.Background(), q); err {
 			case nil:
 				c.Send(csm.gateway, &RemoveQueueMessage{
 					Queue:  q.ResultSucceeded(),
