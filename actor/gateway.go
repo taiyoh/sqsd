@@ -136,6 +136,7 @@ type RemoveQueueMessage struct {
 	Queue  Queue
 }
 
+// RemoveQueueResultMessage is message for deleting message from SQS.
 type RemoveQueueResultMessage struct {
 	Queue Queue
 	Err   error
