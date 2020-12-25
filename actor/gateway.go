@@ -47,9 +47,7 @@ type StartGateway struct {
 }
 
 // StopGateway is operation message for stopping requesting to SQS.
-type StopGateway struct {
-	Sender *actor.PID
-}
+type StopGateway struct{}
 
 // receive receives actor messages.
 func (f *Fetcher) receive(c actor.Context) {
