@@ -9,6 +9,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/log"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
@@ -65,7 +66,7 @@ func (f *Fetcher) receive(c actor.Context) {
 			for {
 				queues, err := f.fetch(f.ctx)
 				if err != nil {
-					if err == context.Canceled {
+					if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
 						return
 					}
 					logger.Error("failed to fetch from SQS", log.Error(err))
