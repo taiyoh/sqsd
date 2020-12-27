@@ -74,19 +74,19 @@ func (csm *Consumer) queueReceiver(c actor.Context) {
 	switch x := c.Message().(type) {
 	case *PostQueue:
 		csm.setup(x.Queue)
+		msgID := log.String("message_id", x.Queue.ID)
+		logger.Debug("start invoking.", msgID)
 		go func(q Queue) {
 			defer csm.free(q)
 			switch err := csm.invoker.Invoke(context.Background(), q); err {
 			case nil:
+				logger.Debug("succeeded to invoke.", msgID)
 				c.Send(csm.gateway, &RemoveQueueMessage{
 					Queue:  q.ResultSucceeded(),
 					Sender: c.Self(),
 				})
 			default:
-				logger.Error("failed to invoke",
-					log.Error(err),
-					log.String("queue_id", q.ID),
-				)
+				logger.Error("failed to invoke.", log.Error(err), msgID)
 			}
 		}(x.Queue)
 		c.Respond(struct{}{})

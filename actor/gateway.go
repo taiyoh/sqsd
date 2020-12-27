@@ -67,7 +67,7 @@ func (f *Fetcher) receive(c actor.Context) {
 					logger.Error("failed to fetch from SQS", log.Error(err))
 				}
 				if l := len(queues); l > 0 {
-					logger.Debug("caught messages", log.Int("length", l))
+					logger.Debug("caught messages.", log.Int("length", l))
 					for _, msg := range queues {
 						_ = c.RequestFuture(sender, &PostQueue{Queue: msg}, -1).Wait()
 					}
@@ -151,9 +151,11 @@ func (r *Remover) receive(c actor.Context) {
 			})
 			cancel()
 			if err == nil {
+				logger.Debug("succeeded to remove message.", log.String("message_id", x.Queue.ID))
 				c.Send(x.Sender, &RemoveQueueResultMessage{Queue: x.Queue})
 				return
 			}
+			time.Sleep(time.Second)
 		}
 		c.Send(x.Sender, &RemoveQueueResultMessage{Err: err, Queue: x.Queue})
 	}
