@@ -1,26 +1,16 @@
 package sqsd
 
 import (
-	"os"
-
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/log"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 )
 
-var logger *log.Logger
+var logger = log.New(log.InfoLevel, "[sqsd]")
 
-func init() {
-	levelMap := map[string]log.Level{
-		"debug": log.DebugLevel,
-		"info":  log.InfoLevel,
-		"error": log.ErrorLevel,
-	}
-	l := log.InfoLevel
-	if ll, ok := os.LookupEnv("LOG_LEVEL"); ok {
-		lll, ok := levelMap[ll]
-		if !ok {
-			panic("invalid LOG_LEVEL")
-		}
-		l = lll
-	}
-	logger = log.New(l, "")
+// SetLogLevel set supplied log.Level in actor, mailbox and our logger.
+func SetLogLevel(l log.Level) {
+	actor.SetLogLevel(l)
+	mailbox.SetLogLevel(l)
+	logger.SetLevel(l)
 }

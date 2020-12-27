@@ -9,6 +9,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/log"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
@@ -36,11 +37,6 @@ func (f *Fetcher) NewBroadcastPool() *actor.Props {
 	return router.NewBroadcastPool(f.parallel).WithFunc(f.receive)
 }
 
-// SuccessRetrieveQueuesMessage brings Queues to message producer.
-type SuccessRetrieveQueuesMessage struct {
-	Queues []Queue
-}
-
 // StartGateway is operation message for starting requesting to SQS.
 type StartGateway struct {
 	Sender *actor.PID
@@ -65,13 +61,16 @@ func (f *Fetcher) receive(c actor.Context) {
 			for {
 				queues, err := f.fetch(f.ctx)
 				if err != nil {
-					if err == context.Canceled {
+					if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
 						return
 					}
 					logger.Error("failed to fetch from SQS", log.Error(err))
 				}
-				if len(queues) > 0 {
-					_ = c.RequestFuture(sender, &SuccessRetrieveQueuesMessage{Queues: queues}, -1).Wait()
+				if l := len(queues); l > 0 {
+					logger.Debug("caught messages.", log.Int("length", l))
+					for _, msg := range queues {
+						_ = c.RequestFuture(sender, &PostQueue{Queue: msg}, -1).Wait()
+					}
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
@@ -152,9 +151,11 @@ func (r *Remover) receive(c actor.Context) {
 			})
 			cancel()
 			if err == nil {
+				logger.Debug("succeeded to remove message.", log.String("message_id", x.Queue.ID))
 				c.Send(x.Sender, &RemoveQueueResultMessage{Queue: x.Queue})
 				return
 			}
+			time.Sleep(time.Second)
 		}
 		c.Send(x.Sender, &RemoveQueueResultMessage{Err: err, Queue: x.Queue})
 	}

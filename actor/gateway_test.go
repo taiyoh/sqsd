@@ -21,8 +21,8 @@ type testQueueReceiver struct {
 
 func (r *testQueueReceiver) Receive(c actor.Context) {
 	switch x := c.Message().(type) {
-	case *SuccessRetrieveQueuesMessage:
-		r.received = append(r.received, x.Queues...)
+	case *PostQueue:
+		r.received = append(r.received, x.Queue)
 		if len(r.received) >= 33 {
 			r.completed <- struct{}{}
 		}
