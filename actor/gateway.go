@@ -37,11 +37,6 @@ func (f *Fetcher) NewBroadcastPool() *actor.Props {
 	return router.NewBroadcastPool(f.parallel).WithFunc(f.receive)
 }
 
-// SuccessRetrieveQueuesMessage brings Queues to message producer.
-type SuccessRetrieveQueuesMessage struct {
-	Queues []Queue
-}
-
 // StartGateway is operation message for starting requesting to SQS.
 type StartGateway struct {
 	Sender *actor.PID
@@ -71,8 +66,11 @@ func (f *Fetcher) receive(c actor.Context) {
 					}
 					logger.Error("failed to fetch from SQS", log.Error(err))
 				}
-				if len(queues) > 0 {
-					_ = c.RequestFuture(sender, &SuccessRetrieveQueuesMessage{Queues: queues}, -1).Wait()
+				if l := len(queues); l > 0 {
+					logger.Debug("caught messages", log.Int("length", l))
+					for _, msg := range queues {
+						_ = c.RequestFuture(sender, &PostQueue{Queue: msg}, -1).Wait()
+					}
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
