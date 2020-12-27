@@ -18,7 +18,6 @@ import (
 )
 
 type args struct {
-	endpoint        string
 	rawURL          string
 	queueURL        string
 	dur             time.Duration
@@ -40,7 +39,9 @@ func main() {
 
 	queue := sqs.New(
 		session.Must(session.NewSession()),
-		aws.NewConfig().WithEndpoint(args.endpoint),
+		aws.NewConfig().
+			WithEndpoint(os.Getenv("SQS_ENDPOINT_URL")).
+			WithRegion(os.Getenv("AWS_REGION")),
 	)
 
 	f := sqsd.NewFetcher(queue, args.queueURL, args.fetcherParallel)
@@ -96,10 +97,11 @@ func main() {
 	wg.Wait()
 
 	logger.Info("end process")
+
+	time.Sleep(time.Second)
 }
 
 func parse() args {
-	endpoint := os.Getenv("SQS_ENDPOINT")
 	rawURL := mustGetenv("INVOKER_URL")
 	queueURL := mustGetenv("QUEUE_URL")
 	defaultTimeOutSeconds := defaultIntGetEnv("DEFAULT_INVOKER_TIMEOUT_SECONDS", 60)
@@ -121,7 +123,6 @@ func parse() args {
 	}
 
 	return args{
-		endpoint:        endpoint,
 		rawURL:          rawURL,
 		queueURL:        queueURL,
 		dur:             time.Duration(defaultTimeOutSeconds) * time.Second,
