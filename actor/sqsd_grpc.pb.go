@@ -62,7 +62,7 @@ type UnsafeMonitoringServiceServer interface {
 }
 
 func RegisterMonitoringServiceServer(s grpc.ServiceRegistrar, srv MonitoringServiceServer) {
-	s.RegisterService(&_MonitoringService_serviceDesc, srv)
+	s.RegisterService(&MonitoringService_ServiceDesc, srv)
 }
 
 func _MonitoringService_CurrentWorkings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -83,7 +83,10 @@ func _MonitoringService_CurrentWorkings_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
-var _MonitoringService_serviceDesc = grpc.ServiceDesc{
+// MonitoringService_ServiceDesc is the grpc.ServiceDesc for MonitoringService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var MonitoringService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "sqsd.MonitoringService",
 	HandlerType: (*MonitoringServiceServer)(nil),
 	Methods: []grpc.MethodDesc{

@@ -17,6 +17,5 @@ message Task {
 message CurrentWorkingsResponse { repeated Task tasks = 1; }
 
 service MonitoringService {
-  rpc CurrentWorkings(CurrentWorkingsRequest)
-      returns(CurrentWorkingsResponse){};
+  rpc CurrentWorkings(CurrentWorkingsRequest) returns(CurrentWorkingsResponse);
 }
