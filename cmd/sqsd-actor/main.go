@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	plog "log"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	sqsd "github.com/taiyoh/sqsd/actor"
+	"google.golang.org/grpc"
 )
 
 type args struct {
@@ -23,6 +28,7 @@ type args struct {
 	dur             time.Duration
 	fetcherParallel int
 	invokerParallel int
+	monitoringPort  int
 	logLevel        log.Level
 }
 
@@ -34,7 +40,7 @@ func main() {
 
 	ivk, err := sqsd.NewHTTPInvoker(args.rawURL, args.dur)
 	if err != nil {
-		panic(err)
+		plog.Fatal(err)
 	}
 
 	queue := sqs.New(
@@ -56,6 +62,13 @@ func main() {
 		WithMailbox(mailbox.Bounded(args.fetcherParallel + 10)))
 	monitor := as.Root.Spawn(c.NewMonitorActorProps())
 
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", args.monitoringPort))
+	if err != nil {
+		plog.Fatalf("failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	sqsd.RegisterMonitoringServiceServer(grpcServer, sqsd.NewMonitoringService(as.Root, monitor))
+
 	logger := log.New(args.logLevel, "[sqsd-main]")
 
 	logger.Info("start process")
@@ -71,28 +84,41 @@ func main() {
 		Sender: consumer,
 	})
 
-	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGINT)
-	wg.Add(1)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGINT)
 		sig := <-sigCh
 		logger.Info("signal caught. stopping worker...", log.Object("signal", sig))
-		as.Root.Send(fetcher, &sqsd.StopGateway{})
-		for {
-			res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessage{}, -1).Result()
-			if err != nil {
-				logger.Error("failed to retrieve current_workings", log.Error(err))
-				panic(err)
-			}
-			if tasks := res.([]*sqsd.Task); len(tasks) == 0 {
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
+		cancel()
+		grpcServer.GracefulStop()
 	}()
+	go func() {
+		defer wg.Done()
+		logger.Info("gRPC server start.")
+		if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+			plog.Fatal(err)
+		}
+		logger.Info("gRPC server closed.")
+	}()
+
+	<-ctx.Done()
+	as.Root.Send(fetcher, &sqsd.StopGateway{})
+	for {
+		res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessage{}, -1).Result()
+		if err != nil {
+			plog.Fatalf("failed to retrieve current_workings: %v", err)
+		}
+		if tasks := res.([]*sqsd.Task); len(tasks) == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	wg.Wait()
 
@@ -107,6 +133,7 @@ func parse() args {
 	defaultTimeOutSeconds := defaultIntGetEnv("DEFAULT_INVOKER_TIMEOUT_SECONDS", 60)
 	fetcherParallel := defaultIntGetEnv("FETCHER_PARALLEL_COUNT", 1)
 	invokerParallel := defaultIntGetEnv("INVOKER_PARALLEL_COUNT", 1)
+	monitoringPort := defaultIntGetEnv("MONITORING_PORT", 6969)
 
 	levelMap := map[string]log.Level{
 		"debug": log.DebugLevel,
@@ -128,6 +155,7 @@ func parse() args {
 		dur:             time.Duration(defaultTimeOutSeconds) * time.Second,
 		fetcherParallel: fetcherParallel,
 		invokerParallel: invokerParallel,
+		monitoringPort:  monitoringPort,
 		logLevel:        l,
 	}
 }
