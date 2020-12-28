@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	sqsd "github.com/taiyoh/sqsd/actor"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type args struct {
@@ -68,6 +69,8 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 	sqsd.RegisterMonitoringServiceServer(grpcServer, sqsd.NewMonitoringService(as.Root, monitor))
+	// Register reflection service on gRPC server.
+	reflection.Register(grpcServer)
 
 	logger := log.New(args.logLevel, "[sqsd-main]")
 
@@ -96,11 +99,11 @@ func main() {
 		sig := <-sigCh
 		logger.Info("signal caught. stopping worker...", log.Object("signal", sig))
 		cancel()
-		grpcServer.GracefulStop()
+		grpcServer.Stop()
 	}()
 	go func() {
 		defer wg.Done()
-		logger.Info("gRPC server start.")
+		logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
 		if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
 			plog.Fatal(err)
 		}
