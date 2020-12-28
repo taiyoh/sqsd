@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package sqsd;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "actor;sqsd";
+
+message CurrentWorkingsRequest {}
+
+message Task {
+  string id = 1;
+  string receipt = 2;
+  google.protobuf.Timestamp started_at = 3;
+}
+
+message CurrentWorkingsResponse { repeated Task tasks = 1; }
+
+service MonitoringService {
+  rpc CurrentWorkings(CurrentWorkingsRequest)
+      returns(CurrentWorkingsResponse){};
+}

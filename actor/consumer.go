@@ -8,14 +8,8 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/log"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-// Task has current working job.
-type Task struct {
-	id        string
-	receipt   string
-	startedAt time.Time
-}
 
 // Consumer manages Invoker's invokation from receiving queues.
 type Consumer struct {
@@ -64,7 +58,7 @@ func (csm *Consumer) monitoringReceiver(c actor.Context) {
 			tasks = append(tasks, tsk)
 		}
 		sort.Slice(tasks, func(i, j int) bool {
-			return tasks[i].startedAt.Before(tasks[j].startedAt)
+			return tasks[i].StartedAt.AsTime().Before(tasks[j].StartedAt.AsTime())
 		})
 		c.Respond(tasks)
 	}
@@ -98,9 +92,9 @@ func (csm *Consumer) setup(q Queue) {
 	csm.mu.Lock()
 	defer csm.mu.Unlock()
 	csm.working[q.ID] = &Task{
-		id:        q.ID,
-		receipt:   q.Receipt,
-		startedAt: time.Now(),
+		Id:        q.ID,
+		Receipt:   q.Receipt,
+		StartedAt: timestamppb.New(time.Now()),
 	}
 }
 

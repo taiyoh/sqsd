@@ -56,7 +56,7 @@ func TestConsumer(t *testing.T) {
 		tasks, ok := res.([]*Task)
 		assert.True(t, ok)
 		assert.Len(t, tasks, 1)
-		assert.Equal(t, tasks[0].id, q.ID)
+		assert.Equal(t, tasks[0].Id, q.ID)
 		nextCh <- struct{}{}
 	}
 }
