@@ -47,8 +47,8 @@ func TestFetcherAndRemover(t *testing.T) {
 	rcv := &testQueueReceiver{completed: make(chan struct{})}
 	rcvPID := sys.Root.Spawn(actor.PropsFromFunc(rcv.Receive))
 
-	f := NewFetcher(queue, queueURL, 1)
-	fetcher := sys.Root.Spawn(f.NewBroadcastPool())
+	g := NewGateway(queue, queueURL, 1)
+	fetcher := sys.Root.Spawn(g.NewFetcherGroup())
 
 	rcv.fetcher = fetcher
 
@@ -67,8 +67,7 @@ func TestFetcherAndRemover(t *testing.T) {
 
 	assert.Len(t, rcv.received, 33)
 
-	r := NewRemover(queue, queueURL, 33)
-	remover := sys.Root.Spawn(r.NewRoundRobinGroup())
+	remover := sys.Root.Spawn(g.NewRemoverGroup())
 
 	removeRcv := &removeMessageReceiver{
 		size:      len(rcv.received),

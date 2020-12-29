@@ -13,8 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
-// Fetcher fetches job queues from SQS.
-type Fetcher struct {
+// Gateway fetches and removes jobs from SQS.
+type Gateway struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	parallel int
@@ -23,9 +23,9 @@ type Fetcher struct {
 	mu       sync.Mutex
 }
 
-// NewFetcher returns Fetcher object.
-func NewFetcher(queue *sqs.SQS, qURL string, parallel int) *Fetcher {
-	return &Fetcher{
+// NewGateway returns Gateway object.
+func NewGateway(queue *sqs.SQS, qURL string, parallel int) *Gateway {
+	return &Gateway{
 		queueURL: qURL,
 		queue:    queue,
 		parallel: parallel,
@@ -33,8 +33,8 @@ func NewFetcher(queue *sqs.SQS, qURL string, parallel int) *Fetcher {
 }
 
 // NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
-func (f *Fetcher) NewBroadcastPool() *actor.Props {
-	return router.NewBroadcastPool(f.parallel).WithFunc(f.receive)
+func (f *Gateway) NewFetcherGroup() *actor.Props {
+	return router.NewBroadcastPool(f.parallel).WithFunc(f.receiveForFetcher)
 }
 
 // StartGateway is operation message for starting requesting to SQS.
@@ -42,24 +42,21 @@ type StartGateway struct {
 	Sender *actor.PID
 }
 
-// StopGateway is operation message for stopping requesting to SQS.
-type StopGateway struct{}
-
-// receive receives actor messages.
-func (f *Fetcher) receive(c actor.Context) {
+// receiveForFetcher receives actor messages.
+func (g *Gateway) receiveForFetcher(c actor.Context) {
 	switch x := c.Message().(type) {
 	case *StartGateway:
-		f.mu.Lock()
-		if f.cancel != nil {
-			f.mu.Unlock()
+		g.mu.Lock()
+		if g.cancel != nil {
+			g.mu.Unlock()
 			return
 		}
-		f.ctx, f.cancel = context.WithCancel(context.Background())
-		f.mu.Unlock()
+		g.ctx, g.cancel = context.WithCancel(context.Background())
+		g.mu.Unlock()
 		sender := x.Sender
 		go func() {
 			for {
-				queues, err := f.fetch(f.ctx)
+				queues, err := g.fetch(g.ctx)
 				if err != nil {
 					if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
 						return
@@ -75,15 +72,15 @@ func (f *Fetcher) receive(c actor.Context) {
 				time.Sleep(100 * time.Millisecond)
 			}
 		}()
-	case *actor.Stopping, *StopGateway:
-		f.mu.Lock()
-		f.cancel()
-		f.cancel = nil
-		f.mu.Unlock()
+	case *actor.Stopping:
+		g.mu.Lock()
+		g.cancel()
+		g.cancel = nil
+		g.mu.Unlock()
 	}
 }
 
-func (f *Fetcher) fetch(ctx context.Context) ([]Queue, error) {
+func (f *Gateway) fetch(ctx context.Context) ([]Queue, error) {
 	out, err := f.queue.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            &f.queueURL,
 		MaxNumberOfMessages: aws.Int64(10),
@@ -106,25 +103,9 @@ func (f *Fetcher) fetch(ctx context.Context) ([]Queue, error) {
 	return queues, nil
 }
 
-// Remover removes message from SQS.
-type Remover struct {
-	queueURL string
-	queue    *sqs.SQS
-	parallel int
-}
-
-// NewRemover reeturns Remover object.
-func NewRemover(queue *sqs.SQS, qURL string, parallel int) *Remover {
-	return &Remover{
-		queueURL: qURL,
-		queue:    queue,
-		parallel: parallel,
-	}
-}
-
 // NewRemoverGroup returns parallelized Remover properties which is provided as RoundRobinGroup.
-func (r *Remover) NewRoundRobinGroup() *actor.Props {
-	return router.NewRoundRobinPool(r.parallel).WithFunc(r.receive)
+func (r *Gateway) NewRemoverGroup() *actor.Props {
+	return router.NewRoundRobinPool(r.parallel).WithFunc(r.receiveForRemover)
 }
 
 // RemoveQueuesMessage brings Queue to remove from SQS.
@@ -139,14 +120,14 @@ type RemoveQueueResultMessage struct {
 	Err   error
 }
 
-func (r *Remover) receive(c actor.Context) {
+func (g *Gateway) receiveForRemover(c actor.Context) {
 	switch x := c.Message().(type) {
 	case *RemoveQueueMessage:
 		var err error
 		for i := 0; i < 16; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
-				QueueUrl:      &r.queueURL,
+			_, err = g.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
+				QueueUrl:      &g.queueURL,
 				ReceiptHandle: &x.Queue.Receipt,
 			})
 			cancel()

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	plog "log"
 	"net"
@@ -51,11 +50,10 @@ func main() {
 			WithRegion(os.Getenv("AWS_REGION")),
 	)
 
-	f := sqsd.NewFetcher(queue, args.queueURL, args.fetcherParallel)
-	r := sqsd.NewRemover(queue, args.queueURL, args.fetcherParallel)
+	gw := sqsd.NewGateway(queue, args.queueURL, args.fetcherParallel)
 
-	fetcher := as.Root.Spawn(f.NewBroadcastPool())
-	remover := as.Root.Spawn(r.NewRoundRobinGroup().
+	fetcher := as.Root.Spawn(gw.NewFetcherGroup())
+	remover := as.Root.Spawn(gw.NewRemoverGroup().
 		WithMailbox(mailbox.Bounded(args.fetcherParallel * 100)))
 
 	c := sqsd.NewConsumer(ivk, remover, args.fetcherParallel)
@@ -87,20 +85,8 @@ func main() {
 		Sender: consumer,
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGINT)
-		sig := <-sigCh
-		logger.Info("signal caught. stopping worker...", log.Object("signal", sig))
-		cancel()
-		grpcServer.Stop()
-	}()
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
@@ -110,8 +96,14 @@ func main() {
 		logger.Info("gRPC server closed.")
 	}()
 
-	<-ctx.Done()
-	as.Root.Send(fetcher, &sqsd.StopGateway{})
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-sigCh
+	logger.Info("signal caught. stopping worker...", log.Object("signal", sig))
+	grpcServer.Stop()
+
+	as.Root.Stop(fetcher)
+
 	for {
 		res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessage{}, -1).Result()
 		if err != nil {
