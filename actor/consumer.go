@@ -52,11 +52,11 @@ func (csm *Consumer) monitoringReceiver(c actor.Context) {
 	switch c.Message().(type) {
 	case *CurrentWorkingsMessage:
 		csm.mu.Lock()
-		defer csm.mu.Unlock()
 		tasks := make([]*Task, 0, len(csm.working))
 		for _, tsk := range csm.working {
 			tasks = append(tasks, tsk)
 		}
+		csm.mu.Unlock()
 		sort.Slice(tasks, func(i, j int) bool {
 			return tasks[i].StartedAt.AsTime().Before(tasks[j].StartedAt.AsTime())
 		})
