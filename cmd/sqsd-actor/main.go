@@ -70,16 +70,7 @@ func main() {
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
 
-	logger := log.New(args.logLevel, "[sqsd-main]")
-
-	logger.Info("start process")
-	logger.Info("queue settings",
-		log.String("url", args.queueURL),
-		log.Int("parallel", args.fetcherParallel))
-	logger.Info("invoker settings",
-		log.String("url", args.rawURL),
-		log.Int("parallel", args.invokerParallel),
-		log.Duration("timeout", args.dur))
+	logger := initLogger(args)
 
 	as.Root.Send(fetcher, &sqsd.StartGateway{
 		Sender: consumer,
@@ -197,4 +188,19 @@ func runGRPCServer(grpcServer *grpc.Server, port int, wg *sync.WaitGroup, logger
 		plog.Fatal(err)
 	}
 	logger.Info("gRPC server closed.")
+}
+
+func initLogger(args args) *log.Logger {
+	logger := log.New(args.logLevel, "[sqsd-main]")
+
+	logger.Info("start process")
+	logger.Info("queue settings",
+		log.String("url", args.queueURL),
+		log.Int("parallel", args.fetcherParallel))
+	logger.Info("invoker settings",
+		log.String("url", args.rawURL),
+		log.Int("parallel", args.invokerParallel),
+		log.Duration("timeout", args.dur))
+
+	return logger
 }
