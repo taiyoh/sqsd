@@ -55,7 +55,9 @@ func main() {
 		plog.Fatal(err)
 	}
 
-	gw := sqsd.NewGateway(queue, args.queueURL, args.fetcherParallel, int64(args.dur.Seconds()+10))
+	gw := sqsd.NewGateway(queue, args.queueURL,
+		sqsd.GatewayParallel(args.fetcherParallel),
+		sqsd.GatewayVisibilityTimeout(args.dur+(10*time.Second)))
 
 	fetcher := as.Root.Spawn(gw.NewFetcherGroup())
 	remover := as.Root.Spawn(gw.NewRemoverGroup().

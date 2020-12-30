@@ -24,14 +24,35 @@ type Gateway struct {
 	mu       sync.Mutex
 }
 
+// GatewayParameter sets parameter in Gateway.
+type GatewayParameter func(*Gateway)
+
+// GatewayParallel sets parallel size in Gateway.
+func GatewayParallel(p int) GatewayParameter {
+	return func(g *Gateway) {
+		g.parallel = p
+	}
+}
+
+// GatewayVisibilityTimeout sets visibility timeout in Gateway to receive messages from SQS.
+func GatewayVisibilityTimeout(d time.Duration) GatewayParameter {
+	return func(g *Gateway) {
+		g.timeout = int64(d.Seconds())
+	}
+}
+
 // NewGateway returns Gateway object.
-func NewGateway(queue *sqs.SQS, qURL string, parallel int, vto int64) *Gateway {
-	return &Gateway{
+func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
+	gw := &Gateway{
 		queueURL: qURL,
 		queue:    queue,
-		parallel: parallel,
-		timeout:  vto,
+		parallel: 1,
+		timeout:  30, // default SQS settings
 	}
+	for _, fn := range fns {
+		fn(gw)
+	}
+	return gw
 }
 
 // NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
