@@ -15,7 +15,6 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/log"
-	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -55,15 +54,15 @@ func main() {
 		plog.Fatal(err)
 	}
 
-	gw := sqsd.NewGateway(queue, args.queueURL, args.fetcherParallel)
+	gw := sqsd.NewGateway(queue, args.queueURL,
+		sqsd.GatewayParallel(args.fetcherParallel),
+		sqsd.GatewayVisibilityTimeout(args.dur+(10*time.Second)))
 
 	fetcher := as.Root.Spawn(gw.NewFetcherGroup())
-	remover := as.Root.Spawn(gw.NewRemoverGroup().
-		WithMailbox(mailbox.Bounded(args.fetcherParallel * 100)))
+	remover := as.Root.Spawn(gw.NewRemoverGroup())
 
-	c := sqsd.NewConsumer(ivk, remover, args.fetcherParallel)
-	consumer := as.Root.Spawn(c.NewQueueActorProps().
-		WithMailbox(mailbox.Bounded(args.fetcherParallel + 10)))
+	c := sqsd.NewConsumer(ivk, remover, args.invokerParallel)
+	consumer := as.Root.Spawn(c.NewQueueActorProps())
 	monitor := as.Root.Spawn(c.NewMonitorActorProps())
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", args.monitoringPort))

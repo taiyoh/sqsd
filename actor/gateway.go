@@ -7,6 +7,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/log"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -20,16 +21,39 @@ type Gateway struct {
 	parallel int
 	queueURL string
 	queue    *sqs.SQS
+	timeout  int64
 	mu       sync.Mutex
 }
 
+// GatewayParameter sets parameter in Gateway.
+type GatewayParameter func(*Gateway)
+
+// GatewayParallel sets parallel size in Gateway.
+func GatewayParallel(p int) GatewayParameter {
+	return func(g *Gateway) {
+		g.parallel = p
+	}
+}
+
+// GatewayVisibilityTimeout sets visibility timeout in Gateway to receive messages from SQS.
+func GatewayVisibilityTimeout(d time.Duration) GatewayParameter {
+	return func(g *Gateway) {
+		g.timeout = int64(d.Seconds())
+	}
+}
+
 // NewGateway returns Gateway object.
-func NewGateway(queue *sqs.SQS, qURL string, parallel int) *Gateway {
-	return &Gateway{
+func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
+	gw := &Gateway{
 		queueURL: qURL,
 		queue:    queue,
-		parallel: parallel,
+		parallel: 1,
+		timeout:  30, // default SQS settings
 	}
+	for _, fn := range fns {
+		fn(gw)
+	}
+	return gw
 }
 
 // NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
@@ -85,6 +109,7 @@ func (f *Gateway) fetch(ctx context.Context) ([]Queue, error) {
 		QueueUrl:            &f.queueURL,
 		MaxNumberOfMessages: aws.Int64(10),
 		WaitTimeSeconds:     aws.Int64(20),
+		VisibilityTimeout:   aws.Int64(f.timeout),
 	})
 	if err != nil {
 		return nil, err
@@ -105,7 +130,9 @@ func (f *Gateway) fetch(ctx context.Context) ([]Queue, error) {
 
 // NewRemoverGroup returns parallelized Remover properties which is provided as RoundRobinGroup.
 func (r *Gateway) NewRemoverGroup() *actor.Props {
-	return router.NewRoundRobinPool(r.parallel).WithFunc(r.receiveForRemover)
+	return router.NewRoundRobinPool(r.parallel).
+		WithFunc(r.receiveForRemover).
+		WithMailbox(mailbox.Bounded(r.parallel * 100))
 }
 
 // RemoveQueuesMessage brings Queue to remove from SQS.
