@@ -7,6 +7,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/log"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -129,7 +130,9 @@ func (f *Gateway) fetch(ctx context.Context) ([]Queue, error) {
 
 // NewRemoverGroup returns parallelized Remover properties which is provided as RoundRobinGroup.
 func (r *Gateway) NewRemoverGroup() *actor.Props {
-	return router.NewRoundRobinPool(r.parallel).WithFunc(r.receiveForRemover)
+	return router.NewRoundRobinPool(r.parallel).
+		WithFunc(r.receiveForRemover).
+		WithMailbox(mailbox.Bounded(r.parallel * 100))
 }
 
 // RemoveQueuesMessage brings Queue to remove from SQS.

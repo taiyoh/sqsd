@@ -8,6 +8,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/log"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -32,7 +33,8 @@ func NewConsumer(invoker Invoker, gateway *actor.PID, parallel int) *Consumer {
 
 // NewQueueActorProps returns properties for QueueReceiver actor.
 func (csm *Consumer) NewQueueActorProps() *actor.Props {
-	return actor.PropsFromFunc(csm.queueReceiver)
+	parallel := cap(csm.stack)
+	return actor.PropsFromFunc(csm.queueReceiver).WithMailbox(mailbox.Bounded(parallel + 10))
 }
 
 // NewMonitorActorProps returns properties for MonitoringReceiver actor.
