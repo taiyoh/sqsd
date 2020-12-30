@@ -20,15 +20,17 @@ type Gateway struct {
 	parallel int
 	queueURL string
 	queue    *sqs.SQS
+	timeout  int64
 	mu       sync.Mutex
 }
 
 // NewGateway returns Gateway object.
-func NewGateway(queue *sqs.SQS, qURL string, parallel int) *Gateway {
+func NewGateway(queue *sqs.SQS, qURL string, parallel int, vto int64) *Gateway {
 	return &Gateway{
 		queueURL: qURL,
 		queue:    queue,
 		parallel: parallel,
+		timeout:  vto,
 	}
 }
 
@@ -85,6 +87,7 @@ func (f *Gateway) fetch(ctx context.Context) ([]Queue, error) {
 		QueueUrl:            &f.queueURL,
 		MaxNumberOfMessages: aws.Int64(10),
 		WaitTimeSeconds:     aws.Int64(20),
+		VisibilityTimeout:   aws.Int64(f.timeout),
 	})
 	if err != nil {
 		return nil, err

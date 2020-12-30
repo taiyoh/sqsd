@@ -55,7 +55,7 @@ func main() {
 		plog.Fatal(err)
 	}
 
-	gw := sqsd.NewGateway(queue, args.queueURL, args.fetcherParallel)
+	gw := sqsd.NewGateway(queue, args.queueURL, args.fetcherParallel, int64(args.dur.Seconds()+10))
 
 	fetcher := as.Root.Spawn(gw.NewFetcherGroup())
 	remover := as.Root.Spawn(gw.NewRemoverGroup().
