@@ -122,6 +122,10 @@ func main() {
 
 	wg.Wait()
 
+	as.Root.Poison(monitor)
+	as.Root.Poison(consumer)
+	as.Root.Poison(remover)
+
 	logger.Info("end process")
 
 	time.Sleep(500 * time.Millisecond)
