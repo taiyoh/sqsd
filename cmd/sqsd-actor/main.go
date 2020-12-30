@@ -61,7 +61,7 @@ func main() {
 	fetcher := as.Root.Spawn(gw.NewFetcherGroup())
 	remover := as.Root.Spawn(gw.NewRemoverGroup())
 
-	c := sqsd.NewConsumer(ivk, remover, args.fetcherParallel)
+	c := sqsd.NewConsumer(ivk, remover, args.invokerParallel)
 	consumer := as.Root.Spawn(c.NewQueueActorProps())
 	monitor := as.Root.Spawn(c.NewMonitorActorProps())
 
