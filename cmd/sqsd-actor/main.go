@@ -1,11 +1,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	plog "log"
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -17,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/joho/godotenv"
 	sqsd "github.com/taiyoh/sqsd/actor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -33,15 +36,10 @@ type args struct {
 }
 
 func main() {
-	as := actor.NewActorSystem()
+	loadEnvFromFile()
 
 	args := parse()
 	sqsd.SetLogLevel(args.logLevel)
-
-	ivk, err := sqsd.NewHTTPInvoker(args.rawURL, args.dur)
-	if err != nil {
-		plog.Fatal(err)
-	}
 
 	queue := sqs.New(
 		session.Must(session.NewSession()),
@@ -49,6 +47,13 @@ func main() {
 			WithEndpoint(os.Getenv("SQS_ENDPOINT_URL")).
 			WithRegion(os.Getenv("AWS_REGION")),
 	)
+
+	as := actor.NewActorSystem()
+
+	ivk, err := sqsd.NewHTTPInvoker(args.rawURL, args.dur)
+	if err != nil {
+		plog.Fatal(err)
+	}
 
 	gw := sqsd.NewGateway(queue, args.queueURL, args.fetcherParallel)
 
@@ -102,8 +107,6 @@ func main() {
 	logger.Info("signal caught. stopping worker...", log.Object("signal", sig))
 	grpcServer.Stop()
 
-	as.Root.Stop(fetcher)
-
 	for {
 		res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessage{}, -1).Result()
 		if err != nil {
@@ -119,7 +122,7 @@ func main() {
 
 	logger.Info("end process")
 
-	time.Sleep(time.Second)
+	time.Sleep(500 * time.Millisecond)
 }
 
 func parse() args {
@@ -152,6 +155,21 @@ func parse() args {
 		invokerParallel: invokerParallel,
 		monitoringPort:  monitoringPort,
 		logLevel:        l,
+	}
+}
+
+var cwd, _ = os.Getwd()
+
+func loadEnvFromFile() {
+	var env string
+	flag.StringVar(&env, "f", "", "envfile path")
+	flag.Parse()
+
+	if env == "" {
+		return
+	}
+	if err := godotenv.Load(filepath.Join(cwd, env)); err != nil {
+		plog.Fatal(err)
 	}
 }
 
