@@ -65,10 +65,6 @@ func main() {
 	consumer := as.Root.Spawn(c.NewQueueActorProps())
 	monitor := as.Root.Spawn(c.NewMonitorActorProps())
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", args.monitoringPort))
-	if err != nil {
-		plog.Fatalf("failed to listen: %v", err)
-	}
 	grpcServer := grpc.NewServer()
 	sqsd.RegisterMonitoringServiceServer(grpcServer, sqsd.NewMonitoringService(as.Root, monitor))
 	// Register reflection service on gRPC server.
@@ -91,14 +87,7 @@ func main() {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
-		if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
-			plog.Fatal(err)
-		}
-		logger.Info("gRPC server closed.")
-	}()
+	go runGRPCServer(grpcServer, args.monitoringPort, &wg, logger)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGINT)
@@ -195,4 +184,17 @@ func defaultIntGetEnv(key string, defaultVal int) int {
 		panic(err)
 	}
 	return int(i)
+}
+
+func runGRPCServer(grpcServer *grpc.Server, port int, wg *sync.WaitGroup, logger *log.Logger) {
+	defer wg.Done()
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		plog.Fatalf("failed to listen: %v", err)
+	}
+	logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
+	if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+		plog.Fatal(err)
+	}
+	logger.Info("gRPC server closed.")
 }
