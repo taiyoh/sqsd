@@ -107,6 +107,8 @@ func main() {
 	logger.Info("signal caught. stopping worker...", log.Object("signal", sig))
 	grpcServer.Stop()
 
+	as.Root.Stop(fetcher)
+
 	for {
 		res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessage{}, -1).Result()
 		if err != nil {
