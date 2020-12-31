@@ -61,7 +61,7 @@ func TestHTTPInvoker(t *testing.T) {
 				Status: tt.status,
 				Sleep:  time.Duration(tt.sleep) * time.Millisecond,
 			})
-			err := i.Invoke(context.Background(), Queue{
+			err := i.Invoke(context.Background(), Message{
 				Payload: string(b),
 			})
 			if tt.expectedErr {

@@ -44,7 +44,7 @@ func (csm *Consumer) NewMonitorActorProps() *actor.Props {
 
 // PostQueue represents message that Consumer receives when Queue posted.
 type PostQueue struct {
-	Queue Queue
+	Queue Message
 }
 
 // CurrentWorkingsMessage is message which MonitoringReceiver actor receives.
@@ -72,7 +72,7 @@ func (csm *Consumer) queueReceiver(c actor.Context) {
 		csm.setup(x.Queue)
 		msgID := log.String("message_id", x.Queue.ID)
 		logger.Debug("start invoking.", msgID)
-		go func(q Queue) {
+		go func(q Message) {
 			defer csm.free(q)
 			switch err := csm.invoker.Invoke(context.Background(), q); err {
 			case nil:
@@ -89,7 +89,7 @@ func (csm *Consumer) queueReceiver(c actor.Context) {
 	}
 }
 
-func (csm *Consumer) setup(q Queue) {
+func (csm *Consumer) setup(q Message) {
 	csm.stack <- struct{}{}
 	csm.mu.Lock()
 	defer csm.mu.Unlock()
@@ -100,7 +100,7 @@ func (csm *Consumer) setup(q Queue) {
 	}
 }
 
-func (csm *Consumer) free(q Queue) {
+func (csm *Consumer) free(q Message) {
 	csm.mu.Lock()
 	defer csm.mu.Unlock()
 	delete(csm.working, q.ID)

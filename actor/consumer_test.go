@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type testInvoker func(context.Context, Queue) error
+type testInvoker func(context.Context, Message) error
 
-func (f testInvoker) Invoke(ctx context.Context, q Queue) error {
+func (f testInvoker) Invoke(ctx context.Context, q Message) error {
 	return f(ctx, q)
 }
 
@@ -24,10 +24,10 @@ func (a *dummyGatewayActor) Receive(c actor.Context) {
 func TestConsumer(t *testing.T) {
 	sys := actor.NewActorSystem()
 
-	rcvCh := make(chan Queue, 100)
+	rcvCh := make(chan Message, 100)
 	nextCh := make(chan struct{}, 100)
 
-	testInvokerFn := func(ctx context.Context, q Queue) error {
+	testInvokerFn := func(ctx context.Context, q Message) error {
 		rcvCh <- q
 		<-nextCh
 		return nil
@@ -41,7 +41,7 @@ func TestConsumer(t *testing.T) {
 
 	go func() {
 		for i := 1; i <= 8; i++ {
-			q := Queue{
+			q := Message{
 				ID:      fmt.Sprintf("queue_id_%d", i),
 				Receipt: fmt.Sprintf("queue_receipt_%d", i),
 			}

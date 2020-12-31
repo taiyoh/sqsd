@@ -106,7 +106,7 @@ func (g *fetcher) receive(c actor.Context) {
 	}
 }
 
-func (f *fetcher) fetch(ctx context.Context) ([]Queue, error) {
+func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 	out, err := f.queue.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            &f.queueURL,
 		MaxNumberOfMessages: aws.Int64(10),
@@ -117,9 +117,9 @@ func (f *fetcher) fetch(ctx context.Context) ([]Queue, error) {
 		return nil, err
 	}
 	receivedAt := time.Now().UTC()
-	queues := make([]Queue, 0, len(out.Messages))
+	queues := make([]Message, 0, len(out.Messages))
 	for _, msg := range out.Messages {
-		queues = append(queues, Queue{
+		queues = append(queues, Message{
 			ID:           *msg.MessageId,
 			Payload:      *msg.Body,
 			Receipt:      *msg.ReceiptHandle,
@@ -151,12 +151,12 @@ func (g *Gateway) NewRemoverGroup() *actor.Props {
 // RemoveQueuesMessage brings Queue to remove from SQS.
 type RemoveQueueMessage struct {
 	Sender *actor.PID
-	Queue  Queue
+	Queue  Message
 }
 
 // RemoveQueueResultMessage is message for deleting message from SQS.
 type RemoveQueueResultMessage struct {
-	Queue Queue
+	Queue Message
 	Err   error
 }
 

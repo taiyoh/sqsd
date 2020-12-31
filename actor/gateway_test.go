@@ -15,7 +15,7 @@ import (
 
 type testQueueReceiver struct {
 	fetcher   *actor.PID
-	received  []Queue
+	received  []Message
 	completed chan struct{}
 }
 
