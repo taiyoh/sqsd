@@ -147,13 +147,17 @@ var cwd, _ = os.Getwd()
 
 func loadEnvFromFile() {
 	var env string
-	flag.StringVar(&env, "f", "", "envfile path")
+	flag.StringVar(&env, "e", "", "envfile path")
 	flag.Parse()
 
 	if env == "" {
 		return
 	}
-	if err := godotenv.Load(filepath.Join(cwd, env)); err != nil {
+	fp := filepath.Join(cwd, env)
+	if _, err := os.Stat(fp); err != nil {
+		fp = env
+	}
+	if err := godotenv.Load(fp); err != nil {
 		plog.Fatal(err)
 	}
 }
