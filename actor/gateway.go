@@ -2,7 +2,6 @@ package sqsd
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -16,13 +15,10 @@ import (
 
 // Gateway fetches and removes jobs from SQS.
 type Gateway struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
 	parallel int
 	queueURL string
 	queue    *sqs.SQS
 	timeout  int64
-	mu       sync.Mutex
 }
 
 // GatewayParameter sets parameter in Gateway.
@@ -56,9 +52,25 @@ func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
 	return gw
 }
 
+type fetcher struct {
+	ctx      context.Context
+	cancel   context.CancelFunc
+	queue    *sqs.SQS
+	queueURL string
+	timeout  int64
+}
+
 // NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
-func (f *Gateway) NewFetcherGroup() *actor.Props {
-	return router.NewBroadcastPool(f.parallel).WithFunc(f.receiveForFetcher)
+func (g *Gateway) NewFetcherGroup() *actor.Props {
+	ctx, cancel := context.WithCancel(context.Background())
+	f := &fetcher{
+		ctx:      ctx,
+		cancel:   cancel,
+		queue:    g.queue,
+		queueURL: g.queueURL,
+		timeout:  g.timeout,
+	}
+	return router.NewBroadcastPool(g.parallel).WithFunc(f.receive)
 }
 
 // StartGateway is operation message for starting requesting to SQS.
@@ -66,17 +78,10 @@ type StartGateway struct {
 	Sender *actor.PID
 }
 
-// receiveForFetcher receives actor messages.
-func (g *Gateway) receiveForFetcher(c actor.Context) {
+// receive receives actor messages.
+func (g *fetcher) receive(c actor.Context) {
 	switch x := c.Message().(type) {
 	case *StartGateway:
-		g.mu.Lock()
-		if g.cancel != nil {
-			g.mu.Unlock()
-			return
-		}
-		g.ctx, g.cancel = context.WithCancel(context.Background())
-		g.mu.Unlock()
 		sender := x.Sender
 		go func() {
 			for {
@@ -97,14 +102,11 @@ func (g *Gateway) receiveForFetcher(c actor.Context) {
 			}
 		}()
 	case *actor.Stopping:
-		g.mu.Lock()
 		g.cancel()
-		g.cancel = nil
-		g.mu.Unlock()
 	}
 }
 
-func (f *Gateway) fetch(ctx context.Context) ([]Queue, error) {
+func (f *fetcher) fetch(ctx context.Context) ([]Queue, error) {
 	out, err := f.queue.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            &f.queueURL,
 		MaxNumberOfMessages: aws.Int64(10),
@@ -128,11 +130,22 @@ func (f *Gateway) fetch(ctx context.Context) ([]Queue, error) {
 	return queues, nil
 }
 
+type remover struct {
+	queue    *sqs.SQS
+	queueURL string
+	timeout  int64
+}
+
 // NewRemoverGroup returns parallelized Remover properties which is provided as RoundRobinGroup.
-func (r *Gateway) NewRemoverGroup() *actor.Props {
-	return router.NewRoundRobinPool(r.parallel).
-		WithFunc(r.receiveForRemover).
-		WithMailbox(mailbox.Bounded(r.parallel * 100))
+func (g *Gateway) NewRemoverGroup() *actor.Props {
+	r := &remover{
+		queue:    g.queue,
+		queueURL: g.queueURL,
+		timeout:  g.timeout,
+	}
+	return router.NewRoundRobinPool(g.parallel).
+		WithFunc(r.receive).
+		WithMailbox(mailbox.Bounded(g.parallel * 100))
 }
 
 // RemoveQueuesMessage brings Queue to remove from SQS.
@@ -147,14 +160,14 @@ type RemoveQueueResultMessage struct {
 	Err   error
 }
 
-func (g *Gateway) receiveForRemover(c actor.Context) {
+func (r *remover) receive(c actor.Context) {
 	switch x := c.Message().(type) {
 	case *RemoveQueueMessage:
 		var err error
 		for i := 0; i < 16; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			_, err = g.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
-				QueueUrl:      &g.queueURL,
+			_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
+				QueueUrl:      &r.queueURL,
 				ReceiptHandle: &x.Queue.Receipt,
 			})
 			cancel()
