@@ -95,7 +95,7 @@ func (g *fetcher) receive(c actor.Context) {
 				if l := len(queues); l > 0 {
 					logger.Debug("caught messages.", log.Int("length", l))
 					for _, msg := range queues {
-						_ = c.RequestFuture(sender, &PostQueue{Queue: msg}, -1).Wait()
+						_ = c.RequestFuture(sender, &PostQueueMessage{Message: msg}, -1).Wait()
 					}
 				}
 				time.Sleep(100 * time.Millisecond)
@@ -150,8 +150,8 @@ func (g *Gateway) NewRemoverGroup() *actor.Props {
 
 // RemoveQueuesMessage brings Queue to remove from SQS.
 type RemoveQueueMessage struct {
-	Sender *actor.PID
-	Queue  Message
+	Sender  *actor.PID
+	Message Message
 }
 
 // RemoveQueueResultMessage is message for deleting message from SQS.
@@ -168,16 +168,16 @@ func (r *remover) receive(c actor.Context) {
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 			_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
 				QueueUrl:      &r.queueURL,
-				ReceiptHandle: &x.Queue.Receipt,
+				ReceiptHandle: &x.Message.Receipt,
 			})
 			cancel()
 			if err == nil {
-				logger.Debug("succeeded to remove message.", log.String("message_id", x.Queue.ID))
-				c.Send(x.Sender, &RemoveQueueResultMessage{Queue: x.Queue})
+				logger.Debug("succeeded to remove message.", log.String("message_id", x.Message.ID))
+				c.Send(x.Sender, &RemoveQueueResultMessage{Queue: x.Message})
 				return
 			}
 			time.Sleep(time.Second)
 		}
-		c.Send(x.Sender, &RemoveQueueResultMessage{Err: err, Queue: x.Queue})
+		c.Send(x.Sender, &RemoveQueueResultMessage{Err: err, Queue: x.Message})
 	}
 }

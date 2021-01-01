@@ -89,7 +89,7 @@ func main() {
 	as.Root.Stop(fetcher)
 
 	for {
-		res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessage{}, -1).Result()
+		res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessages{}, -1).Result()
 		if err != nil {
 			plog.Fatalf("failed to retrieve current_workings: %v", err)
 		}

@@ -45,13 +45,13 @@ func TestConsumer(t *testing.T) {
 				ID:      fmt.Sprintf("queue_id_%d", i),
 				Receipt: fmt.Sprintf("queue_receipt_%d", i),
 			}
-			sys.Root.RequestFuture(queueActor, &PostQueue{Queue: q}, -1).Wait()
+			sys.Root.RequestFuture(queueActor, &PostQueueMessage{Message: q}, -1).Wait()
 		}
 	}()
 
 	for i := 1; i <= 8; i++ {
 		q := <-rcvCh
-		res, err := sys.Root.RequestFuture(monitorActor, &CurrentWorkingsMessage{}, -1).Result()
+		res, err := sys.Root.RequestFuture(monitorActor, &CurrentWorkingsMessages{}, -1).Result()
 		assert.NoError(t, err)
 		tasks, ok := res.([]*Task)
 		assert.True(t, ok)

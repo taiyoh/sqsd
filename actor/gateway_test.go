@@ -21,8 +21,8 @@ type testQueueReceiver struct {
 
 func (r *testQueueReceiver) Receive(c actor.Context) {
 	switch x := c.Message().(type) {
-	case *PostQueue:
-		r.received = append(r.received, x.Queue)
+	case *PostQueueMessage:
+		r.received = append(r.received, x.Message)
 		if len(r.received) >= 33 {
 			r.completed <- struct{}{}
 		}
@@ -77,7 +77,7 @@ func TestFetcherAndRemover(t *testing.T) {
 
 	sys.Root.Send(remover, &StartGateway{})
 	for _, q := range rcv.received {
-		qm := &RemoveQueueMessage{Queue: q, Sender: removeRcvPID}
+		qm := &RemoveQueueMessage{Message: q, Sender: removeRcvPID}
 		sys.Root.Send(remover, qm)
 	}
 

@@ -42,17 +42,17 @@ func (csm *Consumer) NewMonitorActorProps() *actor.Props {
 	return actor.PropsFromFunc(csm.monitoringReceiver)
 }
 
-// PostQueue represents message that Consumer receives when Queue posted.
-type PostQueue struct {
-	Queue Message
+// PostQueueMessage represents message that Consumer receives when posted to queue.
+type PostQueueMessage struct {
+	Message Message
 }
 
-// CurrentWorkingsMessage is message which MonitoringReceiver actor receives.
-type CurrentWorkingsMessage struct{}
+// CurrentWorkingsMessages is message which MonitoringReceiver actor receives.
+type CurrentWorkingsMessages struct{}
 
 func (csm *Consumer) monitoringReceiver(c actor.Context) {
 	switch c.Message().(type) {
-	case *CurrentWorkingsMessage:
+	case *CurrentWorkingsMessages:
 		csm.mu.Lock()
 		tasks := make([]*Task, 0, len(csm.working))
 		for _, tsk := range csm.working {
@@ -68,9 +68,9 @@ func (csm *Consumer) monitoringReceiver(c actor.Context) {
 
 func (csm *Consumer) queueReceiver(c actor.Context) {
 	switch x := c.Message().(type) {
-	case *PostQueue:
-		csm.setup(x.Queue)
-		msgID := log.String("message_id", x.Queue.ID)
+	case *PostQueueMessage:
+		csm.setup(x.Message)
+		msgID := log.String("message_id", x.Message.ID)
 		logger.Debug("start invoking.", msgID)
 		go func(q Message) {
 			defer csm.free(q)
@@ -78,13 +78,13 @@ func (csm *Consumer) queueReceiver(c actor.Context) {
 			case nil:
 				logger.Debug("succeeded to invoke.", msgID)
 				c.Send(csm.gateway, &RemoveQueueMessage{
-					Queue:  q.ResultSucceeded(),
-					Sender: c.Self(),
+					Message: q.ResultSucceeded(),
+					Sender:  c.Self(),
 				})
 			default:
 				logger.Error("failed to invoke.", log.Error(err), msgID)
 			}
-		}(x.Queue)
+		}(x.Message)
 		c.Respond(struct{}{})
 	}
 }
