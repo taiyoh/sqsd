@@ -60,3 +60,71 @@ func TestConsumer(t *testing.T) {
 		nextCh <- struct{}{}
 	}
 }
+
+func TestDistributor(t *testing.T) {
+	sys := actor.NewActorSystem()
+	consumer := &Consumer{
+		capacity: 3,
+	}
+	d := sys.Root.Spawn(consumer.NewDistributorActorProps())
+
+	t.Run("distributor is running", func(t *testing.T) {
+		res, err := sys.Root.RequestFuture(d, &distributorCurrentStatus{}, -1).Result()
+		assert.NoError(t, err)
+		assert.Equal(t, distributorRunning, res)
+	})
+
+	t.Run("distributor is suspended", func(t *testing.T) {
+		var msgs []Message
+		for i := 1; i <= 20; i++ {
+			msgs = append(msgs, Message{
+				ID: fmt.Sprintf("id:%d", i),
+			})
+		}
+		sys.Root.Send(d, &postQueueMessages{
+			Messages: msgs,
+		})
+		res, err := sys.Root.RequestFuture(d, &distributorCurrentStatus{}, -1).Result()
+		assert.NoError(t, err)
+		assert.Equal(t, distributorSuspended, res)
+	})
+	t.Run("fetched but suspended", func(t *testing.T) {
+		res, err := sys.Root.RequestFuture(d, &fetchQueueMessages{Count: 10}, -1).Result()
+		assert.NoError(t, err)
+		msgs, ok := res.([]Message)
+		assert.True(t, ok)
+		assert.Len(t, msgs, 10)
+		for i, msg := range msgs {
+			id := fmt.Sprintf("id:%d", i+1)
+			assert.Equal(t, Message{ID: id}, msg)
+		}
+		res, err = sys.Root.RequestFuture(d, &distributorCurrentStatus{}, -1).Result()
+		assert.NoError(t, err)
+		assert.Equal(t, distributorSuspended, res)
+	})
+	t.Run("fetched then running", func(t *testing.T) {
+		res, err := sys.Root.RequestFuture(d, &fetchQueueMessages{Count: 5}, -1).Result()
+		assert.NoError(t, err)
+		msgs, ok := res.([]Message)
+		assert.True(t, ok)
+		assert.Len(t, msgs, 5)
+		for i, msg := range msgs {
+			id := fmt.Sprintf("id:%d", i+11)
+			assert.Equal(t, Message{ID: id}, msg)
+		}
+		res, err = sys.Root.RequestFuture(d, &distributorCurrentStatus{}, -1).Result()
+		assert.NoError(t, err)
+		assert.Equal(t, distributorRunning, res)
+	})
+	t.Run("fetched over", func(t *testing.T) {
+		res, err := sys.Root.RequestFuture(d, &fetchQueueMessages{Count: 100}, -1).Result()
+		assert.NoError(t, err)
+		msgs, ok := res.([]Message)
+		assert.True(t, ok)
+		assert.Len(t, msgs, 5)
+		for i, msg := range msgs {
+			id := fmt.Sprintf("id:%d", i+16)
+			assert.Equal(t, Message{ID: id}, msg)
+		}
+	})
+}
