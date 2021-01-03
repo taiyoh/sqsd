@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -89,6 +90,8 @@ func TestDistributor(t *testing.T) {
 
 func TestWorker(t *testing.T) {
 	sys := actor.NewActorSystem()
+	var mu sync.Mutex
+
 	rcvCh := make(chan Message, 100)
 	nextCh := make(chan struct{}, 100)
 	testInvokerFn := func(ctx context.Context, q Message) error {
@@ -131,7 +134,9 @@ func TestWorker(t *testing.T) {
 	}
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
 	assert.Equal(t, int64(3), removed)
+	mu.Unlock()
 
 	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
 	assert.NoError(t, err)
@@ -148,7 +153,9 @@ func TestWorker(t *testing.T) {
 	}
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
 	assert.Equal(t, int64(6), removed)
+	mu.Unlock()
 
 	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
 	assert.NoError(t, err)
@@ -165,7 +172,9 @@ func TestWorker(t *testing.T) {
 	}
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
 	assert.Equal(t, int64(9), removed)
+	mu.Unlock()
 
 	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
 	assert.NoError(t, err)
@@ -176,7 +185,9 @@ func TestWorker(t *testing.T) {
 	nextCh <- struct{}{}
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
 	assert.Equal(t, int64(10), removed)
+	mu.Unlock()
 
 	sys.Root.Stop(w)
 }
