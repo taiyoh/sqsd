@@ -19,52 +19,6 @@ func (f testInvoker) Invoke(ctx context.Context, q Message) error {
 	return f(ctx, q)
 }
 
-type dummyGatewayActor struct {
-}
-
-func (a *dummyGatewayActor) Receive(c actor.Context) {
-}
-
-func TestConsumer(t *testing.T) {
-	sys := actor.NewActorSystem()
-
-	rcvCh := make(chan Message, 100)
-	nextCh := make(chan struct{}, 100)
-
-	testInvokerFn := func(ctx context.Context, q Message) error {
-		rcvCh <- q
-		<-nextCh
-		return nil
-	}
-
-	gw := &dummyGatewayActor{}
-	gateway := sys.Root.Spawn(actor.PropsFromFunc(gw.Receive))
-	consumer := NewConsumer(testInvoker(testInvokerFn), gateway, 1)
-	queueActor := sys.Root.Spawn(consumer.NewQueueActorProps())
-	monitorActor := sys.Root.Spawn(consumer.NewMonitorActorProps())
-
-	go func() {
-		for i := 1; i <= 8; i++ {
-			q := Message{
-				ID:      fmt.Sprintf("queue_id_%d", i),
-				Receipt: fmt.Sprintf("queue_receipt_%d", i),
-			}
-			sys.Root.RequestFuture(queueActor, &PostQueueMessage{Message: q}, -1).Wait()
-		}
-	}()
-
-	for i := 1; i <= 8; i++ {
-		q := <-rcvCh
-		res, err := sys.Root.RequestFuture(monitorActor, &CurrentWorkingsMessages{}, -1).Result()
-		assert.NoError(t, err)
-		tasks, ok := res.([]*Task)
-		assert.True(t, ok)
-		assert.Len(t, tasks, 1)
-		assert.Equal(t, tasks[0].Id, q.ID)
-		nextCh <- struct{}{}
-	}
-}
-
 func TestDistributor(t *testing.T) {
 	sys := actor.NewActorSystem()
 	consumer := &Consumer{
@@ -135,10 +89,6 @@ func TestDistributor(t *testing.T) {
 
 func TestWorker(t *testing.T) {
 	sys := actor.NewActorSystem()
-	consumer := &Consumer{
-		capacity: 3,
-	}
-
 	rcvCh := make(chan Message, 100)
 	nextCh := make(chan struct{}, 100)
 	testInvokerFn := func(ctx context.Context, q Message) error {
@@ -146,6 +96,8 @@ func TestWorker(t *testing.T) {
 		<-nextCh
 		return nil
 	}
+	consumer := NewConsumer(testInvoker(testInvokerFn), 3)
+
 	d := sys.Root.Spawn(consumer.NewDistributorActorProps())
 	removed := int64(0)
 	r := sys.Root.Spawn(actor.PropsFromFunc(func(c actor.Context) {
@@ -154,9 +106,7 @@ func TestWorker(t *testing.T) {
 			atomic.AddInt64(&removed, 1)
 		}
 	}))
-	w := sys.Root.Spawn(consumer.NewWorkerActorProps(
-		testInvoker(testInvokerFn), d, r,
-	))
+	w := sys.Root.Spawn(consumer.NewWorkerActorProps(d, r))
 	msgs := make([]Message, 0, 10)
 	for i := 1; i <= 10; i++ {
 		msgs = append(msgs, Message{
