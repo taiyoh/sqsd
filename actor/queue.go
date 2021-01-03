@@ -14,8 +14,8 @@ const (
 	RequestFail
 )
 
-// Queue provides transition from sqs.Message
-type Queue struct {
+// Message provides transition from sqs.Message
+type Message struct {
 	ID           string
 	Payload      string
 	Receipt      string
@@ -24,14 +24,14 @@ type Queue struct {
 }
 
 // ResultSucceeded returns Queue has RequestSuccess status.
-func (q Queue) ResultSucceeded() Queue {
+func (q Message) ResultSucceeded() Message {
 	qq := q
 	qq.ResultStatus = RequestSuccess
 	return qq
 }
 
 // ResultFailed returns Queue has RequestFail status.
-func (q Queue) ResultFailed() Queue {
+func (q Message) ResultFailed() Message {
 	qq := q
 	qq.ResultStatus = RequestFail
 	return qq

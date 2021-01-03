@@ -25,7 +25,7 @@ func NewMonitoringService(ctx *actor.RootContext, consumer *actor.PID) *Monitori
 
 // CurrentWorkings handles CurrentWorkings grpc request using actor system.
 func (s *MonitoringService) CurrentWorkings(context.Context, *CurrentWorkingsRequest) (*CurrentWorkingsResponse, error) {
-	res, err := s.rootCtx.RequestFuture(s.consumer, &CurrentWorkingsMessage{}, -1).Result()
+	res, err := s.rootCtx.RequestFuture(s.consumer, &CurrentWorkingsMessages{}, -1).Result()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to fetch: %v", err)
 	}

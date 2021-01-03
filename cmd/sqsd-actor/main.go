@@ -58,47 +58,25 @@ func main() {
 		sqsd.GatewayParallel(args.fetcherParallel),
 		sqsd.GatewayVisibilityTimeout(args.dur+(10*time.Second)))
 
-	fetcher := as.Root.Spawn(gw.NewFetcherGroup())
+	c := sqsd.NewConsumer(ivk, args.invokerParallel)
+	distributor := as.Root.Spawn(c.NewDistributorActorProps())
+
 	remover := as.Root.Spawn(gw.NewRemoverGroup())
 
-	c := sqsd.NewConsumer(ivk, remover, args.invokerParallel)
-	consumer := as.Root.Spawn(c.NewQueueActorProps())
-	monitor := as.Root.Spawn(c.NewMonitorActorProps())
+	worker := as.Root.Spawn(c.NewWorkerActorProps(distributor, remover))
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", args.monitoringPort))
-	if err != nil {
-		plog.Fatalf("failed to listen: %v", err)
-	}
 	grpcServer := grpc.NewServer()
-	sqsd.RegisterMonitoringServiceServer(grpcServer, sqsd.NewMonitoringService(as.Root, monitor))
+	sqsd.RegisterMonitoringServiceServer(grpcServer, sqsd.NewMonitoringService(as.Root, worker))
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
 
-	logger := log.New(args.logLevel, "[sqsd-main]")
+	logger := initLogger(args)
 
-	logger.Info("start process")
-	logger.Info("queue settings",
-		log.String("url", args.queueURL),
-		log.Int("parallel", args.fetcherParallel))
-	logger.Info("invoker settings",
-		log.String("url", args.rawURL),
-		log.Int("parallel", args.invokerParallel),
-		log.Duration("timeout", args.dur))
-
-	as.Root.Send(fetcher, &sqsd.StartGateway{
-		Sender: consumer,
-	})
+	fetcher := as.Root.Spawn(gw.NewFetcherGroup(distributor))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
-		if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
-			plog.Fatal(err)
-		}
-		logger.Info("gRPC server closed.")
-	}()
+	go runGRPCServer(grpcServer, args.monitoringPort, &wg, logger)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGINT)
@@ -107,9 +85,10 @@ func main() {
 	grpcServer.Stop()
 
 	as.Root.Stop(fetcher)
+	as.Root.Stop(distributor)
 
 	for {
-		res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessage{}, -1).Result()
+		res, err := as.Root.RequestFuture(worker, &sqsd.CurrentWorkingsMessages{}, -1).Result()
 		if err != nil {
 			plog.Fatalf("failed to retrieve current_workings: %v", err)
 		}
@@ -121,8 +100,6 @@ func main() {
 
 	wg.Wait()
 
-	as.Root.Poison(monitor)
-	as.Root.Poison(consumer)
 	as.Root.Poison(remover)
 
 	logger.Info("end process")
@@ -167,13 +144,17 @@ var cwd, _ = os.Getwd()
 
 func loadEnvFromFile() {
 	var env string
-	flag.StringVar(&env, "f", "", "envfile path")
+	flag.StringVar(&env, "e", "", "envfile path")
 	flag.Parse()
 
 	if env == "" {
 		return
 	}
-	if err := godotenv.Load(filepath.Join(cwd, env)); err != nil {
+	fp := filepath.Join(cwd, env)
+	if _, err := os.Stat(fp); err != nil {
+		fp = env
+	}
+	if err := godotenv.Load(fp); err != nil {
 		plog.Fatal(err)
 	}
 }
@@ -195,4 +176,32 @@ func defaultIntGetEnv(key string, defaultVal int) int {
 		panic(err)
 	}
 	return int(i)
+}
+
+func runGRPCServer(grpcServer *grpc.Server, port int, wg *sync.WaitGroup, logger *log.Logger) {
+	defer wg.Done()
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		plog.Fatalf("failed to listen: %v", err)
+	}
+	logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
+	if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+		plog.Fatal(err)
+	}
+	logger.Info("gRPC server closed.")
+}
+
+func initLogger(args args) *log.Logger {
+	logger := log.New(args.logLevel, "[sqsd-main]")
+
+	logger.Info("start process")
+	logger.Info("queue settings",
+		log.String("url", args.queueURL),
+		log.Int("parallel", args.fetcherParallel))
+	logger.Info("invoker settings",
+		log.String("url", args.rawURL),
+		log.Int("parallel", args.invokerParallel),
+		log.Duration("timeout", args.dur))
+
+	return logger
 }

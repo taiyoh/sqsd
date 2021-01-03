@@ -14,7 +14,7 @@ import (
 
 // Invoker invokes worker process by any way.
 type Invoker interface {
-	Invoke(context.Context, Queue) error
+	Invoke(context.Context, Message) error
 }
 
 // HTTPInvoker invokes worker process by HTTP POST request.
@@ -37,7 +37,7 @@ func NewHTTPInvoker(rawurl string, dur time.Duration) (*HTTPInvoker, error) {
 }
 
 // Invoke run http request to assigned URL.
-func (ivk *HTTPInvoker) Invoke(ctx context.Context, q Queue) error {
+func (ivk *HTTPInvoker) Invoke(ctx context.Context, q Message) error {
 	buf := bytes.NewBuffer([]byte(q.Payload))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ivk.url, buf)
 	if err != nil {
