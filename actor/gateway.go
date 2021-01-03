@@ -2,6 +2,7 @@ package sqsd
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -53,22 +54,43 @@ func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
 }
 
 type fetcher struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	queue    *sqs.SQS
-	queueURL string
-	timeout  int64
+	mu                  sync.Mutex
+	cancel              context.CancelFunc
+	suspended           bool
+	distributorInterval time.Duration
+	fetcherInterval     time.Duration
+	queueURL            string
+	queue               *sqs.SQS
+	distributor         *actor.PID
+	timeout             int64
+}
+
+type FetcherParameter func(*fetcher)
+
+func FetcherDistributorInterval(d time.Duration) FetcherParameter {
+	return func(f *fetcher) {
+		f.distributorInterval = d
+	}
+}
+
+func FetcherInterval(d time.Duration) FetcherParameter {
+	return func(f *fetcher) {
+		f.fetcherInterval = d
+	}
 }
 
 // NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
-func (g *Gateway) NewFetcherGroup() *actor.Props {
-	ctx, cancel := context.WithCancel(context.Background())
+func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParameter) *actor.Props {
 	f := &fetcher{
-		ctx:      ctx,
-		cancel:   cancel,
-		queue:    g.queue,
-		queueURL: g.queueURL,
-		timeout:  g.timeout,
+		distributor:         distributor,
+		queue:               g.queue,
+		queueURL:            g.queueURL,
+		timeout:             g.timeout,
+		distributorInterval: time.Second,
+		fetcherInterval:     100 * time.Millisecond,
+	}
+	for _, fn := range fns {
+		fn(f)
 	}
 	return router.NewBroadcastPool(g.parallel).WithFunc(f.receive)
 }
@@ -79,30 +101,71 @@ type StartGateway struct {
 }
 
 // receive receives actor messages.
-func (g *fetcher) receive(c actor.Context) {
-	switch x := c.Message().(type) {
-	case *StartGateway:
-		sender := x.Sender
-		go func() {
-			for {
-				queues, err := g.fetch(g.ctx)
-				if err != nil {
-					if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
-						return
-					}
-					logger.Error("failed to fetch from SQS", log.Error(err))
-				}
-				if l := len(queues); l > 0 {
-					logger.Debug("caught messages.", log.Int("length", l))
-					for _, msg := range queues {
-						_ = c.RequestFuture(sender, &PostQueueMessage{Message: msg}, -1).Wait()
-					}
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-		}()
+func (f *fetcher) receive(c actor.Context) {
+	switch c.Message().(type) {
+	case *actor.Started:
+		ctx, cancel := context.WithCancel(context.Background())
+		f.mu.Lock()
+		f.cancel = cancel
+		f.mu.Unlock()
+		go f.watchDistributor(ctx, c)
+		go f.run(ctx, c)
 	case *actor.Stopping:
-		g.cancel()
+		f.cancel()
+	}
+}
+
+func (f *fetcher) run(ctx context.Context, c actor.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			f.mu.Lock()
+			suspended := f.suspended
+			f.mu.Unlock()
+			if suspended {
+				time.Sleep(f.fetcherInterval)
+				continue
+			}
+			messages, err := f.fetch(ctx)
+			if err != nil {
+				if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
+					return
+				}
+				logger.Error("failed to fetch from SQS", log.Error(err))
+			}
+			if l := len(messages); l > 0 {
+				logger.Debug("caught messages.", log.Int("length", l))
+				c.Send(f.distributor, &postQueueMessages{Messages: messages})
+			}
+			time.Sleep(f.fetcherInterval)
+		}
+	}
+}
+
+func (f *fetcher) watchDistributor(ctx context.Context, c actor.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			res, err := c.RequestFuture(f.distributor, &distributorCurrentStatus{}, -1).Result()
+			if err != nil {
+				logger.Error("failed to get distributor status.", log.Error(err))
+				time.Sleep(f.distributorInterval)
+				continue
+			}
+			f.mu.Lock()
+			switch status := res.(distributorStatus); {
+			case status == distributorSuspended && !f.suspended:
+				f.suspended = true
+			case status == distributorRunning && f.suspended:
+				f.suspended = false
+			}
+			f.mu.Unlock()
+			time.Sleep(f.distributorInterval)
+		}
 	}
 }
 
@@ -117,9 +180,9 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 		return nil, err
 	}
 	receivedAt := time.Now().UTC()
-	queues := make([]Message, 0, len(out.Messages))
+	messages := make([]Message, 0, len(out.Messages))
 	for _, msg := range out.Messages {
-		queues = append(queues, Message{
+		messages = append(messages, Message{
 			ID:           *msg.MessageId,
 			Payload:      *msg.Body,
 			Receipt:      *msg.ReceiptHandle,
@@ -127,7 +190,7 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 			ResultStatus: NotRequested,
 		})
 	}
-	return queues, nil
+	return messages, nil
 }
 
 type remover struct {
