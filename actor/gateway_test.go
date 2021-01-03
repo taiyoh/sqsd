@@ -15,7 +15,7 @@ import (
 )
 
 type testDistributorActor struct {
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	status   distributorStatus
 	captured []Message
 	size     int
@@ -38,6 +38,8 @@ func (d *testDistributorActor) Receive(c actor.Context) {
 			d.ch <- struct{}{}
 		}
 	case *distributorCurrentStatus:
+		d.mu.RLock()
+		defer d.mu.RUnlock()
 		c.Respond(d.status)
 	}
 }

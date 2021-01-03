@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -88,10 +87,28 @@ func TestDistributor(t *testing.T) {
 	})
 }
 
+type testDummyRemover struct {
+	mu      sync.RWMutex
+	removed int
+}
+
+func (r *testDummyRemover) Receive(c actor.Context) {
+	switch c.Message().(type) {
+	case *RemoveQueueMessage:
+		r.mu.Lock()
+		r.removed++
+		r.mu.Unlock()
+	}
+}
+
+func (r *testDummyRemover) RemovedCount() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.removed
+}
+
 func TestWorker(t *testing.T) {
 	sys := actor.NewActorSystem()
-	var mu sync.Mutex
-
 	rcvCh := make(chan Message, 100)
 	nextCh := make(chan struct{}, 100)
 	testInvokerFn := func(ctx context.Context, q Message) error {
@@ -102,13 +119,8 @@ func TestWorker(t *testing.T) {
 	consumer := NewConsumer(testInvoker(testInvokerFn), 3)
 
 	d := sys.Root.Spawn(consumer.NewDistributorActorProps())
-	removed := int64(0)
-	r := sys.Root.Spawn(actor.PropsFromFunc(func(c actor.Context) {
-		switch c.Message().(type) {
-		case *RemoveQueueMessage:
-			atomic.AddInt64(&removed, 1)
-		}
-	}))
+	ra := &testDummyRemover{}
+	r := sys.Root.Spawn(actor.PropsFromFunc(ra.Receive))
 	w := sys.Root.Spawn(consumer.NewWorkerActorProps(d, r))
 	msgs := make([]Message, 0, 10)
 	for i := 1; i <= 10; i++ {
@@ -134,9 +146,7 @@ func TestWorker(t *testing.T) {
 	}
 	time.Sleep(100 * time.Millisecond)
 
-	mu.Lock()
-	assert.Equal(t, int64(3), removed)
-	mu.Unlock()
+	assert.Equal(t, 3, ra.RemovedCount())
 
 	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
 	assert.NoError(t, err)
@@ -153,9 +163,7 @@ func TestWorker(t *testing.T) {
 	}
 	time.Sleep(100 * time.Millisecond)
 
-	mu.Lock()
-	assert.Equal(t, int64(6), removed)
-	mu.Unlock()
+	assert.Equal(t, 6, ra.RemovedCount())
 
 	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
 	assert.NoError(t, err)
@@ -172,9 +180,7 @@ func TestWorker(t *testing.T) {
 	}
 	time.Sleep(100 * time.Millisecond)
 
-	mu.Lock()
-	assert.Equal(t, int64(9), removed)
-	mu.Unlock()
+	assert.Equal(t, 9, ra.RemovedCount())
 
 	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
 	assert.NoError(t, err)
@@ -185,9 +191,7 @@ func TestWorker(t *testing.T) {
 	nextCh <- struct{}{}
 	time.Sleep(100 * time.Millisecond)
 
-	mu.Lock()
-	assert.Equal(t, int64(10), removed)
-	mu.Unlock()
+	assert.Equal(t, 10, ra.RemovedCount())
 
 	sys.Root.Stop(w)
 }
