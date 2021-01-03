@@ -182,6 +182,7 @@ func (w *worker) run(ctx context.Context, c actor.Context) {
 				StartedAt: timestamppb.New(time.Now()),
 			})
 			msgID := log.String("message_id", msg.ID)
+			logger.Debug("start to invoke.", msgID)
 			switch err := w.invoker.Invoke(context.Background(), msg); err {
 			case nil:
 				logger.Debug("succeeded to invoke.", msgID)

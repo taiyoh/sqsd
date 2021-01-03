@@ -58,23 +58,21 @@ func main() {
 		sqsd.GatewayParallel(args.fetcherParallel),
 		sqsd.GatewayVisibilityTimeout(args.dur+(10*time.Second)))
 
-	fetcher := as.Root.Spawn(gw.NewFetcherGroup())
+	c := sqsd.NewConsumer(ivk, args.invokerParallel)
+	distributor := as.Root.Spawn(c.NewDistributorActorProps())
+
 	remover := as.Root.Spawn(gw.NewRemoverGroup())
 
-	c := sqsd.NewConsumer(ivk, remover, args.invokerParallel)
-	consumer := as.Root.Spawn(c.NewQueueActorProps())
-	monitor := as.Root.Spawn(c.NewMonitorActorProps())
+	worker := as.Root.Spawn(c.NewWorkerActorProps(distributor, remover))
 
 	grpcServer := grpc.NewServer()
-	sqsd.RegisterMonitoringServiceServer(grpcServer, sqsd.NewMonitoringService(as.Root, monitor))
+	sqsd.RegisterMonitoringServiceServer(grpcServer, sqsd.NewMonitoringService(as.Root, worker))
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
 
 	logger := initLogger(args)
 
-	as.Root.Send(fetcher, &sqsd.StartGateway{
-		Sender: consumer,
-	})
+	fetcher := as.Root.Spawn(gw.NewFetcherGroup(distributor))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -87,9 +85,10 @@ func main() {
 	grpcServer.Stop()
 
 	as.Root.Stop(fetcher)
+	as.Root.Stop(distributor)
 
 	for {
-		res, err := as.Root.RequestFuture(monitor, &sqsd.CurrentWorkingsMessages{}, -1).Result()
+		res, err := as.Root.RequestFuture(worker, &sqsd.CurrentWorkingsMessages{}, -1).Result()
 		if err != nil {
 			plog.Fatalf("failed to retrieve current_workings: %v", err)
 		}
@@ -101,8 +100,6 @@ func main() {
 
 	wg.Wait()
 
-	as.Root.Poison(monitor)
-	as.Root.Poison(consumer)
 	as.Root.Poison(remover)
 
 	logger.Info("end process")
