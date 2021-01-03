@@ -3,7 +3,11 @@ package sqsd
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/stretchr/testify/assert"
@@ -127,4 +131,102 @@ func TestDistributor(t *testing.T) {
 			assert.Equal(t, Message{ID: id}, msg)
 		}
 	})
+}
+
+func TestWorker(t *testing.T) {
+	sys := actor.NewActorSystem()
+	consumer := &Consumer{
+		capacity: 3,
+	}
+
+	rcvCh := make(chan Message, 100)
+	nextCh := make(chan struct{}, 100)
+	testInvokerFn := func(ctx context.Context, q Message) error {
+		rcvCh <- q
+		<-nextCh
+		return nil
+	}
+	d := sys.Root.Spawn(consumer.NewDistributorActorProps())
+	removed := int64(0)
+	r := sys.Root.Spawn(actor.PropsFromFunc(func(c actor.Context) {
+		switch c.Message().(type) {
+		case *RemoveQueueMessage:
+			atomic.AddInt64(&removed, 1)
+		}
+	}))
+	w := sys.Root.Spawn(consumer.NewWorkerActorProps(
+		testInvoker(testInvokerFn), d, r,
+	))
+	msgs := make([]Message, 0, 10)
+	for i := 1; i <= 10; i++ {
+		msgs = append(msgs, Message{
+			ID: fmt.Sprintf("id:%d", i),
+		})
+	}
+	sys.Root.Send(d, &postQueueMessages{Messages: msgs})
+	time.Sleep(100 * time.Millisecond)
+
+	res, err := sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
+	assert.NoError(t, err)
+	tasks, ok := res.([]*Task)
+	assert.True(t, ok)
+	assert.Len(t, tasks, 3)
+	sort.Slice(tasks, func(i, j int) bool {
+		return strings.Compare(tasks[i].Id, tasks[j].Id) < 0
+	})
+	for i := 0; i < 3; i++ {
+		id := fmt.Sprintf("id:%d", i+1)
+		assert.Equal(t, id, tasks[i].Id)
+		nextCh <- struct{}{}
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	assert.Equal(t, int64(3), removed)
+
+	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
+	assert.NoError(t, err)
+	tasks, ok = res.([]*Task)
+	assert.True(t, ok)
+	assert.Len(t, tasks, 3)
+	sort.Slice(tasks, func(i, j int) bool {
+		return strings.Compare(tasks[i].Id, tasks[j].Id) < 0
+	})
+	for i := 0; i < 3; i++ {
+		id := fmt.Sprintf("id:%d", i+4)
+		assert.Equal(t, id, tasks[i].Id)
+		nextCh <- struct{}{}
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	assert.Equal(t, int64(6), removed)
+
+	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
+	assert.NoError(t, err)
+	tasks, ok = res.([]*Task)
+	assert.True(t, ok)
+	assert.Len(t, tasks, 3)
+	sort.Slice(tasks, func(i, j int) bool {
+		return strings.Compare(tasks[i].Id, tasks[j].Id) < 0
+	})
+	for i := 0; i < 3; i++ {
+		id := fmt.Sprintf("id:%d", i+7)
+		assert.Equal(t, id, tasks[i].Id)
+		nextCh <- struct{}{}
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	assert.Equal(t, int64(9), removed)
+
+	res, err = sys.Root.RequestFuture(w, &CurrentWorkingsMessages{}, -1).Result()
+	assert.NoError(t, err)
+	tasks, ok = res.([]*Task)
+	assert.True(t, ok)
+	assert.Len(t, tasks, 1)
+	assert.Equal(t, "id:10", tasks[0].Id)
+	nextCh <- struct{}{}
+	time.Sleep(100 * time.Millisecond)
+
+	assert.Equal(t, int64(10), removed)
+
+	sys.Root.Stop(w)
 }

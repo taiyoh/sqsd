@@ -192,3 +192,90 @@ func (d *distributor) currentStatus() distributorStatus {
 	}
 	return distributorRunning
 }
+
+type worker struct {
+	mu          sync.Mutex
+	workings    sync.Map
+	distributor *actor.PID
+	remover     *actor.PID
+	invoker     Invoker
+	capacity    int
+	cancel      context.CancelFunc
+}
+
+func (csm *Consumer) NewWorkerActorProps(
+	invoker Invoker,
+	distributor, remover *actor.PID,
+) *actor.Props {
+	w := &worker{
+		capacity:    csm.capacity,
+		invoker:     invoker,
+		distributor: distributor,
+		remover:     remover,
+	}
+	return actor.PropsFromFunc(w.Receive)
+}
+
+func (w *worker) Receive(c actor.Context) {
+	switch c.Message().(type) {
+	case *CurrentWorkingsMessages:
+		tasks := make([]*Task, 0, w.capacity)
+		w.workings.Range(func(key, val interface{}) bool {
+			tasks = append(tasks, val.(*Task))
+			return true
+		})
+		sort.Slice(tasks, func(i, j int) bool {
+			return tasks[i].StartedAt.AsTime().Before(tasks[j].StartedAt.AsTime())
+		})
+		c.Respond(tasks)
+	case *actor.Started:
+		ctx, cancel := context.WithCancel(context.Background())
+		w.mu.Lock()
+		w.cancel = cancel
+		w.mu.Unlock()
+		for i := 0; i < w.capacity; i++ {
+			go w.run(ctx, c)
+		}
+	case *actor.Stopping:
+		w.cancel()
+	}
+}
+
+func (w *worker) run(ctx context.Context, c actor.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			res, err := c.RequestFuture(w.distributor, &fetchQueueMessages{Count: 1}, -1).Result()
+			if err != nil {
+				logger.Error("failed to fetch messages from distributor.", log.Error(err))
+				time.Sleep(time.Second)
+				continue
+			}
+			msgs := res.([]Message)
+			if len(msgs) == 0 {
+				time.Sleep(time.Second)
+				continue
+			}
+			msg := msgs[0]
+			w.workings.Store(msg.ID, &Task{
+				Id:        msg.ID,
+				Receipt:   msg.Receipt,
+				StartedAt: timestamppb.New(time.Now()),
+			})
+			msgID := log.String("message_id", msg.ID)
+			switch err := w.invoker.Invoke(context.Background(), msg); err {
+			case nil:
+				logger.Debug("succeeded to invoke.", msgID)
+				c.Send(w.remover, &RemoveQueueMessage{
+					Message: msg.ResultSucceeded(),
+					Sender:  c.Self(),
+				})
+			default:
+				logger.Error("failed to invoke.", log.Error(err), msgID)
+			}
+			w.workings.Delete(msg.ID)
+		}
+	}
+}
