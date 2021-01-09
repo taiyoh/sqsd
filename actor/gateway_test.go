@@ -96,7 +96,7 @@ func TestFetcherAndRemover(t *testing.T) {
 	removeRcvPID := sys.Root.Spawn(actor.PropsFromFunc(removeRcv.Receive))
 
 	for _, msg := range dist.captured {
-		sys.Root.Send(remover, &RemoveQueueMessage{
+		sys.Root.Send(remover, &removeQueueMessage{
 			Message: msg,
 			Sender:  removeRcvPID,
 		})
@@ -117,7 +117,7 @@ type removeMessageReceiver struct {
 
 func (r *removeMessageReceiver) Receive(c actor.Context) {
 	switch x := c.Message().(type) {
-	case *RemoveQueueResultMessage:
+	case *removeQueueResultMessage:
 		if x.Err != nil {
 			r.failed++
 		} else {
