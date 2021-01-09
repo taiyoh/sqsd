@@ -94,7 +94,7 @@ type testDummyRemover struct {
 
 func (r *testDummyRemover) Receive(c actor.Context) {
 	switch c.Message().(type) {
-	case *RemoveQueueMessage:
+	case *removeQueueMessage:
 		r.mu.Lock()
 		r.removed++
 		r.mu.Unlock()

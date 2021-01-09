@@ -188,7 +188,7 @@ func (w *worker) run(ctx context.Context, c actor.Context) {
 			switch err := w.invoker.Invoke(context.Background(), msg); err {
 			case nil:
 				logger.Debug("succeeded to invoke.", msgID)
-				c.Send(w.remover, &RemoveQueueMessage{
+				c.Send(w.remover, &removeQueueMessage{
 					Message: msg.ResultSucceeded(),
 					Sender:  c.Self(),
 				})
