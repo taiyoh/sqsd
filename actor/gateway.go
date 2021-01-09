@@ -65,14 +65,19 @@ type fetcher struct {
 	timeout             int64
 }
 
+// FetcherParameter sets parameter to fetcher by functional option pattern.
 type FetcherParameter func(*fetcher)
 
+// FetcherDistributorInterval sets interval duration of distributor request to fetcher.
+// Fetcher watches distributor status because
+// fetcher should be stopped when messages which distributor has is over capacity.
 func FetcherDistributorInterval(d time.Duration) FetcherParameter {
 	return func(f *fetcher) {
 		f.distributorInterval = d
 	}
 }
 
+// FetcherInterval sets interval duration of receiving queue request to fetcher.
 func FetcherInterval(d time.Duration) FetcherParameter {
 	return func(f *fetcher) {
 		f.fetcherInterval = d
@@ -211,7 +216,7 @@ func (g *Gateway) NewRemoverGroup() *actor.Props {
 		WithMailbox(mailbox.Bounded(g.parallel * 100))
 }
 
-// RemoveQueuesMessage brings Queue to remove from SQS.
+// RemoveQueueMessage brings Queue to remove from SQS.
 type RemoveQueueMessage struct {
 	Sender  *actor.PID
 	Message Message
