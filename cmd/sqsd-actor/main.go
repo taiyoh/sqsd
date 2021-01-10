@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
+	"reflect"
 	"syscall"
 	"time"
 
@@ -14,25 +15,26 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/caarlos0/env/v6"
 	"github.com/joho/godotenv"
 	sqsd "github.com/taiyoh/sqsd/actor"
 )
 
-type args struct {
-	rawURL          string
-	queueURL        string
-	dur             time.Duration
-	fetcherParallel int
-	invokerParallel int
-	monitoringPort  int
-	logLevel        palog.Level
+type config struct {
+	RawURL          string        `env:"INVOKER_URL,required"`
+	QueueURL        string        `env:"QUEUE_URL,required"`
+	Duration        time.Duration `env:"DEFAULT_INVOKER_TIMEOUT" envDefault:"60s"`
+	FetcherParallel int           `env:"FETCHER_PARALLEL_COUNT" envDefault:"1"`
+	InvokerParallel int           `env:"INVOKER_PARALLEL_COUNT" envDefault:"1"`
+	MonitoringPort  int           `env:"MONITORING_PORT" envDefault:"6969"`
+	LogLevel        palog.Level   `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 func main() {
 	loadEnvFromFile()
 
 	args := parse()
-	sqsd.SetLogLevel(args.logLevel)
+	sqsd.SetLogLevel(args.LogLevel)
 
 	queue := sqs.New(
 		session.Must(session.NewSession()),
@@ -41,17 +43,17 @@ func main() {
 			WithRegion(os.Getenv("AWS_REGION")),
 	)
 
-	ivk, err := sqsd.NewHTTPInvoker(args.rawURL, args.dur)
+	ivk, err := sqsd.NewHTTPInvoker(args.RawURL, args.Duration)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	sys := sqsd.NewSystem(queue, ivk, sqsd.SystemConfig{
-		QueueURL:          args.queueURL,
-		FetcherParallel:   args.fetcherParallel,
-		InvokerParallel:   args.invokerParallel,
-		VisibilityTimeout: args.dur,
-		MonitoringPort:    args.monitoringPort,
+		QueueURL:          args.QueueURL,
+		FetcherParallel:   args.FetcherParallel,
+		InvokerParallel:   args.InvokerParallel,
+		VisibilityTimeout: args.Duration,
+		MonitoringPort:    args.MonitoringPort,
 	})
 
 	logger := initLogger(args)
@@ -74,37 +76,29 @@ func main() {
 	time.Sleep(500 * time.Millisecond)
 }
 
-func parse() args {
-	rawURL := mustGetenv("INVOKER_URL")
-	queueURL := mustGetenv("QUEUE_URL")
-	defaultTimeOutSeconds := defaultIntGetEnv("DEFAULT_INVOKER_TIMEOUT_SECONDS", 60)
-	fetcherParallel := defaultIntGetEnv("FETCHER_PARALLEL_COUNT", 1)
-	invokerParallel := defaultIntGetEnv("INVOKER_PARALLEL_COUNT", 1)
-	monitoringPort := defaultIntGetEnv("MONITORING_PORT", 6969)
-
+var logParser env.ParserFunc = func(v string) (interface{}, error) {
 	levelMap := map[string]palog.Level{
 		"debug": palog.DebugLevel,
 		"info":  palog.InfoLevel,
+		"warn":  palog.WarnLevel,
 		"error": palog.ErrorLevel,
 	}
-	l := palog.InfoLevel
-	if ll, ok := os.LookupEnv("LOG_LEVEL"); ok {
-		lll, ok := levelMap[ll]
-		if !ok {
-			panic("invalid LOG_LEVEL")
-		}
-		l = lll
+	l, ok := levelMap[v]
+	if !ok {
+		return 0, fmt.Errorf("invalid LOG_LEVEL: %s", v)
 	}
+	return l, nil
+}
 
-	return args{
-		rawURL:          rawURL,
-		queueURL:        queueURL,
-		dur:             time.Duration(defaultTimeOutSeconds) * time.Second,
-		fetcherParallel: fetcherParallel,
-		invokerParallel: invokerParallel,
-		monitoringPort:  monitoringPort,
-		logLevel:        l,
+func parse() config {
+	cfg := config{}
+	funcMap := map[reflect.Type]env.ParserFunc{
+		reflect.TypeOf(palog.InfoLevel): logParser,
 	}
+	if err := env.ParseWithFuncs(&cfg, funcMap); err != nil {
+		log.Fatal(err)
+	}
+	return cfg
 }
 
 var cwd, _ = os.Getwd()
@@ -126,36 +120,17 @@ func loadEnvFromFile() {
 	}
 }
 
-func mustGetenv(key string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	panic(key + " is required")
-}
-
-func defaultIntGetEnv(key string, defaultVal int) int {
-	val, ok := os.LookupEnv(key)
-	if !ok || val == "" {
-		return defaultVal
-	}
-	i, err := strconv.ParseInt(val, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return int(i)
-}
-
-func initLogger(args args) *palog.Logger {
-	logger := palog.New(args.logLevel, "[sqsd-main]")
+func initLogger(args config) *palog.Logger {
+	logger := palog.New(args.LogLevel, "[sqsd-main]")
 
 	logger.Info("start process")
 	logger.Info("queue settings",
-		palog.String("url", args.queueURL),
-		palog.Int("parallel", args.fetcherParallel))
+		palog.String("url", args.QueueURL),
+		palog.Int("parallel", args.FetcherParallel))
 	logger.Info("invoker settings",
-		palog.String("url", args.rawURL),
-		palog.Int("parallel", args.invokerParallel),
-		palog.Duration("timeout", args.dur))
+		palog.String("url", args.RawURL),
+		palog.Int("parallel", args.InvokerParallel),
+		palog.Duration("timeout", args.Duration))
 
 	return logger
 }
