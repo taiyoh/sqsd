@@ -38,6 +38,7 @@ type distributor struct {
 	buffer          []Message
 }
 
+// NewDistributorActorProps returns actor properties of distributor.
 func (csm *Consumer) NewDistributorActorProps() *actor.Props {
 	d := &distributor{
 		capacity:        csm.capacity,
@@ -123,6 +124,7 @@ type worker struct {
 	cancel      context.CancelFunc
 }
 
+// NewWorkerActorProps returns actor properties of worker.
 func (csm *Consumer) NewWorkerActorProps(distributor, remover *actor.PID) *actor.Props {
 	w := &worker{
 		capacity:    csm.capacity,
@@ -186,7 +188,7 @@ func (w *worker) run(ctx context.Context, c actor.Context) {
 			switch err := w.invoker.Invoke(context.Background(), msg); err {
 			case nil:
 				logger.Debug("succeeded to invoke.", msgID)
-				c.Send(w.remover, &RemoveQueueMessage{
+				c.Send(w.remover, &removeQueueMessage{
 					Message: msg.ResultSucceeded(),
 					Sender:  c.Self(),
 				})

@@ -65,14 +65,19 @@ type fetcher struct {
 	timeout             int64
 }
 
+// FetcherParameter sets parameter to fetcher by functional option pattern.
 type FetcherParameter func(*fetcher)
 
+// FetcherDistributorInterval sets interval duration of distributor request to fetcher.
+// Fetcher watches distributor status because
+// fetcher should be stopped when messages which distributor has is over capacity.
 func FetcherDistributorInterval(d time.Duration) FetcherParameter {
 	return func(f *fetcher) {
 		f.distributorInterval = d
 	}
 }
 
+// FetcherInterval sets interval duration of receiving queue request to fetcher.
 func FetcherInterval(d time.Duration) FetcherParameter {
 	return func(f *fetcher) {
 		f.fetcherInterval = d
@@ -93,11 +98,6 @@ func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParamete
 		fn(f)
 	}
 	return router.NewBroadcastPool(g.parallel).WithFunc(f.receive)
-}
-
-// StartGateway is operation message for starting requesting to SQS.
-type StartGateway struct {
-	Sender *actor.PID
 }
 
 // receive receives actor messages.
@@ -211,21 +211,21 @@ func (g *Gateway) NewRemoverGroup() *actor.Props {
 		WithMailbox(mailbox.Bounded(g.parallel * 100))
 }
 
-// RemoveQueuesMessage brings Queue to remove from SQS.
-type RemoveQueueMessage struct {
+// removeQueueMessage brings Queue to remove from SQS.
+type removeQueueMessage struct {
 	Sender  *actor.PID
 	Message Message
 }
 
-// RemoveQueueResultMessage is message for deleting message from SQS.
-type RemoveQueueResultMessage struct {
+// removeQueueResultMessage is message for deleting message from SQS.
+type removeQueueResultMessage struct {
 	Queue Message
 	Err   error
 }
 
 func (r *remover) receive(c actor.Context) {
 	switch x := c.Message().(type) {
-	case *RemoveQueueMessage:
+	case *removeQueueMessage:
 		var err error
 		for i := 0; i < 16; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -236,11 +236,11 @@ func (r *remover) receive(c actor.Context) {
 			cancel()
 			if err == nil {
 				logger.Debug("succeeded to remove message.", log.String("message_id", x.Message.ID))
-				c.Send(x.Sender, &RemoveQueueResultMessage{Queue: x.Message})
+				c.Send(x.Sender, &removeQueueResultMessage{Queue: x.Message})
 				return
 			}
 			time.Sleep(time.Second)
 		}
-		c.Send(x.Sender, &RemoveQueueResultMessage{Err: err, Queue: x.Message})
+		c.Send(x.Sender, &removeQueueResultMessage{Err: err, Queue: x.Message})
 	}
 }
