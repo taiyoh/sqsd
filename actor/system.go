@@ -13,6 +13,13 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
+type actorsCollection struct {
+	distributor *actor.PID
+	remover     *actor.PID
+	fetcher     *actor.PID
+	worker      *actor.PID
+}
+
 // System controls actor system of sqsd.
 type System struct {
 	wg       sync.WaitGroup
@@ -20,7 +27,7 @@ type System struct {
 	gateway  *Gateway
 	consumer *Consumer
 	grpc     *grpc.Server
-	actors   map[string]*actor.PID
+	actors   actorsCollection
 	port     int
 }
 
@@ -39,7 +46,7 @@ func NewSystem(queue *sqs.SQS, invoker Invoker, config SystemConfig) *System {
 
 	gw := NewGateway(queue, config.QueueURL,
 		GatewayParallel(config.FetcherParallel),
-		GatewayVisibilityTimeout(config.VisibilityTimeout+(10*time.Second)))
+		GatewayVisibilityTimeout(config.VisibilityTimeout))
 
 	c := NewConsumer(invoker, config.InvokerParallel)
 
@@ -63,6 +70,13 @@ func (s *System) Start() error {
 	fetcher := rCtx.Spawn(s.gateway.NewFetcherGroup(distributor))
 	worker := rCtx.Spawn(s.consumer.NewWorkerActorProps(distributor, remover))
 
+	s.actors = actorsCollection{
+		distributor: distributor,
+		remover:     remover,
+		fetcher:     fetcher,
+		worker:      worker,
+	}
+
 	RegisterMonitoringServiceServer(s.grpc, NewMonitoringService(rCtx, worker))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
@@ -71,39 +85,29 @@ func (s *System) Start() error {
 	}
 
 	s.wg.Add(1)
-	go s.startGRPC(lis)
-
-	s.actors = map[string]*actor.PID{
-		"distributor": distributor,
-		"remover":     remover,
-		"fetcher":     fetcher,
-		"worker":      worker,
-	}
+	go func() {
+		defer logger.Info("gRPC server closed.")
+		defer s.wg.Done()
+		logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
+		if err := s.grpc.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+			logger.Error("failed to stop gRPC server.", log.Error(err))
+		}
+	}()
 
 	return nil
-}
-
-func (s *System) startGRPC(lis net.Listener) {
-	defer logger.Info("gRPC server closed.")
-	defer s.wg.Done()
-	logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
-	if err := s.grpc.Serve(lis); err != nil && err != grpc.ErrServerStopped {
-		logger.Error("failed to stop gRPC server.", log.Error(err))
-	}
 }
 
 // Stop stops actors and gRPC server.
 func (s *System) Stop() error {
 	rCtx := s.system.Root
-	rCtx.Stop(s.actors["fetcher"])
-	rCtx.Stop(s.actors["distributor"])
+	rCtx.Stop(s.actors.fetcher)
+	rCtx.Stop(s.actors.distributor)
 
 	msg := &CurrentWorkingsMessages{}
 	for {
-		res, err := rCtx.RequestFuture(s.actors["worker"], msg, -1).Result()
+		res, err := rCtx.RequestFuture(s.actors.worker, msg, -1).Result()
 		if err != nil {
 			return err
-			// plog.Fatalf("failed to retrieve current_workings: %v", err)
 		}
 		if tasks := res.([]*Task); len(tasks) == 0 {
 			break
@@ -111,7 +115,7 @@ func (s *System) Stop() error {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	rCtx.Poison(s.actors["remover"])
+	rCtx.Poison(s.actors.remover)
 
 	s.grpc.Stop()
 	s.wg.Wait()
