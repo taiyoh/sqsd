@@ -1,6 +1,6 @@
 module github.com/taiyoh/sqsd/actor
 
-go 1.15
+go 1.16
 
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20210104230532-90c8f2d201d8

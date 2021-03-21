@@ -1,6 +1,6 @@
 module github.com/taiyoh/sqsd
 
-go 1.14
+go 1.16
 
 replace github.com/taiyoh/sqsd/actor => ./actor
 
