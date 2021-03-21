@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -69,17 +70,13 @@ func main() {
 		palog.Int("parallel", args.InvokerParallel),
 		palog.Duration("timeout", args.Duration))
 
-	if err := sys.Start(); err != nil {
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	defer cancel()
+
+	if err := sys.Run(ctx); err != nil {
 		log.Fatal(err)
-	}
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
-	sig := <-sigCh
-	logger.Info("signal caught. stopping worker...", palog.Object("signal", sig))
-
-	if err := sys.Stop(); err != nil {
-		log.Fatalf("failed to retrieve current_workings: %v", err)
 	}
 
 	logger.Info("end process")

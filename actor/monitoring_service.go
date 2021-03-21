@@ -2,6 +2,7 @@ package sqsd
 
 import (
 	"context"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	codes "google.golang.org/grpc/codes"
@@ -30,4 +31,23 @@ func (s *MonitoringService) CurrentWorkings(context.Context, *CurrentWorkingsReq
 		return nil, status.Errorf(codes.Internal, "failed to fetch: %v", err)
 	}
 	return &CurrentWorkingsResponse{Tasks: res.([]*Task)}, nil
+}
+
+// WaitUntilAllEnds waits until all worker tasks finishes.
+func (s *MonitoringService) WaitUntilAllEnds(timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		resp, err := s.CurrentWorkings(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if len(resp.Tasks) == 0 {
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
 }
