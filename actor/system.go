@@ -50,7 +50,8 @@ func (s *System) Run(ctx context.Context) error {
 	remover := rCtx.Spawn(s.gateway.NewRemoverGroup())
 	worker := rCtx.Spawn(s.consumer.NewWorkerActorProps(distributor, remover))
 
-	grpcServer, err := newGRPCServer(NewMonitoringService(rCtx, worker), s.port)
+	monitor := NewMonitoringService(rCtx, worker)
+	grpcServer, err := newGRPCServer(monitor, s.port)
 	if err != nil {
 		return err
 	}
@@ -66,16 +67,8 @@ func (s *System) Run(ctx context.Context) error {
 	rCtx.Stop(fetcher)
 	rCtx.Stop(distributor)
 
-	msg := &CurrentWorkingsMessages{}
-	for {
-		res, err := rCtx.RequestFuture(worker, msg, -1).Result()
-		if err != nil {
-			return err
-		}
-		if tasks := res.([]*Task); len(tasks) == 0 {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
+	if err := monitor.WaitUntilAllEnds(time.Hour); err != nil {
+		return err
 	}
 
 	rCtx.Poison(remover)
