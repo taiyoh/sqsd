@@ -75,15 +75,8 @@ func main() {
 		syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer cancel()
 
-	if err := sys.Start(); err != nil {
+	if err := sys.Run(ctx); err != nil {
 		log.Fatal(err)
-	}
-
-	<-ctx.Done()
-	logger.Info("signal caught. stopping worker...")
-
-	if err := sys.Stop(); err != nil {
-		log.Fatalf("failed to retrieve current_workings: %v", err)
 	}
 
 	logger.Info("end process")

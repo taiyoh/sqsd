@@ -1,6 +1,7 @@
 package sqsd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
@@ -27,7 +28,7 @@ type System struct {
 	gateway  *Gateway
 	consumer *Consumer
 	grpc     *grpc.Server
-	actors   actorsCollection
+	actors   *actorsCollection
 	port     int
 }
 
@@ -62,15 +63,15 @@ func NewSystem(queue *sqs.SQS, invoker Invoker, config SystemConfig) *System {
 	}
 }
 
-// Start starts running actors and gRPC server.
-func (s *System) Start() error {
+// Run starts running actors and gRPC server.
+func (s *System) Run(ctx context.Context) error {
 	rCtx := s.system.Root
 	distributor := rCtx.Spawn(s.consumer.NewDistributorActorProps())
 	remover := rCtx.Spawn(s.gateway.NewRemoverGroup())
 	fetcher := rCtx.Spawn(s.gateway.NewFetcherGroup(distributor))
 	worker := rCtx.Spawn(s.consumer.NewWorkerActorProps(distributor, remover))
 
-	s.actors = actorsCollection{
+	s.actors = &actorsCollection{
 		distributor: distributor,
 		remover:     remover,
 		fetcher:     fetcher,
@@ -94,12 +95,9 @@ func (s *System) Start() error {
 		}
 	}()
 
-	return nil
-}
+	<-ctx.Done()
+	logger.Info("signal caught. stopping worker...")
 
-// Stop stops actors and gRPC server.
-func (s *System) Stop() error {
-	rCtx := s.system.Root
 	rCtx.Stop(s.actors.fetcher)
 	rCtx.Stop(s.actors.distributor)
 
