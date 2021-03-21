@@ -2,33 +2,17 @@ package sqsd
 
 import (
 	"context"
-	"fmt"
-	"net"
-	"sync"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/log"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
-
-type actorsCollection struct {
-	distributor *actor.PID
-	remover     *actor.PID
-	fetcher     *actor.PID
-	worker      *actor.PID
-}
 
 // System controls actor system of sqsd.
 type System struct {
-	wg       sync.WaitGroup
 	system   *actor.ActorSystem
 	gateway  *Gateway
 	consumer *Consumer
-	grpc     *grpc.Server
-	actors   *actorsCollection
 	port     int
 }
 
@@ -51,15 +35,11 @@ func NewSystem(queue *sqs.SQS, invoker Invoker, config SystemConfig) *System {
 
 	c := NewConsumer(invoker, config.InvokerParallel)
 
-	grpcServer := grpc.NewServer()
-	reflection.Register(grpcServer)
-
 	return &System{
 		system:   as,
 		gateway:  gw,
 		consumer: c,
 		port:     config.MonitoringPort,
-		grpc:     grpcServer,
 	}
 }
 
@@ -68,42 +48,27 @@ func (s *System) Run(ctx context.Context) error {
 	rCtx := s.system.Root
 	distributor := rCtx.Spawn(s.consumer.NewDistributorActorProps())
 	remover := rCtx.Spawn(s.gateway.NewRemoverGroup())
-	fetcher := rCtx.Spawn(s.gateway.NewFetcherGroup(distributor))
 	worker := rCtx.Spawn(s.consumer.NewWorkerActorProps(distributor, remover))
 
-	s.actors = &actorsCollection{
-		distributor: distributor,
-		remover:     remover,
-		fetcher:     fetcher,
-		worker:      worker,
-	}
-
-	RegisterMonitoringServiceServer(s.grpc, NewMonitoringService(rCtx, worker))
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	grpcServer, err := newGRPCServer(NewMonitoringService(rCtx, worker), s.port)
 	if err != nil {
 		return err
 	}
 
-	s.wg.Add(1)
-	go func() {
-		defer logger.Info("gRPC server closed.")
-		defer s.wg.Done()
-		logger.Info("gRPC server start.", log.Object("addr", lis.Addr()))
-		if err := s.grpc.Serve(lis); err != nil && err != grpc.ErrServerStopped {
-			logger.Error("failed to stop gRPC server.", log.Error(err))
-		}
-	}()
+	grpcServer.Start()
+	defer grpcServer.Stop()
+
+	fetcher := rCtx.Spawn(s.gateway.NewFetcherGroup(distributor))
 
 	<-ctx.Done()
 	logger.Info("signal caught. stopping worker...")
 
-	rCtx.Stop(s.actors.fetcher)
-	rCtx.Stop(s.actors.distributor)
+	rCtx.Stop(fetcher)
+	rCtx.Stop(distributor)
 
 	msg := &CurrentWorkingsMessages{}
 	for {
-		res, err := rCtx.RequestFuture(s.actors.worker, msg, -1).Result()
+		res, err := rCtx.RequestFuture(worker, msg, -1).Result()
 		if err != nil {
 			return err
 		}
@@ -113,10 +78,7 @@ func (s *System) Run(ctx context.Context) error {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	rCtx.Poison(s.actors.remover)
-
-	s.grpc.Stop()
-	s.wg.Wait()
+	rCtx.Poison(remover)
 
 	return nil
 }
