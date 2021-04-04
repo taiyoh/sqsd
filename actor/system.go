@@ -8,6 +8,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
+// DisableMonitoring makes gRPC server disable to run.
+const DisableMonitoring = -1
+
 // System controls actor system of sqsd.
 type System struct {
 	system   *actor.ActorSystem
@@ -51,13 +54,16 @@ func (s *System) Run(ctx context.Context) error {
 	worker := rCtx.Spawn(s.consumer.NewWorkerActorProps(distributor, remover))
 
 	monitor := NewMonitoringService(rCtx, worker)
-	grpcServer, err := newGRPCServer(monitor, s.port)
-	if err != nil {
-		return err
-	}
 
-	grpcServer.Start()
-	defer grpcServer.Stop()
+	if s.port >= 0 {
+		grpcServer, err := newGRPCServer(monitor, s.port)
+		if err != nil {
+			return err
+		}
+
+		grpcServer.Start()
+		defer grpcServer.Stop()
+	}
 
 	fetcher := rCtx.Spawn(s.gateway.NewFetcherGroup(distributor))
 
