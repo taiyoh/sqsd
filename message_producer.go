@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -75,6 +77,9 @@ func (p *MessageProducer) DoHandle(ctx context.Context) bool {
 	results, err := p.resource.GetMessages(ctx)
 	if err != nil {
 		if err == context.Canceled {
+			return false
+		}
+		if be, ok := err.(awserr.Error); ok && be.Code() == request.CanceledErrorCode {
 			return false
 		}
 		p.logger.Errorf("GetMessages Error: %s", err)
