@@ -51,13 +51,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sys := sqsd.NewSystem(queue, ivk, sqsd.SystemConfig{
-		QueueURL:          args.QueueURL,
-		FetcherParallel:   args.FetcherParallel,
-		InvokerParallel:   args.InvokerParallel,
-		VisibilityTimeout: args.Duration,
-		MonitoringPort:    args.MonitoringPort,
-	})
+	sys := sqsd.NewSystem(
+		sqsd.GatewayBuilder(queue, args.QueueURL, args.FetcherParallel, args.Duration),
+		sqsd.ConsumerBuilder(ivk, args.InvokerParallel),
+		sqsd.MonitorBuilder(args.MonitoringPort),
+	)
 
 	logger := palog.New(args.LogLevel.Level, "[sqsd-main]")
 
