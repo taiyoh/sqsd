@@ -19,31 +19,42 @@ type System struct {
 	port     int
 }
 
-// SystemConfig represents actor properties and core behavior.
-type SystemConfig struct {
-	QueueURL          string
-	FetcherParallel   int
-	InvokerParallel   int
-	VisibilityTimeout time.Duration
-	MonitoringPort    int
+// SystemBuilder provides constructor for system object requirements.
+type SystemBuilder func(*System)
+
+// GatewayBuilder builds gateway for system.
+func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.Duration) SystemBuilder {
+	return func(s *System) {
+		s.gateway = NewGateway(queue, queueURL,
+			GatewayParallel(parallel),
+			GatewayVisibilityTimeout(timeout))
+	}
+}
+
+// ConsumerBuilder builds consumer for system.
+func ConsumerBuilder(invoker Invoker, parallel int) SystemBuilder {
+	return func(s *System) {
+		s.consumer = NewConsumer(invoker, parallel)
+	}
+}
+
+// MonitorBuilder sets monitor server port to system.
+func MonitorBuilder(port int) SystemBuilder {
+	return func(s *System) {
+		s.port = port
+	}
 }
 
 // NewSystem returns System object.
-func NewSystem(queue *sqs.SQS, invoker Invoker, config SystemConfig) *System {
-	as := actor.NewActorSystem()
-
-	gw := NewGateway(queue, config.QueueURL,
-		GatewayParallel(config.FetcherParallel),
-		GatewayVisibilityTimeout(config.VisibilityTimeout))
-
-	c := NewConsumer(invoker, config.InvokerParallel)
-
-	return &System{
-		system:   as,
-		gateway:  gw,
-		consumer: c,
-		port:     config.MonitoringPort,
+func NewSystem(builders ...SystemBuilder) *System {
+	sys := &System{
+		system: actor.NewActorSystem(),
+		port:   DisableMonitoring,
 	}
+	for _, b := range builders {
+		b(sys)
+	}
+	return sys
 }
 
 // Run starts running actors and gRPC server.
