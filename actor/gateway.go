@@ -63,6 +63,7 @@ type fetcher struct {
 	queue               *sqs.SQS
 	distributor         *actor.PID
 	timeout             int64
+	locker              QueueLocker
 }
 
 // FetcherParameter sets parameter to fetcher by functional option pattern.
@@ -84,6 +85,13 @@ func FetcherInterval(d time.Duration) FetcherParameter {
 	}
 }
 
+// FetcherQueueLocker sets QueueLocker in Fetcher to block duplicated queue.
+func FetcherQueueLocker(l QueueLocker) FetcherParameter {
+	return func(f *fetcher) {
+		f.locker = l
+	}
+}
+
 // NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
 func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParameter) *actor.Props {
 	f := &fetcher{
@@ -93,6 +101,7 @@ func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParamete
 		timeout:             g.timeout,
 		distributorInterval: time.Second,
 		fetcherInterval:     100 * time.Millisecond,
+		locker:              noopLocker{},
 	}
 	for _, fn := range fns {
 		fn(f)
@@ -182,6 +191,13 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 	receivedAt := time.Now().UTC()
 	messages := make([]Message, 0, len(out.Messages))
 	for _, msg := range out.Messages {
+		if err := f.locker.Lock(ctx, *msg.MessageId); err != nil {
+			if err == ErrQueueExists {
+				logger.Warn("received message is duplicated", log.String("message_id", *msg.MessageId))
+				continue
+			}
+			return nil, err
+		}
 		messages = append(messages, Message{
 			ID:           *msg.MessageId,
 			Payload:      *msg.Body,
