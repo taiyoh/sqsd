@@ -1,38 +1,17 @@
 version: 2
 updates:
-- package-ecosystem: gomod
-  directory: "/"
-  schedule:
-    interval: weekly
-    time: "20:00"
-  open-pull-requests-limit: 10
-  reviewers:
-  - taiyoh
-  assignees:
-  - taiyoh
-  ignore:
-  - dependency-name: github.com/aws/aws-sdk-go
-    versions:
-    - "> 1.29.20, < 1.30"
-  - dependency-name: github.com/aws/aws-sdk-go
-    versions:
-    - "> 1.30.24, < 1.31"
-  - dependency-name: github.com/aws/aws-sdk-go
-    versions:
-    - "> 1.32.2, < 1.33"
-  - dependency-name: github.com/aws/aws-sdk-go
-    versions:
-    - 1.36.31
-    - 1.37.1
-    - 1.37.11
-    - 1.37.16
-    - 1.37.20
-    - 1.37.21
-    - 1.37.31
-    - 1.37.7
-    - 1.38.1
-    - 1.38.13
-    - 1.38.18
-    - 1.38.2
-    - 1.38.22
-    - 1.38.8
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+      time: "20:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - taiyoh
+    assignees:
+      - taiyoh
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: weekly
+      time: "20:00"
