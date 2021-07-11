@@ -18,10 +18,10 @@ type MonitoringService struct {
 
 // NewMonitoringService returns new MonitoringService object.
 func NewMonitoringService(ctx *actor.RootContext, consumer *actor.PID) *MonitoringService {
-	svc := &MonitoringService{}
-	svc.rootCtx = ctx
-	svc.consumer = consumer
-	return svc
+	return &MonitoringService{
+		rootCtx:  ctx,
+		consumer: consumer,
+	}
 }
 
 // CurrentWorkings handles CurrentWorkings grpc request using actor system.
