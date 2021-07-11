@@ -4,8 +4,8 @@ on: push
 
 jobs:
   test:
-    name: Testing
-    if: ${{ github.actor != 'dependabot[bot]' }}
+    name: Testing by dependabot
+    if: ${{ github.actor == 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.x
