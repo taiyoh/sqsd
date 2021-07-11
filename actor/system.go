@@ -13,21 +13,23 @@ const DisableMonitoring = -1
 
 // System controls actor system of sqsd.
 type System struct {
-	system   *actor.ActorSystem
-	gateway  *Gateway
-	consumer *Consumer
-	port     int
+	system            *actor.ActorSystem
+	gateway           *Gateway
+	fetcherParameters []FetcherParameter
+	consumer          *Consumer
+	port              int
 }
 
 // SystemBuilder provides constructor for system object requirements.
 type SystemBuilder func(*System)
 
 // GatewayBuilder builds gateway for system.
-func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.Duration) SystemBuilder {
+func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.Duration, params ...FetcherParameter) SystemBuilder {
 	return func(s *System) {
 		s.gateway = NewGateway(queue, queueURL,
 			GatewayParallel(parallel),
 			GatewayVisibilityTimeout(timeout))
+		s.fetcherParameters = params
 	}
 }
 
@@ -76,7 +78,7 @@ func (s *System) Run(ctx context.Context) error {
 		defer grpcServer.Stop()
 	}
 
-	fetcher := rCtx.Spawn(s.gateway.NewFetcherGroup(distributor))
+	fetcher := rCtx.Spawn(s.gateway.NewFetcherGroup(distributor, s.fetcherParameters...))
 
 	<-ctx.Done()
 	logger.Info("signal caught. stopping worker...")
