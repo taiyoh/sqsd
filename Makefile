@@ -10,7 +10,6 @@ install:
 
 test:
 	go test -v -race -timeout 30s
-	cd actor && go test -v -race -timeout 30s
 
 PKGDIR=pkg/v$(GIT_VERSION)
 DISTDIR=$(PKGDIR)/dist

@@ -1,71 +1,45 @@
 package sqsd
 
 import (
+	"encoding"
 	"fmt"
-	"log"
-	"os"
+	"strings"
 
-	"github.com/hashicorp/logutils"
+	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/log"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 )
 
-// Logger is interface for sqsd logging object
-type Logger interface {
-	Debug(msg string)
-	Debugf(tmpl string, msgs ...interface{})
-	Info(msg string)
-	Infof(tmpl string, msgs ...interface{})
-	Warn(msg string)
-	Warnf(tmpl string, msgs ...interface{})
-	Error(msg string)
-	Errorf(tmpl string, msgs ...interface{})
+// LogLevel sets log level for sqsd.
+type LogLevel struct {
+	Level log.Level
 }
 
-type logger struct {
-	logger *log.Logger
+var _ encoding.TextUnmarshaler = (*LogLevel)(nil)
+
+var levelMap = map[string]log.Level{
+	"debug": log.DebugLevel,
+	"info":  log.InfoLevel,
+	"warn":  log.WarnLevel,
+	"error": log.ErrorLevel,
 }
 
-var _ Logger = (*logger)(nil)
-
-// NewLogger returns Logger implementation
-func NewLogger(logLevel string) Logger {
-	filter := &logutils.LevelFilter{
-		Levels:   []logutils.LogLevel{"DEBUG", "INFO", "WARN", "ERROR"},
-		MinLevel: logutils.LogLevel(logLevel),
-		Writer:   os.Stderr,
+// UnmarshalText scans levelMap from supplied text and set scanned level to LogLevel.
+func (l *LogLevel) UnmarshalText(text []byte) error {
+	lv, ok := levelMap[strings.ToLower(string(text))]
+	if !ok {
+		return fmt.Errorf("invalid log_level: %s", text)
 	}
-	return &logger{
-		logger: log.New(filter, "", log.LstdFlags),
-	}
+	l.Level = lv
+	return nil
 }
 
-func (l *logger) Debug(msg string) {
-	l.logger.Println("[DEBUG] " + msg)
-}
+var logger = log.New(log.InfoLevel, "[sqsd]")
 
-func (l *logger) Debugf(format string, a ...interface{}) {
-	l.Debug(fmt.Sprintf(format, a...))
-}
-
-func (l *logger) Info(msg string) {
-	l.logger.Println("[INFO] " + msg)
-}
-
-func (l *logger) Infof(format string, a ...interface{}) {
-	l.Info(fmt.Sprintf(format, a...))
-}
-
-func (l *logger) Warn(msg string) {
-	l.logger.Println("[WARN] " + msg)
-}
-
-func (l *logger) Warnf(format string, a ...interface{}) {
-	l.Warn(fmt.Sprintf(format, a...))
-}
-
-func (l *logger) Error(msg string) {
-	l.logger.Println("[ERROR] " + msg)
-}
-
-func (l *logger) Errorf(format string, a ...interface{}) {
-	l.Error(fmt.Sprintf(format, a...))
+// SetLogLevel set supplied log.Level in actor, mailbox and our logger.
+func SetLogLevel(ll LogLevel) {
+	l := ll.Level
+	actor.SetLogLevel(l)
+	mailbox.SetLogLevel(l)
+	logger.SetLevel(l)
 }

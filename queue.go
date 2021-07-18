@@ -1,10 +1,6 @@
 package sqsd
 
-import (
-	"time"
-
-	"github.com/aws/aws-sdk-go/service/sqs"
-)
+import "time"
 
 // QueueResultStatus represents status for Queue result.
 type QueueResultStatus int
@@ -18,8 +14,8 @@ const (
 	RequestFail
 )
 
-// Queue provides transition from sqs.Message
-type Queue struct {
+// Message provides transition from sqs.Message
+type Message struct {
 	ID           string
 	Payload      string
 	Receipt      string
@@ -28,49 +24,15 @@ type Queue struct {
 }
 
 // ResultSucceeded returns Queue has RequestSuccess status.
-func (q Queue) ResultSucceeded() Queue {
-	return Queue{
-		ID:           q.ID,
-		Payload:      q.Payload,
-		Receipt:      q.Receipt,
-		ReceivedAt:   q.ReceivedAt,
-		ResultStatus: RequestSuccess,
-	}
+func (q Message) ResultSucceeded() Message {
+	qq := q
+	qq.ResultStatus = RequestSuccess
+	return qq
 }
 
 // ResultFailed returns Queue has RequestFail status.
-func (q Queue) ResultFailed() Queue {
-	return Queue{
-		ID:           q.ID,
-		Payload:      q.Payload,
-		Receipt:      q.Receipt,
-		ReceivedAt:   q.ReceivedAt,
-		ResultStatus: RequestFail,
-	}
-}
-
-// QueueSummary provides transition from Queue for stat
-type QueueSummary struct {
-	ID         string `json:"id"`
-	ReceivedAt int64  `json:"received_at"`
-	Payload    string `json:"payload"`
-}
-
-// NewQueue returns Queue object from sqs.Message
-func NewQueue(msg *sqs.Message) Queue {
-	return Queue{
-		ID:         *msg.MessageId,
-		Payload:    *msg.Body,
-		Receipt:    *msg.ReceiptHandle,
-		ReceivedAt: time.Now(),
-	}
-}
-
-// Summary returns QueueSummary object from Queue
-func (q Queue) Summary() QueueSummary {
-	return QueueSummary{
-		ID:         q.ID,
-		ReceivedAt: q.ReceivedAt.Unix(),
-		Payload:    q.Payload,
-	}
+func (q Message) ResultFailed() Message {
+	qq := q
+	qq.ResultStatus = RequestFail
+	return qq
 }
