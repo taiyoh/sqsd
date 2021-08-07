@@ -13,5 +13,30 @@ type QueueLocker interface {
 	Unlock(context.Context, ...string) error
 }
 
+// DefaultExpireDuration shows that duration of remaining queue_id in locker is 24 hours.
+var DefaultExpireDuration = 24 * time.Hour
+
 // ErrQueueExists shows this queue is already registered.
 var ErrQueueExists = errors.New("queue exists")
+
+// RunQueueLocker scan deletable ids and delete from QueueLocker periodically.
+func RunQueueLocker(ctx context.Context, l QueueLocker, interval time.Duration) {
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			ids, err := l.Find(ctx, time.Now().UTC())
+			if err != nil {
+				// TODO: logging
+				continue
+			}
+			if err := l.Unlock(ctx, ids...); err != nil {
+				// TODO: logging
+				continue
+			}
+		}
+	}
+}

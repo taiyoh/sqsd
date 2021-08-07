@@ -10,7 +10,7 @@ import (
 )
 
 func TestMemoryLocker(t *testing.T) {
-	l := NewMemoryQueueLocker()
+	l := New()
 	ctx := context.Background()
 
 	assert.NoError(t, l.Lock(ctx, "hogefuga"))
@@ -21,7 +21,7 @@ func TestMemoryLocker(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"foobarbaz", "hogefuga"}, ids)
 
-	ids, err = l.Find(ctx, time.Now().Add(expireDur))
+	ids, err = l.Find(ctx, time.Now().Add(locker.DefaultExpireDuration))
 	assert.NoError(t, err)
 	assert.Empty(t, ids)
 
@@ -40,11 +40,11 @@ func TestMemoryLocker(t *testing.T) {
 }
 
 func TestRunQueueLocker(t *testing.T) {
-	l := NewMemoryQueueLocker(Duration(50 * time.Millisecond))
+	l := New(Duration(50 * time.Millisecond))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go RunQueueLocker(ctx, l, 30*time.Millisecond)
+	go locker.RunQueueLocker(ctx, l, 30*time.Millisecond)
 
 	assert.NoError(t, l.Lock(ctx, "hooooooooo"))
 	time.Sleep(25 * time.Millisecond)

@@ -18,8 +18,6 @@ type memoryLocker struct {
 // Option provides setting function to memory QueueLocker.
 type Option func(*memoryLocker)
 
-var expireDur = 24 * time.Hour
-
 // Duration sets expire duration to memory QueueLocker.
 func Duration(dur time.Duration) Option {
 	return func(ml *memoryLocker) {
@@ -27,10 +25,10 @@ func Duration(dur time.Duration) Option {
 	}
 }
 
-// NewMemoryQueueLocker creates QueueLocker to memory.
-func NewMemoryQueueLocker(opts ...Option) locker.QueueLocker {
+// New creates QueueLocker to memory.
+func New(opts ...Option) locker.QueueLocker {
 	ml := &memoryLocker{
-		dur: expireDur,
+		dur: locker.DefaultExpireDuration,
 	}
 	for _, opt := range opts {
 		opt(ml)
@@ -39,28 +37,6 @@ func NewMemoryQueueLocker(opts ...Option) locker.QueueLocker {
 }
 
 var _ locker.QueueLocker = (*memoryLocker)(nil)
-
-// RunQueueLocker scan deletable ids and delete from QueueLocker periodically.
-func RunQueueLocker(ctx context.Context, l locker.QueueLocker, interval time.Duration) {
-	tick := time.NewTicker(interval)
-	defer tick.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-			ids, err := l.Find(ctx, time.Now().UTC())
-			if err != nil {
-				// TODO: logging
-				continue
-			}
-			if err := l.Unlock(ctx, ids...); err != nil {
-				// TODO: logging
-				continue
-			}
-		}
-	}
-}
 
 func (l *memoryLocker) Lock(_ context.Context, queueID string) error {
 	now := time.Now().UTC()
