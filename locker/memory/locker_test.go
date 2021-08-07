@@ -10,7 +10,7 @@ import (
 )
 
 func TestMemoryLocker(t *testing.T) {
-	l := NewMemoryQueueLocker()
+	l := New()
 	ctx := context.Background()
 
 	assert.NoError(t, l.Lock(ctx, "hogefuga"))
@@ -40,7 +40,7 @@ func TestMemoryLocker(t *testing.T) {
 }
 
 func TestRunQueueLocker(t *testing.T) {
-	l := NewMemoryQueueLocker(Duration(50 * time.Millisecond))
+	l := New(Duration(50 * time.Millisecond))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

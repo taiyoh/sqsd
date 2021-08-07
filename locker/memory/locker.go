@@ -27,8 +27,8 @@ func Duration(dur time.Duration) Option {
 	}
 }
 
-// NewMemoryQueueLocker creates QueueLocker to memory.
-func NewMemoryQueueLocker(opts ...Option) locker.QueueLocker {
+// New creates QueueLocker to memory.
+func New(opts ...Option) locker.QueueLocker {
 	ml := &memoryLocker{
 		dur: expireDur,
 	}
