@@ -15,3 +15,25 @@ type QueueLocker interface {
 
 // ErrQueueExists shows this queue is already registered.
 var ErrQueueExists = errors.New("queue exists")
+
+// RunQueueLocker scan deletable ids and delete from QueueLocker periodically.
+func RunQueueLocker(ctx context.Context, l QueueLocker, interval time.Duration) {
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			ids, err := l.Find(ctx, time.Now().UTC())
+			if err != nil {
+				// TODO: logging
+				continue
+			}
+			if err := l.Unlock(ctx, ids...); err != nil {
+				// TODO: logging
+				continue
+			}
+		}
+	}
+}

@@ -40,28 +40,6 @@ func NewMemoryQueueLocker(opts ...Option) locker.QueueLocker {
 
 var _ locker.QueueLocker = (*memoryLocker)(nil)
 
-// RunQueueLocker scan deletable ids and delete from QueueLocker periodically.
-func RunQueueLocker(ctx context.Context, l locker.QueueLocker, interval time.Duration) {
-	tick := time.NewTicker(interval)
-	defer tick.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-			ids, err := l.Find(ctx, time.Now().UTC())
-			if err != nil {
-				// TODO: logging
-				continue
-			}
-			if err := l.Unlock(ctx, ids...); err != nil {
-				// TODO: logging
-				continue
-			}
-		}
-	}
-}
-
 func (l *memoryLocker) Lock(_ context.Context, queueID string) error {
 	now := time.Now().UTC()
 	if val, ok := l.pool.Load(queueID); ok && val.(time.Time).After(now) {

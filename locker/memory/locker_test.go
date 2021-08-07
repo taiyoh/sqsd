@@ -44,7 +44,7 @@ func TestRunQueueLocker(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go RunQueueLocker(ctx, l, 30*time.Millisecond)
+	go locker.RunQueueLocker(ctx, l, 30*time.Millisecond)
 
 	assert.NoError(t, l.Lock(ctx, "hooooooooo"))
 	time.Sleep(25 * time.Millisecond)
