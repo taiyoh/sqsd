@@ -1,43 +1,34 @@
-package sqsd
+package memorylocker
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/taiyoh/sqsd/locker"
 )
-
-// QueueLocker represents locker interface for suppressing queue duplication.
-type QueueLocker interface {
-	Lock(context.Context, string) error
-	Find(context.Context, time.Time) ([]string, error)
-	Unlock(context.Context, ...string) error
-}
-
-// ErrQueueExists shows this queue is already registered.
-var ErrQueueExists = errors.New("queue exists")
 
 type memoryLocker struct {
 	pool sync.Map
 	dur  time.Duration
 }
 
-// MemoryLockerOption provides setting function to memory QueueLocker.
-type MemoryLockerOption func(*memoryLocker)
+// Option provides setting function to memory QueueLocker.
+type Option func(*memoryLocker)
 
 var expireDur = 24 * time.Hour
 
-// MemoryLockerDuration sets expire duration to memory QueueLocker.
-func MemoryLockerDuration(dur time.Duration) MemoryLockerOption {
+// Duration sets expire duration to memory QueueLocker.
+func Duration(dur time.Duration) Option {
 	return func(ml *memoryLocker) {
 		ml.dur = dur
 	}
 }
 
 // NewMemoryQueueLocker creates QueueLocker to memory.
-func NewMemoryQueueLocker(opts ...MemoryLockerOption) QueueLocker {
+func NewMemoryQueueLocker(opts ...Option) locker.QueueLocker {
 	ml := &memoryLocker{
 		dur: expireDur,
 	}
@@ -47,10 +38,10 @@ func NewMemoryQueueLocker(opts ...MemoryLockerOption) QueueLocker {
 	return ml
 }
 
-var _ QueueLocker = (*memoryLocker)(nil)
+var _ locker.QueueLocker = (*memoryLocker)(nil)
 
 // RunQueueLocker scan deletable ids and delete from QueueLocker periodically.
-func RunQueueLocker(ctx context.Context, l QueueLocker, interval time.Duration) {
+func RunQueueLocker(ctx context.Context, l locker.QueueLocker, interval time.Duration) {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
 	for {
@@ -74,7 +65,7 @@ func RunQueueLocker(ctx context.Context, l QueueLocker, interval time.Duration) 
 func (l *memoryLocker) Lock(_ context.Context, queueID string) error {
 	now := time.Now().UTC()
 	if val, ok := l.pool.Load(queueID); ok && val.(time.Time).After(now) {
-		return ErrQueueExists
+		return locker.ErrQueueExists
 	}
 	expire := now.Add(l.dur)
 	l.pool.Store(queueID, expire)
@@ -99,21 +90,5 @@ func (l *memoryLocker) Unlock(_ context.Context, ids ...string) error {
 	for _, id := range ids {
 		l.pool.Delete(id)
 	}
-	return nil
-}
-
-type noopLocker struct{}
-
-var _ QueueLocker = (*noopLocker)(nil)
-
-func (noopLocker) Lock(_ context.Context, _ string) error {
-	return nil
-}
-
-func (noopLocker) Find(_ context.Context, _ time.Time) ([]string, error) {
-	return nil, nil
-}
-
-func (noopLocker) Unlock(_ context.Context, _ ...string) error {
 	return nil
 }

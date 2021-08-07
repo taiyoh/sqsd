@@ -12,6 +12,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/sqs"
+
+	"github.com/taiyoh/sqsd/locker"
+	nooplocker "github.com/taiyoh/sqsd/locker/noop"
 )
 
 // Gateway fetches and removes jobs from SQS.
@@ -63,7 +66,7 @@ type fetcher struct {
 	queue               *sqs.SQS
 	distributor         *actor.PID
 	timeout             int64
-	locker              QueueLocker
+	locker              locker.QueueLocker
 }
 
 // FetcherParameter sets parameter to fetcher by functional option pattern.
@@ -86,7 +89,7 @@ func FetcherInterval(d time.Duration) FetcherParameter {
 }
 
 // FetcherQueueLocker sets QueueLocker in Fetcher to block duplicated queue.
-func FetcherQueueLocker(l QueueLocker) FetcherParameter {
+func FetcherQueueLocker(l locker.QueueLocker) FetcherParameter {
 	return func(f *fetcher) {
 		f.locker = l
 	}
@@ -101,7 +104,7 @@ func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParamete
 		timeout:             g.timeout,
 		distributorInterval: time.Second,
 		fetcherInterval:     100 * time.Millisecond,
-		locker:              noopLocker{},
+		locker:              nooplocker.Instance,
 	}
 	for _, fn := range fns {
 		fn(f)
@@ -192,7 +195,7 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 	messages := make([]Message, 0, len(out.Messages))
 	for _, msg := range out.Messages {
 		if err := f.locker.Lock(ctx, *msg.MessageId); err != nil {
-			if err == ErrQueueExists {
+			if err == locker.ErrQueueExists {
 				logger.Warn("received message is duplicated", log.String("message_id", *msg.MessageId))
 				continue
 			}
