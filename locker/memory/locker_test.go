@@ -21,7 +21,7 @@ func TestMemoryLocker(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"foobarbaz", "hogefuga"}, ids)
 
-	ids, err = l.Find(ctx, time.Now().Add(expireDur))
+	ids, err = l.Find(ctx, time.Now().Add(locker.DefaultExpireDuration))
 	assert.NoError(t, err)
 	assert.Empty(t, ids)
 

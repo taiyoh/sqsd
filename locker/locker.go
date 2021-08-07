@@ -13,6 +13,9 @@ type QueueLocker interface {
 	Unlock(context.Context, ...string) error
 }
 
+// DefaultExpireDuration shows that duration of remaining queue_id in locker is 24 hours.
+var DefaultExpireDuration = 24 * time.Hour
+
 // ErrQueueExists shows this queue is already registered.
 var ErrQueueExists = errors.New("queue exists")
 
