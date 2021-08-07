@@ -1,4 +1,4 @@
-package sqsd
+package memorylocker
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/taiyoh/sqsd/locker"
 )
 
 func TestMemoryLocker(t *testing.T) {
@@ -14,7 +15,7 @@ func TestMemoryLocker(t *testing.T) {
 
 	assert.NoError(t, l.Lock(ctx, "hogefuga"))
 	assert.NoError(t, l.Lock(ctx, "foobarbaz"))
-	assert.ErrorIs(t, l.Lock(ctx, "foobarbaz"), ErrQueueExists)
+	assert.ErrorIs(t, l.Lock(ctx, "foobarbaz"), locker.ErrQueueExists)
 
 	ids, err := l.Find(ctx, time.Now())
 	assert.NoError(t, err)
@@ -39,7 +40,7 @@ func TestMemoryLocker(t *testing.T) {
 }
 
 func TestRunQueueLocker(t *testing.T) {
-	l := NewMemoryQueueLocker(MemoryLockerDuration(50 * time.Millisecond))
+	l := NewMemoryQueueLocker(Duration(50 * time.Millisecond))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
