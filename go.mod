@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.41.7
 	github.com/caarlos0/env/v6 v6.7.2
 	github.com/golang/protobuf v1.5.2
-	github.com/joho/godotenv v1.3.0
+	github.com/joho/godotenv v1.4.0
 	github.com/stretchr/testify v1.7.0
 	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
