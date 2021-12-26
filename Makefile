@@ -3,7 +3,7 @@ CURRENT_REVISION=$(shell git rev-parse --short HEAD)
 CURRENT_DATE=$(shell date +"%FT%T%z")
 LDFLAGS="-s -w -X github.com/taiyoh/sqsd.version=$(GIT_VERSION) -X main.commit=$(CURRENT_REVISION) -X main.date=$(CURRENT_DATE)"
 
-.PHONY: test install build release clean docker
+.PHONY: test install build release clean
 
 install:
 	cd cmd/sqsd && go install
@@ -39,6 +39,3 @@ build: clean $(DISTDIR)/sqsd_$(GIT_VERSION)_linux_amd64.tar.gz $(DISTDIR)/sqsd_$
 
 release:
 	ghr v$(GIT_VERSION) $(PKGDIR)/dist
-
-docker: $(PKGDIR)/sqsd_linux_amd64/sqsd
-	cp $(PKGDIR)/sqsd_linux_amd64/sqsd pkg/sqsd
