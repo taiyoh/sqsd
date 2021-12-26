@@ -18,3 +18,17 @@ so it's difficult to build worker system or to manage it reliablly.
 Many languages' HTTP server library are stable, so user builds `worker server` by HTTP server.
 
 This (github.com/taiyoh/sqsd) builds its concept without AWS Elastic Beanstalk.
+
+## Features
+
+- designed by Golang
+    - fast and low memory usage
+- based on [protoactor-go](https://github.com/asynkron/protoactor-go)
+    - [actor model](https://en.wikipedia.org/wiki/Actor_model)
+    - clearing internal component responsibility
+- fetch scoreboard by gRPC
+- run circuit breaker if all worker processes are busy
+    - stops automatically if prosecces are not busy
+    - unlike CSP, gently run and stop switching by actor model
+- invoke job function directly
+    - accepts `sqsd.Invoker` interface only
