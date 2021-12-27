@@ -8,9 +8,8 @@ import (
 
 // QueueLocker represents locker interface for suppressing queue duplication.
 type QueueLocker interface {
-	Lock(context.Context, string) error
-	Find(context.Context, time.Time) ([]string, error)
-	Unlock(context.Context, ...string) error
+	Lock(ctx context.Context, key string) error
+	Unlock(ctx context.Context, before time.Time) error
 }
 
 // DefaultExpireDuration shows that duration of remaining queue_id in locker is 24 hours.
@@ -28,12 +27,7 @@ func RunQueueLocker(ctx context.Context, l QueueLocker, interval time.Duration) 
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			ids, err := l.Find(ctx, time.Now().UTC())
-			if err != nil {
-				// TODO: logging
-				continue
-			}
-			if err := l.Unlock(ctx, ids...); err != nil {
+			if err := l.Unlock(ctx, time.Now().UTC().Add(DefaultExpireDuration)); err != nil {
 				// TODO: logging
 				continue
 			}

@@ -16,10 +16,6 @@ func (noopLocker) Lock(_ context.Context, _ string) error {
 	return nil
 }
 
-func (noopLocker) Find(_ context.Context, _ time.Time) ([]string, error) {
-	return nil, nil
-}
-
-func (noopLocker) Unlock(_ context.Context, _ ...string) error {
+func (noopLocker) Unlock(_ context.Context, _ time.Time) error {
 	return nil
 }

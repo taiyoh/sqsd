@@ -2,8 +2,6 @@ package memorylocker
 
 import (
 	"context"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -48,23 +46,16 @@ func (l *memoryLocker) Lock(_ context.Context, queueID string) error {
 	return nil
 }
 
-func (l *memoryLocker) Find(_ context.Context, ts time.Time) ([]string, error) {
-	ids := make([]string, 0, 8)
+func (l *memoryLocker) Unlock(_ context.Context, ts time.Time) error {
+	var keys []interface{}
 	l.pool.Range(func(key, value interface{}) bool {
-		if value.(time.Time).After(ts) {
-			ids = append(ids, key.(string))
+		if value.(time.Time).Before(ts) {
+			keys = append(keys, key)
 		}
 		return true
 	})
-	sort.Slice(ids, func(i, j int) bool {
-		return strings.Compare(ids[i], ids[j]) < 0
-	})
-	return ids, nil
-}
-
-func (l *memoryLocker) Unlock(_ context.Context, ids ...string) error {
-	for _, id := range ids {
-		l.pool.Delete(id)
+	for _, key := range keys {
+		l.pool.Delete(key)
 	}
 	return nil
 }
