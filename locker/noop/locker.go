@@ -7,19 +7,41 @@ import (
 	"github.com/taiyoh/sqsd/locker"
 )
 
-type noopLocker struct{}
+type noopLocker struct {
+	lockHooks   []func(context.Context, string) error
+	unlockHooks []func(context.Context, time.Time) error
+}
 
-// Instance has noopLocker instance.
-var Instance locker.QueueLocker = &noopLocker{}
+// LockerWithHooks has noopLocker instance which has hooks interface.
+type LockerWithHooks interface {
+	locker.QueueLocker
+	AddLockHook(f func(context.Context, string) error)
+	AddUnlockHook(f func(context.Context, time.Time) error)
+}
 
-func (noopLocker) Lock(_ context.Context, _ string) error {
+// Get returns new noopLocker instance.
+func Get() LockerWithHooks {
+	return &noopLocker{}
+}
+
+func (l *noopLocker) Lock(ctx context.Context, key string) error {
+	for _, f := range l.lockHooks {
+		_ = f(ctx, key)
+	}
 	return nil
 }
 
-func (noopLocker) Find(_ context.Context, _ time.Time) ([]string, error) {
-	return nil, nil
+func (l *noopLocker) Unlock(ctx context.Context, before time.Time) error {
+	for _, f := range l.unlockHooks {
+		_ = f(ctx, before)
+	}
+	return nil
 }
 
-func (noopLocker) Unlock(_ context.Context, _ ...string) error {
-	return nil
+func (l *noopLocker) AddLockHook(f func(context.Context, string) error) {
+	l.lockHooks = append(l.lockHooks, f)
+}
+
+func (l *noopLocker) AddUnlockHook(f func(context.Context, time.Time) error) {
+	l.unlockHooks = append(l.unlockHooks, f)
 }

@@ -53,23 +53,9 @@ func TestRedsislocker(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	t1 := time.Now() // after q1 lock
 
-	t.Run("no items", func(t *testing.T) {
-		ids, err := obj.Find(ctx, t0)
-		assert.NoError(t, err)
-		assert.Empty(t, ids)
-	})
-
-	t.Run("one item", func(t *testing.T) {
-		ids, err := obj.Find(ctx, t1)
-		assert.NoError(t, err)
-		assert.Equal(t, []string{"q1"}, ids)
-	})
-
-	time.Sleep(10 * time.Millisecond)
-	assert.NoError(t, obj.Lock(ctx, "q2"))
-
-	t.Run("q2 not found", func(t *testing.T) {
-		ids, err := obj.Find(ctx, t1)
+	t.Run("no items removed", func(t *testing.T) {
+		assert.NoError(t, obj.Unlock(ctx, t0))
+		ids, err := cli.ZRangeByScore(ctx, "testKey", &redis.ZRangeBy{Min: "-inf", Max: "+inf"}).Result()
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"q1"}, ids)
 	})
@@ -79,16 +65,27 @@ func TestRedsislocker(t *testing.T) {
 		assert.ErrorIs(t, err, locker.ErrQueueExists)
 	})
 
-	t.Run("q1 and q2 found", func(t *testing.T) {
-		ids, err := obj.Find(ctx, time.Now())
+	t.Run("item removed", func(t *testing.T) {
+		assert.NoError(t, obj.Unlock(ctx, t1))
+		ids, err := cli.ZRangeByScore(ctx, "testKey", &redis.ZRangeBy{Min: "-inf", Max: "+inf"}).Result()
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"q1", "q2"}, ids)
+		assert.Empty(t, ids)
 	})
 
-	t.Run("remove q1", func(t *testing.T) {
-		assert.NoError(t, obj.Unlock(ctx, "q1"))
-		ids, err := obj.Find(ctx, time.Now())
+	time.Sleep(10 * time.Millisecond)
+	assert.NoError(t, obj.Lock(ctx, "q2"))
+
+	t.Run("q2 not removed", func(t *testing.T) {
+		assert.NoError(t, obj.Unlock(ctx, t1))
+		ids, err := cli.ZRangeByScore(ctx, "testKey", &redis.ZRangeBy{Min: "-inf", Max: "+inf"}).Result()
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"q2"}, ids)
+	})
+
+	t.Run("q2 removed", func(t *testing.T) {
+		assert.NoError(t, obj.Unlock(ctx, time.Now()))
+		ids, err := cli.ZRangeByScore(ctx, "testKey", &redis.ZRangeBy{Min: "-inf", Max: "+inf"}).Result()
+		assert.NoError(t, err)
+		assert.Empty(t, ids)
 	})
 }

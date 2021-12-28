@@ -104,7 +104,7 @@ func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParamete
 		timeout:             g.timeout,
 		distributorInterval: time.Second,
 		fetcherInterval:     100 * time.Millisecond,
-		locker:              nooplocker.Instance,
+		locker:              nooplocker.Get(),
 	}
 	for _, fn := range fns {
 		fn(f)

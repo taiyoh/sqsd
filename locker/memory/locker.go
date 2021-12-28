@@ -2,8 +2,6 @@ package memorylocker
 
 import (
 	"context"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,25 +13,11 @@ type memoryLocker struct {
 	dur  time.Duration
 }
 
-// Option provides setting function to memory QueueLocker.
-type Option func(*memoryLocker)
-
-// Duration sets expire duration to memory QueueLocker.
-func Duration(dur time.Duration) Option {
-	return func(ml *memoryLocker) {
-		ml.dur = dur
+// New creates QueueLocker by memory.
+func New(dur time.Duration) locker.QueueLocker {
+	return &memoryLocker{
+		dur: dur,
 	}
-}
-
-// New creates QueueLocker to memory.
-func New(opts ...Option) locker.QueueLocker {
-	ml := &memoryLocker{
-		dur: locker.DefaultExpireDuration,
-	}
-	for _, opt := range opts {
-		opt(ml)
-	}
-	return ml
 }
 
 var _ locker.QueueLocker = (*memoryLocker)(nil)
@@ -48,23 +32,16 @@ func (l *memoryLocker) Lock(_ context.Context, queueID string) error {
 	return nil
 }
 
-func (l *memoryLocker) Find(_ context.Context, ts time.Time) ([]string, error) {
-	ids := make([]string, 0, 8)
+func (l *memoryLocker) Unlock(_ context.Context, ts time.Time) error {
+	var keys []interface{}
 	l.pool.Range(func(key, value interface{}) bool {
-		if value.(time.Time).After(ts) {
-			ids = append(ids, key.(string))
+		if value.(time.Time).Before(ts) {
+			keys = append(keys, key)
 		}
 		return true
 	})
-	sort.Slice(ids, func(i, j int) bool {
-		return strings.Compare(ids[i], ids[j]) < 0
-	})
-	return ids, nil
-}
-
-func (l *memoryLocker) Unlock(_ context.Context, ids ...string) error {
-	for _, id := range ids {
-		l.pool.Delete(id)
+	for _, key := range keys {
+		l.pool.Delete(key)
 	}
 	return nil
 }

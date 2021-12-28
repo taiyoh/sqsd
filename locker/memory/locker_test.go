@@ -10,54 +10,49 @@ import (
 )
 
 func TestMemoryLocker(t *testing.T) {
-	l := New()
+	l := New(24 * time.Hour)
 	ctx := context.Background()
 
 	assert.NoError(t, l.Lock(ctx, "hogefuga"))
-	assert.NoError(t, l.Lock(ctx, "foobarbaz"))
-	assert.ErrorIs(t, l.Lock(ctx, "foobarbaz"), locker.ErrQueueExists)
+	assert.ErrorIs(t, l.Lock(ctx, "hogefuga"), locker.ErrQueueExists)
 
-	ids, err := l.Find(ctx, time.Now())
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"foobarbaz", "hogefuga"}, ids)
+	t1 := time.Now().UTC()
 
-	ids, err = l.Find(ctx, time.Now().Add(locker.DefaultExpireDuration))
-	assert.NoError(t, err)
-	assert.Empty(t, ids)
+	{
+		ll := l.(*memoryLocker)
+		ll.pool.Store("hogefuga", t1.Add(-2*time.Second))
+		ll.pool.Store("foobarbaz", t1.Add(-1*time.Second))
+	}
 
-	assert.NoError(t, l.Unlock(ctx, "aiueo"))
-	ids, err = l.Find(ctx, time.Now())
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"foobarbaz", "hogefuga"}, ids)
-	assert.NoError(t, l.Unlock(ctx, "foobarbaz"))
-	ids, err = l.Find(ctx, time.Now())
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"hogefuga"}, ids)
-	assert.NoError(t, l.Unlock(ctx, "hogefuga"))
-	ids, err = l.Find(ctx, time.Now())
-	assert.NoError(t, err)
-	assert.Empty(t, ids)
-}
-
-func TestRunQueueLocker(t *testing.T) {
-	l := New(Duration(50 * time.Millisecond))
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go locker.RunQueueLocker(ctx, l, 30*time.Millisecond)
-
-	assert.NoError(t, l.Lock(ctx, "hooooooooo"))
-	time.Sleep(25 * time.Millisecond)
-	assert.NoError(t, l.Lock(ctx, "baaaaaaaaa"))
-
-	for _, refs := range [][]string{
+	for _, tt := range []struct {
+		label string
+		ts    time.Time
+		want  []string
+	}{
 		{
-			"baaaaaaaaa", "hooooooooo",
+			label: "case1",
+			ts:    t1.Add(-3 * time.Second),
+			want:  []string{"foobarbaz", "hogefuga"},
 		},
-		{},
+		{
+			label: "case2",
+			ts:    t1.Add(-2*time.Second + 200*time.Millisecond),
+			want:  []string{"foobarbaz"},
+		},
+		{
+			label: "case3",
+			ts:    t1,
+			want:  []string{},
+		},
 	} {
-		ids, _ := l.Find(ctx, time.Now().UTC())
-		assert.Equal(t, refs, ids)
-		time.Sleep(30 * time.Millisecond)
+		t.Run(tt.label, func(t *testing.T) {
+			assert.NoError(t, l.Unlock(ctx, tt.ts))
+			var keys []string
+			l.(*memoryLocker).pool.Range(func(key, value interface{}) bool {
+				keys = append(keys, key.(string))
+				return true
+			})
+			assert.ElementsMatch(t, tt.want, keys)
+		})
 	}
 }

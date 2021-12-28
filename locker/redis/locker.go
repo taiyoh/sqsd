@@ -41,18 +41,6 @@ func (l *redislocker) Lock(ctx context.Context, queueID string) error {
 	}
 }
 
-func (l *redislocker) Find(ctx context.Context, ts time.Time) ([]string, error) {
-	// ascending order
-	return l.cli.ZRangeByScore(ctx, l.keyName, &redis.ZRangeBy{
-		Max: fmt.Sprintf("(%d", ts.UnixNano()),
-		Min: "-inf",
-	}).Result()
-}
-
-func (l *redislocker) Unlock(ctx context.Context, queueIDs ...string) error {
-	members := make([]interface{}, len(queueIDs))
-	for _, queueID := range queueIDs {
-		members = append(members, queueID)
-	}
-	return l.cli.ZRem(ctx, l.keyName, members...).Err()
+func (l *redislocker) Unlock(ctx context.Context, ts time.Time) error {
+	return l.cli.ZRemRangeByScore(ctx, l.keyName, "-inf", fmt.Sprintf("%d", ts.UnixNano())).Err()
 }
