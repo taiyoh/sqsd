@@ -27,6 +27,26 @@ type config struct {
 	InvokerParallel int           `env:"INVOKER_PARALLEL_COUNT" envDefault:"1"`
 	MonitoringPort  int           `env:"MONITORING_PORT" envDefault:"6969"`
 	LogLevel        sqsd.LogLevel `env:"LOG_LEVEL" envDefault:"info"`
+	RedisLocker     *redisLocker  `env:"-"`
+}
+
+type redisLocker struct {
+	Host    string `env:"HOST,required"`
+	DBName  int    `env:"DBNAME" envDefault:"0"`
+	KeyName string `env:"KEYNAME,required"`
+}
+
+func (c *config) Load() error {
+	if err := env.Parse(c); err != nil {
+		return err
+	}
+	var rl redisLocker
+	if err := env.Parse(&rl, env.Options{
+		Prefix: "REDIS_LOCKER_",
+	}); err == nil {
+		c.RedisLocker = &rl
+	}
+	return nil
 }
 
 func main() {
