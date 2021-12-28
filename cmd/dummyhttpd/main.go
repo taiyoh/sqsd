@@ -28,13 +28,13 @@ func main() {
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		if dumpBody {
 			buf := bytes.NewBuffer([]byte{})
-			buf.ReadFrom(r.Body)
+			_, _ = buf.ReadFrom(r.Body)
 			log.Printf("body: %s", buf.String())
 		}
 		time.Sleep(time.Duration(waitms) * time.Millisecond)
 		w.WriteHeader(200)
 		w.Header().Add("Content-Type", "application/json")
-		w.Write([]byte(`{"result":"ok"}`))
+		_, _ = w.Write([]byte(`{"result":"ok"}`))
 	})
 
 	srv := &http.Server{
@@ -54,11 +54,11 @@ func main() {
 	}()
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	<-sigCh
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	log.Print("stop dummyhttpd")
-	srv.Shutdown(ctx)
+	_ = srv.Shutdown(ctx)
 }
