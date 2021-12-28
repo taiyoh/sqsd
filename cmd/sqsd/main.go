@@ -65,6 +65,8 @@ func main() {
 
 	sqsd.SetLogLevel(args.LogLevel)
 
+	logger := palog.New(args.LogLevel.Level, "[sqsd-main]")
+
 	queue := sqs.New(
 		session.Must(session.NewSession()),
 		aws.NewConfig().
@@ -79,8 +81,10 @@ func main() {
 			DB:   rl.DBName,
 		})
 		queueLocker = redislocker.New(db, rl.KeyName)
+		logger.Info("redis queue locker is selected")
 	} else {
 		queueLocker = memorylocker.New()
+		logger.Info("memory queue locker is selected")
 	}
 
 	unlocker, err := locker.NewUnlocker(queueLocker, args.UnlockInterval, locker.ExpireDuration(args.LockExpire))
@@ -99,8 +103,6 @@ func main() {
 		sqsd.ConsumerBuilder(ivk, args.InvokerParallel),
 		sqsd.MonitorBuilder(args.MonitoringPort),
 	)
-
-	logger := palog.New(args.LogLevel.Level, "[sqsd-main]")
 
 	logger.Info("start process")
 	logger.Info("queue settings",
