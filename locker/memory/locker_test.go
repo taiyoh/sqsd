@@ -10,7 +10,7 @@ import (
 )
 
 func TestMemoryLocker(t *testing.T) {
-	l := New()
+	l := New(24 * time.Hour)
 	ctx := context.Background()
 
 	assert.NoError(t, l.Lock(ctx, "hogefuga"))
@@ -54,32 +54,5 @@ func TestMemoryLocker(t *testing.T) {
 			})
 			assert.ElementsMatch(t, tt.want, keys)
 		})
-	}
-}
-
-func TestRunQueueLocker(t *testing.T) {
-	l := New(Duration(50 * time.Millisecond))
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go locker.RunQueueLocker(ctx, l, 30*time.Millisecond)
-
-	assert.NoError(t, l.Lock(ctx, "hooooooooo"))
-	time.Sleep(25 * time.Millisecond)
-	assert.NoError(t, l.Lock(ctx, "baaaaaaaaa"))
-
-	for _, refs := range [][]string{
-		{
-			"baaaaaaaaa", "hooooooooo",
-		},
-		{},
-	} {
-		var keys []string
-		l.(*memoryLocker).pool.Range(func(key, value interface{}) bool {
-			keys = append(keys, key.(string))
-			return true
-		})
-		assert.ElementsMatch(t, refs, keys)
-		time.Sleep(30 * time.Millisecond)
 	}
 }

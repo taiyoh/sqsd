@@ -13,25 +13,11 @@ type memoryLocker struct {
 	dur  time.Duration
 }
 
-// Option provides setting function to memory QueueLocker.
-type Option func(*memoryLocker)
-
-// Duration sets expire duration to memory QueueLocker.
-func Duration(dur time.Duration) Option {
-	return func(ml *memoryLocker) {
-		ml.dur = dur
+// New creates QueueLocker by memory.
+func New(dur time.Duration) locker.QueueLocker {
+	return &memoryLocker{
+		dur: dur,
 	}
-}
-
-// New creates QueueLocker to memory.
-func New(opts ...Option) locker.QueueLocker {
-	ml := &memoryLocker{
-		dur: locker.DefaultExpireDuration,
-	}
-	for _, opt := range opts {
-		opt(ml)
-	}
-	return ml
 }
 
 var _ locker.QueueLocker = (*memoryLocker)(nil)

@@ -12,22 +12,58 @@ type QueueLocker interface {
 	Unlock(ctx context.Context, before time.Time) error
 }
 
-// DefaultExpireDuration shows that duration of remaining queue_id in locker is 24 hours.
-var DefaultExpireDuration = 24 * time.Hour
+const defaultExpireDuration = 24 * time.Hour
 
 // ErrQueueExists shows this queue is already registered.
 var ErrQueueExists = errors.New("queue exists")
 
-// RunQueueLocker scan deletable ids and delete from QueueLocker periodically.
-func RunQueueLocker(ctx context.Context, l QueueLocker, interval time.Duration) {
-	tick := time.NewTicker(interval)
+// Unlocker removes unused queue_id list periodically.
+type Unlocker struct {
+	interval time.Duration
+	expire   time.Duration
+	locker   QueueLocker
+}
+
+// UnlockerOption is an option for Unlocker.
+type UnlockerOption func(*Unlocker)
+
+// ExpireDuration sets expire duration to Unlocker.
+func ExpireDuration(dur time.Duration) UnlockerOption {
+	return func(u *Unlocker) {
+		u.expire = dur
+	}
+}
+
+// NewUnlocker creates Unlocker.
+// As default, expire duration is 24 hours.
+func NewUnlocker(l QueueLocker, interval time.Duration, opts ...UnlockerOption) (*Unlocker, error) {
+	if l == nil {
+		return nil, errors.New("locker is required")
+	}
+	if interval <= 0 {
+		return nil, errors.New("interval must be greater than 0")
+	}
+	ul := &Unlocker{
+		interval: interval,
+		expire:   defaultExpireDuration,
+		locker:   l,
+	}
+	for _, opt := range opts {
+		opt(ul)
+	}
+	return ul, nil
+}
+
+// Run runs unlock operation by interval.
+func (u Unlocker) Run(ctx context.Context) {
+	tick := time.NewTicker(u.interval)
 	defer tick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			if err := l.Unlock(ctx, time.Now().UTC().Add(DefaultExpireDuration)); err != nil {
+			if err := u.locker.Unlock(ctx, time.Now().UTC().Add(-u.expire)); err != nil {
 				// TODO: logging
 				continue
 			}
