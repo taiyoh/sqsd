@@ -42,7 +42,9 @@ setup .env file
 ```shell
 INVOKER_URL=http://local.example.com/setup/your/worker/path
 QUEUE_URL=https://queue.amazonaws.com/80398EXAMPLE/MyQueue
-# DEFAULT_INVOKER_TIMEOUT=60s # default
+# INVOKER_TIMEOUT=60s # default
+# UNLOCK_INTERVAL=1m # default
+# LOCK_EXPIRE=24h # default
 # FETCHER_PARALLEL_COUNT=1 # default
 # INVOKER_PARALLEL_COUNT=1 # default
 # MONITORING_PORT=6969 # default
