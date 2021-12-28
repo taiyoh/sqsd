@@ -15,14 +15,20 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/caarlos0/env/v6"
+	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	sqsd "github.com/taiyoh/sqsd"
+	"github.com/taiyoh/sqsd/locker"
+	memorylocker "github.com/taiyoh/sqsd/locker/memory"
+	redislocker "github.com/taiyoh/sqsd/locker/redis"
 )
 
 type config struct {
 	RawURL          string        `env:"INVOKER_URL,required"`
 	QueueURL        string        `env:"QUEUE_URL,required"`
-	Duration        time.Duration `env:"DEFAULT_INVOKER_TIMEOUT" envDefault:"60s"`
+	Duration        time.Duration `env:"INVOKER_TIMEOUT" envDefault:"60s"`
+	UnlockInterval  time.Duration `env:"UNLOCK_INTERVAL" envDefault:"1m"`
+	LockExpire      time.Duration `env:"LOCK_EXPIRE" envDefault:"24h"`
 	FetcherParallel int           `env:"FETCHER_PARALLEL_COUNT" envDefault:"1"`
 	InvokerParallel int           `env:"INVOKER_PARALLEL_COUNT" envDefault:"1"`
 	MonitoringPort  int           `env:"MONITORING_PORT" envDefault:"6969"`
@@ -52,8 +58,8 @@ func (c *config) Load() error {
 func main() {
 	loadEnvFromFile()
 
-	args := config{}
-	if err := env.Parse(&args); err != nil {
+	var args config
+	if err := args.Load(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -66,13 +72,30 @@ func main() {
 			WithRegion(os.Getenv("AWS_REGION")),
 	)
 
+	var queueLocker locker.QueueLocker
+	if rl := args.RedisLocker; rl != nil {
+		db := redis.NewClient(&redis.Options{
+			Addr: rl.Host,
+			DB:   rl.DBName,
+		})
+		queueLocker = redislocker.New(db, rl.KeyName)
+	} else {
+		queueLocker = memorylocker.New()
+	}
+
+	unlocker, err := locker.NewUnlocker(queueLocker, args.UnlockInterval, locker.ExpireDuration(args.LockExpire))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	ivk, err := sqsd.NewHTTPInvoker(args.RawURL, args.Duration)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	sys := sqsd.NewSystem(
-		sqsd.GatewayBuilder(queue, args.QueueURL, args.FetcherParallel, args.Duration),
+		sqsd.GatewayBuilder(queue, args.QueueURL, args.FetcherParallel, args.Duration,
+			sqsd.FetcherQueueLocker(queueLocker)),
 		sqsd.ConsumerBuilder(ivk, args.InvokerParallel),
 		sqsd.MonitorBuilder(args.MonitoringPort),
 	)
@@ -92,6 +115,8 @@ func main() {
 		context.Background(),
 		syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer cancel()
+
+	go unlocker.Run(ctx)
 
 	if err := sys.Run(ctx); err != nil {
 		log.Fatal(err)

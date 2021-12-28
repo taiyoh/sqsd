@@ -10,25 +10,21 @@ import (
 
 type memoryLocker struct {
 	pool sync.Map
-	dur  time.Duration
 }
 
 // New creates QueueLocker by memory.
-func New(dur time.Duration) locker.QueueLocker {
-	return &memoryLocker{
-		dur: dur,
-	}
+func New() locker.QueueLocker {
+	return &memoryLocker{}
 }
 
 var _ locker.QueueLocker = (*memoryLocker)(nil)
 
 func (l *memoryLocker) Lock(_ context.Context, queueID string) error {
 	now := time.Now().UTC()
-	if val, ok := l.pool.Load(queueID); ok && val.(time.Time).After(now) {
+	if _, ok := l.pool.Load(queueID); ok {
 		return locker.ErrQueueExists
 	}
-	expire := now.Add(l.dur)
-	l.pool.Store(queueID, expire)
+	l.pool.Store(queueID, now)
 	return nil
 }
 

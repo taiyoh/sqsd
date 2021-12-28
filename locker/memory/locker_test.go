@@ -10,7 +10,7 @@ import (
 )
 
 func TestMemoryLocker(t *testing.T) {
-	l := New(24 * time.Hour)
+	l := New()
 	ctx := context.Background()
 
 	assert.NoError(t, l.Lock(ctx, "hogefuga"))
