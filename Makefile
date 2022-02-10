@@ -39,3 +39,7 @@ build: clean $(DISTDIR)/sqsd_$(GIT_VERSION)_linux_amd64.tar.gz $(DISTDIR)/sqsd_$
 
 release:
 	ghr v$(GIT_VERSION) $(PKGDIR)/dist
+
+.PHONY: protobuf
+protobuf:
+	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative sqsd.proto
