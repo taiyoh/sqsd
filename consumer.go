@@ -9,6 +9,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/log"
 	"github.com/AsynkronIT/protoactor-go/mailbox"
+	"github.com/taiyoh/sqsd/locker"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -192,6 +193,8 @@ func (w *worker) run(ctx context.Context, c actor.Context) {
 					Message: msg.ResultSucceeded(),
 					Sender:  c.Self(),
 				})
+			case locker.ErrQueueExists:
+				logger.Warn("received message is duplicated", msgID)
 			default:
 				logger.Error("failed to invoke.", log.Error(err), msgID)
 			}
