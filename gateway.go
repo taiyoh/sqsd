@@ -66,6 +66,7 @@ type fetcher struct {
 	queue               *sqs.SQS
 	distributor         *actor.PID
 	timeout             int64
+	numberOfMessages    int64
 	locker              locker.QueueLocker
 }
 
@@ -95,6 +96,22 @@ func FetcherQueueLocker(l locker.QueueLocker) FetcherParameter {
 	}
 }
 
+// FetcherMaxMessages sets MaxNumberOfMessages of SQS between 1 and 10.
+// Fetcher's default value is 10.
+// if supplied value is out of range, forcely sets 1 or 10.
+// (if n is less than 1, set 1 and is more than 10, set 10)
+func FetcherMaxMessages(n int64) FetcherParameter {
+	if n < 1 {
+		n = 1
+	}
+	if n > 10 {
+		n = 10
+	}
+	return func(f *fetcher) {
+		f.numberOfMessages = n
+	}
+}
+
 // NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
 func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParameter) *actor.Props {
 	f := &fetcher{
@@ -104,6 +121,7 @@ func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParamete
 		timeout:             g.timeout,
 		distributorInterval: time.Second,
 		fetcherInterval:     100 * time.Millisecond,
+		numberOfMessages:    10,
 		locker:              nooplocker.Get(),
 	}
 	for _, fn := range fns {
@@ -184,7 +202,7 @@ func (f *fetcher) watchDistributor(ctx context.Context, c actor.Context) {
 func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 	out, err := f.queue.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            &f.queueURL,
-		MaxNumberOfMessages: aws.Int64(10),
+		MaxNumberOfMessages: &f.numberOfMessages,
 		WaitTimeSeconds:     aws.Int64(20),
 		VisibilityTimeout:   aws.Int64(f.timeout),
 	})
