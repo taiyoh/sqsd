@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20220208155141-a61098ce8716
-	github.com/aws/aws-sdk-go v1.44.60
+	github.com/aws/aws-sdk-go v1.44.62
 	github.com/caarlos0/env/v6 v6.9.3
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.4.0
