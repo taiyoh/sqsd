@@ -15,16 +15,8 @@ import (
 
 // Consumer manages Invoker's invokation from receiving queues.
 type Consumer struct {
-	capacity int
-	invoker  Invoker
-}
-
-// NewConsumer returns Consumer actor Prop.
-func NewConsumer(invoker Invoker, parallel int) *Consumer {
-	return &Consumer{
-		invoker:  invoker,
-		capacity: parallel,
-	}
+	Capacity int
+	Invoker  Invoker
 }
 
 // CurrentWorkingsMessages is message which MonitoringReceiver actor receives.
@@ -42,9 +34,9 @@ type distributor struct {
 // NewDistributorActorProps returns actor properties of distributor.
 func (csm *Consumer) NewDistributorActorProps() *actor.Props {
 	d := &distributor{
-		capacity:        csm.capacity,
-		suspendCapacity: csm.capacity * 5,
-		resumeCapacity:  csm.capacity * 2,
+		capacity:        csm.Capacity,
+		suspendCapacity: csm.Capacity * 5,
+		resumeCapacity:  csm.Capacity * 2,
 	}
 	return actor.PropsFromFunc(d.Receive).WithMailbox(mailbox.Bounded(1000))
 }
@@ -128,8 +120,8 @@ type worker struct {
 // NewWorkerActorProps returns actor properties of worker.
 func (csm *Consumer) NewWorkerActorProps(distributor, remover *actor.PID) *actor.Props {
 	w := &worker{
-		capacity:    csm.capacity,
-		invoker:     csm.invoker,
+		capacity:    csm.Capacity,
+		invoker:     csm.Invoker,
 		distributor: distributor,
 		remover:     remover,
 	}

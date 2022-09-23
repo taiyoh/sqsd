@@ -21,7 +21,7 @@ func TestMonitoringService(t *testing.T) {
 		<-nextCh
 		return nil
 	}
-	consumer := NewConsumer(testInvoker(testInvokerFn), 3)
+	consumer := &Consumer{Invoker: testInvoker(testInvokerFn), Capacity: 3}
 
 	d := sys.Root.Spawn(consumer.NewDistributorActorProps())
 	ra := &testDummyRemover{}

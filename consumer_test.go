@@ -22,7 +22,7 @@ func (f testInvoker) Invoke(ctx context.Context, q Message) error {
 func TestDistributor(t *testing.T) {
 	sys := actor.NewActorSystem()
 	consumer := &Consumer{
-		capacity: 3,
+		Capacity: 3,
 	}
 	d := sys.Root.Spawn(consumer.NewDistributorActorProps())
 
@@ -116,7 +116,10 @@ func TestWorker(t *testing.T) {
 		<-nextCh
 		return nil
 	}
-	consumer := NewConsumer(testInvoker(testInvokerFn), 3)
+	consumer := &Consumer{
+		Capacity: 3,
+		Invoker:  testInvoker(testInvokerFn),
+	}
 
 	d := sys.Root.Spawn(consumer.NewDistributorActorProps())
 	ra := &testDummyRemover{}

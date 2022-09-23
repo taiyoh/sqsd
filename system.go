@@ -36,7 +36,10 @@ func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.
 // ConsumerBuilder builds consumer for system.
 func ConsumerBuilder(invoker Invoker, parallel int) SystemBuilder {
 	return func(s *System) {
-		s.consumer = NewConsumer(invoker, parallel)
+		s.consumer = &Consumer{
+			Invoker:  invoker,
+			Capacity: parallel,
+		}
 	}
 }
 
