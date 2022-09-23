@@ -340,14 +340,12 @@ func (r *remover) RunForRemove(ctx context.Context, msg *removeQueueMessage) {
 		cancel()
 		if err == nil {
 			logger.Debug("succeeded to remove message.", log.String("message_id", msg.Message.ID))
-			// TODO
-			// c.Send(msg.Sender, &removeQueueResultMessage{Queue: x.Message})
+			msg.SenderCh <- removeQueueResultMessage{Queue: msg.Message}
 			return
 		}
 		time.Sleep(time.Second)
 	}
-	// TODO
-	// c.Send(x.Sender, &removeQueueResultMessage{Err: err, Queue: x.Message})
+	msg.SenderCh <- removeQueueResultMessage{Err: err, Queue: msg.Message}
 }
 
 func (r *remover) receive(c actor.Context) {
