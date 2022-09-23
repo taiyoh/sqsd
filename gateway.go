@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/taiyoh/sqsd/locker"
 	nooplocker "github.com/taiyoh/sqsd/locker/noop"
@@ -65,6 +66,7 @@ type fetcher struct {
 	queueURL            string
 	queue               *sqs.SQS
 	distributor         *actor.PID
+	distributorCh       chan Message
 	timeout             int64
 	numberOfMessages    int64
 	locker              locker.QueueLocker
@@ -130,6 +132,30 @@ func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParamete
 	return router.NewBroadcastPool(g.parallel).WithFunc(f.receive)
 }
 
+// StartFetcher starts Fetcher to fetch sqs messages.
+func (g *Gateway) StartFetcher(ctx context.Context, distributor chan Message, fns ...FetcherParameter) {
+	f := &fetcher{
+		distributorCh:       distributor,
+		queue:               g.queue,
+		queueURL:            g.queueURL,
+		timeout:             g.timeout,
+		distributorInterval: time.Second,
+		fetcherInterval:     100 * time.Millisecond,
+		numberOfMessages:    10,
+		locker:              nooplocker.Get(),
+	}
+	for _, fn := range fns {
+		fn(f)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(g.parallel)
+	for i := 0; i < g.parallel; i++ {
+		go f.RunForFetch(ctx, &wg)
+	}
+	wg.Wait()
+}
+
 // receive receives actor messages.
 func (f *fetcher) receive(c actor.Context) {
 	switch c.Message().(type) {
@@ -142,6 +168,29 @@ func (f *fetcher) receive(c actor.Context) {
 		go f.run(ctx, c)
 	case *actor.Stopping:
 		f.cancel()
+	}
+}
+
+func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			messages, err := f.fetch(ctx)
+			if err != nil {
+				if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
+					return
+				}
+				logger.Error("failed to fetch from SQS", log.Error(err))
+			}
+			logger.Debug("caught messages.", log.Int("length", len(messages)))
+			for _, msg := range messages {
+				f.distributorCh <- msg
+			}
+			time.Sleep(f.fetcherInterval)
+		}
 	}
 }
 
@@ -248,16 +297,57 @@ func (g *Gateway) NewRemoverGroup() *actor.Props {
 		WithMailbox(mailbox.Bounded(g.parallel * 100))
 }
 
+// StartRemover starts remover to remove sqs message.
+func (g *Gateway) StartRemover(ctx context.Context, removerCh chan *removeQueueMessage) {
+	r := &remover{
+		queue:    g.queue,
+		queueURL: g.queueURL,
+		timeout:  g.timeout,
+	}
+	sw := semaphore.NewWeighted(int64(g.parallel))
+	for msg := range removerCh {
+		if err := sw.Acquire(ctx, 1); err != nil {
+			return
+		}
+		go func(msg *removeQueueMessage) {
+			defer sw.Release(1)
+			r.RunForRemove(ctx, msg)
+		}(msg)
+	}
+}
+
 // removeQueueMessage brings Queue to remove from SQS.
 type removeQueueMessage struct {
-	Sender  *actor.PID
-	Message Message
+	Sender   *actor.PID
+	SenderCh chan removeQueueResultMessage
+	Message  Message
 }
 
 // removeQueueResultMessage is message for deleting message from SQS.
 type removeQueueResultMessage struct {
 	Queue Message
 	Err   error
+}
+
+func (r *remover) RunForRemove(ctx context.Context, msg *removeQueueMessage) {
+	var err error
+	for i := 0; i < 16; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
+			QueueUrl:      &r.queueURL,
+			ReceiptHandle: &msg.Message.Receipt,
+		})
+		cancel()
+		if err == nil {
+			logger.Debug("succeeded to remove message.", log.String("message_id", msg.Message.ID))
+			// TODO
+			// c.Send(msg.Sender, &removeQueueResultMessage{Queue: x.Message})
+			return
+		}
+		time.Sleep(time.Second)
+	}
+	// TODO
+	// c.Send(x.Sender, &removeQueueResultMessage{Err: err, Queue: x.Message})
 }
 
 func (r *remover) receive(c actor.Context) {
