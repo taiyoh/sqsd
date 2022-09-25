@@ -192,7 +192,7 @@ type remover struct {
 }
 
 // StartRemover starts remover to remove sqs message.
-func (g *Gateway) StartRemover(ctx context.Context, removerCh chan *removeQueueMessage) {
+func (g *Gateway) StartRemover(ctx context.Context, removerCh chan removeQueueMessage) {
 	r := &remover{
 		queue:    g.queue,
 		queueURL: g.queueURL,
@@ -203,40 +203,33 @@ func (g *Gateway) StartRemover(ctx context.Context, removerCh chan *removeQueueM
 		if err := sw.Acquire(ctx, 1); err != nil {
 			return
 		}
-		go func(msg *removeQueueMessage) {
+		go func(msg removeQueueMessage) {
 			defer sw.Release(1)
-			r.RunForRemove(ctx, msg)
+			msg.ErrCh <- r.RunForRemove(ctx, msg.Message)
 		}(msg)
 	}
 }
 
 // removeQueueMessage brings Queue to remove from SQS.
 type removeQueueMessage struct {
-	SenderCh chan removeQueueResultMessage
-	Message  Message
+	ErrCh   chan error
+	Message Message
 }
 
-// removeQueueResultMessage is message for deleting message from SQS.
-type removeQueueResultMessage struct {
-	Queue Message
-	Err   error
-}
-
-func (r *remover) RunForRemove(ctx context.Context, msg *removeQueueMessage) {
+func (r *remover) RunForRemove(ctx context.Context, msg Message) error {
 	var err error
 	for i := 0; i < 16; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
 			QueueUrl:      &r.queueURL,
-			ReceiptHandle: &msg.Message.Receipt,
+			ReceiptHandle: &msg.Receipt,
 		})
 		cancel()
 		if err == nil {
-			logger.Debug("succeeded to remove message.", log.String("message_id", msg.Message.ID))
-			msg.SenderCh <- removeQueueResultMessage{Queue: msg.Message}
-			return
+			logger.Debug("succeeded to remove message.", log.String("message_id", msg.ID))
+			return nil
 		}
 		time.Sleep(time.Second)
 	}
-	msg.SenderCh <- removeQueueResultMessage{Err: err, Queue: msg.Message}
+	return err
 }

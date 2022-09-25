@@ -17,12 +17,9 @@ type Consumer struct {
 	Invoker  Invoker
 }
 
-// CurrentWorkingsMessages is message which MonitoringReceiver actor receives.
-type CurrentWorkingsMessages struct{}
-
-func (csm *Consumer) startDistributor(ctx context.Context) (chan Message, chan *removeQueueMessage) {
+func (csm *Consumer) startDistributor(ctx context.Context) (chan Message, chan removeQueueMessage) {
 	msgsCh := make(chan Message, csm.Capacity)
-	rmCh := make(chan *removeQueueMessage, csm.Capacity*5)
+	rmCh := make(chan removeQueueMessage, csm.Capacity*5)
 	go func() {
 		<-ctx.Done()
 		close(msgsCh)
@@ -34,13 +31,13 @@ func (csm *Consumer) startDistributor(ctx context.Context) (chan Message, chan *
 type worker struct {
 	workings      sync.Map
 	distributorCh chan Message
-	removerCh     chan *removeQueueMessage
+	removerCh     chan removeQueueMessage
 	invoker       Invoker
 	capacity      int
 }
 
 // startWorker start worker to invoke and remove message.
-func (csm *Consumer) startWorker(ctx context.Context, distributor chan Message, remover chan *removeQueueMessage) *worker {
+func (csm *Consumer) startWorker(ctx context.Context, distributor chan Message, remover chan removeQueueMessage) *worker {
 	w := &worker{
 		capacity:      csm.Capacity,
 		invoker:       csm.Invoker,
@@ -83,12 +80,12 @@ func (w *worker) RunForProcess(ctx context.Context) {
 			switch err := w.invoker.Invoke(context.Background(), msg); err {
 			case nil:
 				logger.Debug("succeeded to invoke.", msgID)
-				ch := make(chan removeQueueResultMessage)
-				w.removerCh <- &removeQueueMessage{
-					Message:  msg.ResultSucceeded(),
-					SenderCh: ch,
+				ch := make(chan error)
+				w.removerCh <- removeQueueMessage{
+					Message: msg.ResultSucceeded(),
+					ErrCh:   ch,
 				}
-				if resp := <-ch; resp.Err != nil {
+				if err := <-ch; err != nil {
 					logger.Warn("failed to remove message", log.Error(err))
 				}
 			case locker.ErrQueueExists:

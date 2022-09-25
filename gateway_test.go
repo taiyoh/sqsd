@@ -53,13 +53,13 @@ func TestFetcherAndRemover(t *testing.T) {
 		}
 	}
 
-	rmCh := make(chan removeQueueResultMessage, 20)
+	rmCh := make(chan error, 20)
 	t.Cleanup(func() { close(rmCh) })
 
 	for _, msg := range received {
-		removeCh <- &removeQueueMessage{
-			Message:  msg,
-			SenderCh: rmCh,
+		removeCh <- removeQueueMessage{
+			Message: msg,
+			ErrCh:   rmCh,
 		}
 	}
 

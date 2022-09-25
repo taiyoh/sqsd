@@ -18,15 +18,13 @@ func (f testInvoker) Invoke(ctx context.Context, q Message) error {
 }
 
 // clear removeCh automatically
-func autoSucceededRemover(ctx context.Context, removeCh chan *removeQueueMessage) {
+func autoSucceededRemover(ctx context.Context, removeCh chan removeQueueMessage) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case msg := <-removeCh:
-			msg.SenderCh <- removeQueueResultMessage{
-				Queue: msg.Message,
-			}
+			msg.ErrCh <- nil
 		}
 	}
 }
