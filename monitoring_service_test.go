@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMonitoringService(t *testing.T) {
-	sys := actor.NewActorSystem()
 	rcvCh := make(chan Message, 100)
 	nextCh := make(chan struct{}, 100)
 	testInvokerFn := func(ctx context.Context, q Message) error {
@@ -23,27 +22,44 @@ func TestMonitoringService(t *testing.T) {
 	}
 	consumer := &Consumer{Invoker: testInvoker(testInvokerFn), Capacity: 3}
 
-	d := sys.Root.Spawn(consumer.NewDistributorActorProps())
-	ra := &testDummyRemover{}
-	r := sys.Root.Spawn(actor.PropsFromFunc(ra.Receive))
-	w := sys.Root.Spawn(consumer.NewWorkerActorProps(d, r))
-	msgs := make([]Message, 0, 10)
-	for i := 1; i <= 10; i++ {
-		msgs = append(msgs, Message{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var removed uint32
+	msgsCh, removeCh := consumer.startDistributor(ctx)
+	// clear removeCh automatically
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-removeCh:
+				atomic.AddUint32(&removed, 1)
+				msg.SenderCh <- removeQueueResultMessage{
+					Queue: msg.Message,
+				}
+			}
+		}
+	}()
+	w := consumer.startWorker(ctx, msgsCh, removeCh)
+	monitor := NewMonitoringService(w)
+
+	resp, err := monitor.CurrentWorkings(ctx, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Empty(t, resp.GetTasks())
+
+	for i := 1; i <= 3; i++ {
+		msgsCh <- Message{
 			ID: fmt.Sprintf("id:%d", i),
-		})
+		}
 	}
-	sys.Root.Send(d, &postQueueMessages{Messages: msgs})
+
 	time.Sleep(100 * time.Millisecond)
 
-	monitor := NewMonitoringService(sys.Root, w)
-	errCh := make(chan error, 1)
-	go func() {
-		defer close(errCh)
-		errCh <- monitor.WaitUntilAllEnds(time.Hour)
-	}()
-	ctx := context.Background()
-	resp, err := monitor.CurrentWorkings(ctx, &CurrentWorkingsRequest{})
+	assert.Zero(t, atomic.LoadUint32(&removed))
+
+	resp, err = monitor.CurrentWorkings(ctx, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 
@@ -57,11 +73,22 @@ func TestMonitoringService(t *testing.T) {
 	sort.Slice(ids, func(i, j int) bool {
 		return strings.Compare(ids[i], ids[j]) < 0
 	})
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
-	resp, err = monitor.CurrentWorkings(ctx, &CurrentWorkingsRequest{})
+	assert.Equal(t, uint32(3), atomic.LoadUint32(&removed))
+
+	for i := 4; i <= 6; i++ {
+		msgsCh <- Message{
+			ID: fmt.Sprintf("id:%d", i),
+		}
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	resp, err = monitor.CurrentWorkings(ctx, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+
 	tasks = resp.GetTasks()
 	assert.Len(t, tasks, 3)
 	ids2 := make([]string, 0, 3)
@@ -75,7 +102,14 @@ func TestMonitoringService(t *testing.T) {
 	assert.NotEqual(t, ids, ids2)
 	time.Sleep(50 * time.Millisecond)
 
-	resp, err = monitor.CurrentWorkings(ctx, &CurrentWorkingsRequest{})
+	for i := 7; i <= 9; i++ {
+		msgsCh <- Message{
+			ID: fmt.Sprintf("id:%d", i),
+		}
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	resp, err = monitor.CurrentWorkings(ctx, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	tasks = resp.GetTasks()
@@ -89,13 +123,23 @@ func TestMonitoringService(t *testing.T) {
 	assert.NotEqual(t, ids2, ids3)
 	time.Sleep(50 * time.Millisecond)
 
-	resp, err = monitor.CurrentWorkings(ctx, &CurrentWorkingsRequest{})
+	msgsCh <- Message{
+		ID: "id:10",
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		defer close(errCh)
+		errCh <- monitor.WaitUntilAllEnds(time.Hour)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	resp, err = monitor.CurrentWorkings(ctx, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	tasks = resp.GetTasks()
 	assert.Len(t, tasks, 1)
 	nextCh <- struct{}{}
 	assert.NoError(t, <-errCh)
-
-	sys.Root.Stop(w)
 }

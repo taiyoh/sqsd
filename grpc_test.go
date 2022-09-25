@@ -26,12 +26,13 @@ func TestGRPC(t *testing.T) {
 		MonitorBuilder(port),
 	)
 
-	rCtx := sys.system.Root
-	distributor := rCtx.Spawn(sys.consumer.NewDistributorActorProps())
-	remover := rCtx.Spawn(sys.gateway.NewRemoverGroup())
-	worker := rCtx.Spawn(sys.consumer.NewWorkerActorProps(distributor, remover))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	monitor := NewMonitoringService(rCtx, worker)
+	msgsCh, removeCh := sys.consumer.startDistributor(ctx)
+	worker := sys.consumer.startWorker(ctx, msgsCh, removeCh)
+
+	monitor := NewMonitoringService(worker)
 
 	grpcServer, err := newGRPCServer(monitor, port)
 	assert.NoError(t, err)

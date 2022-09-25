@@ -41,6 +41,17 @@ func (csm *Consumer) NewDistributorActorProps() *actor.Props {
 	return actor.PropsFromFunc(d.Receive).WithMailbox(mailbox.Bounded(1000))
 }
 
+func (csm *Consumer) startDistributor(ctx context.Context) (chan Message, chan *removeQueueMessage) {
+	msgsCh := make(chan Message, csm.Capacity)
+	rmCh := make(chan *removeQueueMessage, csm.Capacity*5)
+	go func() {
+		<-ctx.Done()
+		close(msgsCh)
+		close(rmCh)
+	}()
+	return msgsCh, rmCh
+}
+
 type postQueueMessages struct {
 	Messages []Message
 }
