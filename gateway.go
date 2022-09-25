@@ -107,8 +107,8 @@ func FetcherMaxMessages(n int64) FetcherParameter {
 	}
 }
 
-// StartFetcher starts Fetcher to fetch sqs messages.
-func (g *Gateway) StartFetcher(ctx context.Context, distributor chan Message, fns ...FetcherParameter) {
+// startFetcher starts Fetcher to fetch sqs messages.
+func (g *Gateway) startFetcher(ctx context.Context, distributor chan Message, fns ...FetcherParameter) {
 	f := &fetcher{
 		distributorCh:       distributor,
 		queue:               g.queue,
@@ -134,23 +134,21 @@ func (g *Gateway) StartFetcher(ctx context.Context, distributor chan Message, fn
 func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
-		select {
-		case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
 			return
-		default:
-			messages, err := f.fetch(ctx)
-			if err != nil {
-				if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
-					return
-				}
-				logger.Error("failed to fetch from SQS", log.Error(err))
-			}
-			logger.Debug("caught messages.", log.Int("length", len(messages)))
-			for _, msg := range messages {
-				f.distributorCh <- msg
-			}
-			time.Sleep(f.fetcherInterval)
 		}
+		messages, err := f.fetch(ctx)
+		if err != nil {
+			if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
+				return
+			}
+			logger.Error("failed to fetch from SQS", log.Error(err))
+		}
+		logger.Debug("caught messages.", log.Int("length", len(messages)))
+		for _, msg := range messages {
+			f.distributorCh <- msg
+		}
+		time.Sleep(f.fetcherInterval)
 	}
 }
 
@@ -191,8 +189,8 @@ type remover struct {
 	timeout  int64
 }
 
-// StartRemover starts remover to remove sqs message.
-func (g *Gateway) StartRemover(ctx context.Context, removerCh chan removeQueueMessage) {
+// startRemover starts remover to remove sqs message.
+func (g *Gateway) startRemover(ctx context.Context, removerCh chan removeQueueMessage) {
 	r := &remover{
 		queue:    g.queue,
 		queueURL: g.queueURL,

@@ -39,8 +39,8 @@ func TestFetcherAndRemover(t *testing.T) {
 	msgsCh, removeCh := consumer.startDistributor(ctx)
 
 	g := NewGateway(queue, queueURL, GatewayParallel(5))
-	go g.StartRemover(ctx, removeCh)
-	go g.StartFetcher(ctx, msgsCh,
+	go g.startRemover(ctx, removeCh)
+	go g.startFetcher(ctx, msgsCh,
 		FetcherDistributorInterval(30*time.Millisecond),
 		FetcherInterval(50*time.Millisecond),
 	)

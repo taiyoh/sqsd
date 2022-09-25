@@ -81,11 +81,11 @@ func (s *System) Run(ctx context.Context) error {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		s.gateway.StartRemover(ctx, removeCh)
+		s.gateway.startRemover(ctx, removeCh)
 	}()
 	go func() {
 		defer wg.Done()
-		s.gateway.StartFetcher(ctx, msgsCh, s.fetcherParameters...)
+		s.gateway.startFetcher(ctx, msgsCh, s.fetcherParameters...)
 	}()
 
 	<-ctx.Done()

@@ -64,36 +64,40 @@ func (w *worker) CurrentWorkings(ctx context.Context) []*Task {
 	return tasks
 }
 
+func (w *worker) wrappedProcess(msg Message) {
+	w.workings.Store(msg.ID, &Task{
+		Id:        msg.ID,
+		Receipt:   msg.Receipt,
+		StartedAt: timestamppb.New(time.Now()),
+	})
+	msgID := log.String("message_id", msg.ID)
+	logger.Debug("start to invoke.", msgID)
+	switch err := w.invoker.Invoke(context.Background(), msg); err {
+	case nil:
+		logger.Debug("succeeded to invoke.", msgID)
+		ch := make(chan error)
+		w.removerCh <- removeQueueMessage{
+			Message: msg.ResultSucceeded(),
+			ErrCh:   ch,
+		}
+		if err := <-ch; err != nil {
+			logger.Warn("failed to remove message", log.Error(err))
+		}
+	case locker.ErrQueueExists:
+		logger.Warn("received message is duplicated", msgID)
+	default:
+		logger.Error("failed to invoke.", log.Error(err), msgID)
+	}
+	w.workings.Delete(msg.ID)
+}
+
 func (w *worker) RunForProcess(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case msg := <-w.distributorCh:
-			w.workings.Store(msg.ID, &Task{
-				Id:        msg.ID,
-				Receipt:   msg.Receipt,
-				StartedAt: timestamppb.New(time.Now()),
-			})
-			msgID := log.String("message_id", msg.ID)
-			logger.Debug("start to invoke.", msgID)
-			switch err := w.invoker.Invoke(context.Background(), msg); err {
-			case nil:
-				logger.Debug("succeeded to invoke.", msgID)
-				ch := make(chan error)
-				w.removerCh <- removeQueueMessage{
-					Message: msg.ResultSucceeded(),
-					ErrCh:   ch,
-				}
-				if err := <-ch; err != nil {
-					logger.Warn("failed to remove message", log.Error(err))
-				}
-			case locker.ErrQueueExists:
-				logger.Warn("received message is duplicated", msgID)
-			default:
-				logger.Error("failed to invoke.", log.Error(err), msgID)
-			}
-			w.workings.Delete(msg.ID)
+			w.wrappedProcess(msg)
 		}
 	}
 }
