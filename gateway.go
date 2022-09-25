@@ -5,10 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/log"
-	"github.com/AsynkronIT/protoactor-go/mailbox"
-	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -57,14 +53,11 @@ func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
 }
 
 type fetcher struct {
-	mu                  sync.Mutex
-	cancel              context.CancelFunc
-	suspended           bool
 	distributorInterval time.Duration
 	fetcherInterval     time.Duration
 	queueURL            string
 	queue               *sqs.SQS
-	distributor         *actor.PID
+	broker              *messageBroker
 	timeout             int64
 	numberOfMessages    int64
 	locker              locker.QueueLocker
@@ -112,10 +105,10 @@ func FetcherMaxMessages(n int64) FetcherParameter {
 	}
 }
 
-// NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
-func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParameter) *actor.Props {
+// startFetcher starts Fetcher to fetch sqs messages.
+func (g *Gateway) startFetcher(ctx context.Context, broker *messageBroker, fns ...FetcherParameter) {
 	f := &fetcher{
-		distributor:         distributor,
+		broker:              broker,
 		queue:               g.queue,
 		queueURL:            g.queueURL,
 		timeout:             g.timeout,
@@ -127,75 +120,33 @@ func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParamete
 	for _, fn := range fns {
 		fn(f)
 	}
-	return router.NewBroadcastPool(g.parallel).WithFunc(f.receive)
-}
 
-// receive receives actor messages.
-func (f *fetcher) receive(c actor.Context) {
-	switch c.Message().(type) {
-	case *actor.Started:
-		ctx, cancel := context.WithCancel(context.Background())
-		f.mu.Lock()
-		f.cancel = cancel
-		f.mu.Unlock()
-		go f.watchDistributor(ctx, c)
-		go f.run(ctx, c)
-	case *actor.Stopping:
-		f.cancel()
+	var wg sync.WaitGroup
+	wg.Add(g.parallel)
+	for i := 0; i < g.parallel; i++ {
+		go f.RunForFetch(ctx, &wg)
 	}
+	wg.Wait()
 }
 
-func (f *fetcher) run(ctx context.Context, c actor.Context) {
+func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
-		select {
-		case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
 			return
-		default:
-			f.mu.Lock()
-			suspended := f.suspended
-			f.mu.Unlock()
-			if suspended {
-				time.Sleep(f.fetcherInterval)
-				continue
-			}
-			messages, err := f.fetch(ctx)
-			if err != nil {
-				if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
-					return
-				}
-				logger.Error("failed to fetch from SQS", log.Error(err))
-			}
-			if l := len(messages); l > 0 {
-				logger.Debug("caught messages.", log.Int("length", l))
-				c.Send(f.distributor, &postQueueMessages{Messages: messages})
-			}
-			time.Sleep(f.fetcherInterval)
 		}
-	}
-}
-
-func (f *fetcher) watchDistributor(ctx context.Context, c actor.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			res, err := c.RequestFuture(f.distributor, &distributorCurrentStatus{}, -1).Result()
-			if err != nil {
-				logger.Error("failed to get distributor status.", log.Error(err))
-				time.Sleep(f.distributorInterval)
-				continue
+		messages, err := f.fetch(ctx)
+		if err != nil {
+			if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
+				return
 			}
-			f.mu.Lock()
-			switch status := res.(distributorStatus); {
-			case status == distributorSuspended && !f.suspended:
-				f.suspended = true
-			case status == distributorRunning && f.suspended:
-				f.suspended = false
-			}
-			f.mu.Unlock()
-			time.Sleep(f.distributorInterval)
+			logger.Error("failed to fetch from SQS", NewField("error", err))
 		}
+		logger.Debug("caught messages.", NewField("length", len(messages)))
+		for _, msg := range messages {
+			f.broker.Append(msg)
+		}
+		time.Sleep(f.fetcherInterval)
 	}
 }
 
@@ -214,7 +165,7 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 	for _, msg := range out.Messages {
 		if err := f.locker.Lock(ctx, *msg.MessageId); err != nil {
 			if err == locker.ErrQueueExists {
-				logger.Warn("received message is duplicated", log.String("message_id", *msg.MessageId))
+				logger.Warn("received message is duplicated", NewField("message_id", *msg.MessageId))
 				continue
 			}
 			return nil, err
@@ -236,48 +187,30 @@ type remover struct {
 	timeout  int64
 }
 
-// NewRemoverGroup returns parallelized Remover properties which is provided as RoundRobinGroup.
-func (g *Gateway) NewRemoverGroup() *actor.Props {
-	r := &remover{
+// newRemover starts remover to remove sqs message.
+func (g *Gateway) newRemover() messageProcessor {
+	r := remover{
 		queue:    g.queue,
 		queueURL: g.queueURL,
 		timeout:  g.timeout,
 	}
-	return router.NewRoundRobinPool(g.parallel).
-		WithFunc(r.receive).
-		WithMailbox(mailbox.Bounded(g.parallel * 100))
+	return r.RunForRemove
 }
 
-// removeQueueMessage brings Queue to remove from SQS.
-type removeQueueMessage struct {
-	Sender  *actor.PID
-	Message Message
-}
-
-// removeQueueResultMessage is message for deleting message from SQS.
-type removeQueueResultMessage struct {
-	Queue Message
-	Err   error
-}
-
-func (r *remover) receive(c actor.Context) {
-	switch x := c.Message().(type) {
-	case *removeQueueMessage:
-		var err error
-		for i := 0; i < 16; i++ {
-			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
-				QueueUrl:      &r.queueURL,
-				ReceiptHandle: &x.Message.Receipt,
-			})
-			cancel()
-			if err == nil {
-				logger.Debug("succeeded to remove message.", log.String("message_id", x.Message.ID))
-				c.Send(x.Sender, &removeQueueResultMessage{Queue: x.Message})
-				return
-			}
-			time.Sleep(time.Second)
+func (r *remover) RunForRemove(ctx context.Context, msg Message) error {
+	var err error
+	for i := 0; i < 16; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
+			QueueUrl:      &r.queueURL,
+			ReceiptHandle: &msg.Receipt,
+		})
+		cancel()
+		if err == nil {
+			logger.Debug("succeeded to remove message.", NewField("message_id", msg.ID))
+			return nil
 		}
-		c.Send(x.Sender, &removeQueueResultMessage{Err: err, Queue: x.Message})
+		time.Sleep(time.Second)
 	}
+	return err
 }

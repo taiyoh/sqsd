@@ -2,9 +2,9 @@ package sqsd
 
 import (
 	"context"
+	"sync"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
@@ -13,7 +13,6 @@ const DisableMonitoring = -1
 
 // System controls actor system of sqsd.
 type System struct {
-	system            *actor.ActorSystem
 	gateway           *Gateway
 	fetcherParameters []FetcherParameter
 	consumer          *Consumer
@@ -36,7 +35,10 @@ func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.
 // ConsumerBuilder builds consumer for system.
 func ConsumerBuilder(invoker Invoker, parallel int) SystemBuilder {
 	return func(s *System) {
-		s.consumer = NewConsumer(invoker, parallel)
+		s.consumer = &Consumer{
+			Invoker:  invoker,
+			Capacity: parallel,
+		}
 	}
 }
 
@@ -50,8 +52,7 @@ func MonitorBuilder(port int) SystemBuilder {
 // NewSystem returns System object.
 func NewSystem(builders ...SystemBuilder) *System {
 	sys := &System{
-		system: actor.NewActorSystem(),
-		port:   DisableMonitoring,
+		port: DisableMonitoring,
 	}
 	for _, b := range builders {
 		b(sys)
@@ -61,12 +62,10 @@ func NewSystem(builders ...SystemBuilder) *System {
 
 // Run starts running actors and gRPC server.
 func (s *System) Run(ctx context.Context) error {
-	rCtx := s.system.Root
-	distributor := rCtx.Spawn(s.consumer.NewDistributorActorProps())
-	remover := rCtx.Spawn(s.gateway.NewRemoverGroup())
-	worker := rCtx.Spawn(s.consumer.NewWorkerActorProps(distributor, remover))
+	msgsCh := s.consumer.startMessageBroker(ctx)
+	worker := s.consumer.startWorker(ctx, msgsCh, s.gateway.newRemover())
 
-	monitor := NewMonitoringService(rCtx, worker)
+	monitor := NewMonitoringService(worker)
 
 	if s.port >= 0 {
 		grpcServer, err := newGRPCServer(monitor, s.port)
@@ -78,19 +77,21 @@ func (s *System) Run(ctx context.Context) error {
 		defer grpcServer.Stop()
 	}
 
-	fetcher := rCtx.Spawn(s.gateway.NewFetcherGroup(distributor, s.fetcherParameters...))
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.gateway.startFetcher(ctx, msgsCh, s.fetcherParameters...)
+	}()
 
 	<-ctx.Done()
 	logger.Info("signal caught. stopping worker...")
-
-	rCtx.Stop(fetcher)
-	rCtx.Stop(distributor)
 
 	if err := monitor.WaitUntilAllEnds(time.Hour); err != nil {
 		return err
 	}
 
-	rCtx.Poison(remover)
+	wg.Wait()
 
 	return nil
 }

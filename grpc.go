@@ -5,7 +5,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/AsynkronIT/protoactor-go/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -36,9 +35,9 @@ func (s *grpcServer) Start() {
 	go func() {
 		defer logger.Info("gRPC server closed.")
 		defer s.wg.Done()
-		logger.Info("gRPC server start.", log.Object("addr", s.listener.Addr()))
+		logger.Info("gRPC server start.", NewField("addr", s.listener.Addr()))
 		if err := s.server.Serve(s.listener); err != nil && err != grpc.ErrServerStopped {
-			logger.Error("failed to stop gRPC server.", log.Error(err))
+			logger.Error("failed to stop gRPC server.", NewField("error", err))
 		}
 	}()
 }
