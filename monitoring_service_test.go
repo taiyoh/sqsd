@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -25,22 +24,8 @@ func TestMonitoringService(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var removed uint32
 	msgsCh, removeCh := consumer.startDistributor(ctx)
-	// clear removeCh automatically
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case msg := <-removeCh:
-				atomic.AddUint32(&removed, 1)
-				msg.SenderCh <- removeQueueResultMessage{
-					Queue: msg.Message,
-				}
-			}
-		}
-	}()
+	go autoSucceededRemover(ctx, removeCh)
 	w := consumer.startWorker(ctx, msgsCh, removeCh)
 	monitor := NewMonitoringService(w)
 
@@ -57,8 +42,6 @@ func TestMonitoringService(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	assert.Zero(t, atomic.LoadUint32(&removed))
-
 	resp, err = monitor.CurrentWorkings(ctx, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -74,8 +57,6 @@ func TestMonitoringService(t *testing.T) {
 		return strings.Compare(ids[i], ids[j]) < 0
 	})
 	time.Sleep(100 * time.Millisecond)
-
-	assert.Equal(t, uint32(3), atomic.LoadUint32(&removed))
 
 	for i := 4; i <= 6; i++ {
 		msgsCh <- Message{

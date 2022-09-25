@@ -5,10 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/log"
-	"github.com/AsynkronIT/protoactor-go/mailbox"
-	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -58,14 +55,10 @@ func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
 }
 
 type fetcher struct {
-	mu                  sync.Mutex
-	cancel              context.CancelFunc
-	suspended           bool
 	distributorInterval time.Duration
 	fetcherInterval     time.Duration
 	queueURL            string
 	queue               *sqs.SQS
-	distributor         *actor.PID
 	distributorCh       chan Message
 	timeout             int64
 	numberOfMessages    int64
@@ -114,24 +107,6 @@ func FetcherMaxMessages(n int64) FetcherParameter {
 	}
 }
 
-// NewFetcherGroup returns parallelized Fetcher properties which is provided as BroadcastGroup.
-func (g *Gateway) NewFetcherGroup(distributor *actor.PID, fns ...FetcherParameter) *actor.Props {
-	f := &fetcher{
-		distributor:         distributor,
-		queue:               g.queue,
-		queueURL:            g.queueURL,
-		timeout:             g.timeout,
-		distributorInterval: time.Second,
-		fetcherInterval:     100 * time.Millisecond,
-		numberOfMessages:    10,
-		locker:              nooplocker.Get(),
-	}
-	for _, fn := range fns {
-		fn(f)
-	}
-	return router.NewBroadcastPool(g.parallel).WithFunc(f.receive)
-}
-
 // StartFetcher starts Fetcher to fetch sqs messages.
 func (g *Gateway) StartFetcher(ctx context.Context, distributor chan Message, fns ...FetcherParameter) {
 	f := &fetcher{
@@ -156,21 +131,6 @@ func (g *Gateway) StartFetcher(ctx context.Context, distributor chan Message, fn
 	wg.Wait()
 }
 
-// receive receives actor messages.
-func (f *fetcher) receive(c actor.Context) {
-	switch c.Message().(type) {
-	case *actor.Started:
-		ctx, cancel := context.WithCancel(context.Background())
-		f.mu.Lock()
-		f.cancel = cancel
-		f.mu.Unlock()
-		go f.watchDistributor(ctx, c)
-		go f.run(ctx, c)
-	case *actor.Stopping:
-		f.cancel()
-	}
-}
-
 func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
@@ -190,60 +150,6 @@ func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
 				f.distributorCh <- msg
 			}
 			time.Sleep(f.fetcherInterval)
-		}
-	}
-}
-
-func (f *fetcher) run(ctx context.Context, c actor.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			f.mu.Lock()
-			suspended := f.suspended
-			f.mu.Unlock()
-			if suspended {
-				time.Sleep(f.fetcherInterval)
-				continue
-			}
-			messages, err := f.fetch(ctx)
-			if err != nil {
-				if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
-					return
-				}
-				logger.Error("failed to fetch from SQS", log.Error(err))
-			}
-			if l := len(messages); l > 0 {
-				logger.Debug("caught messages.", log.Int("length", l))
-				c.Send(f.distributor, &postQueueMessages{Messages: messages})
-			}
-			time.Sleep(f.fetcherInterval)
-		}
-	}
-}
-
-func (f *fetcher) watchDistributor(ctx context.Context, c actor.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			res, err := c.RequestFuture(f.distributor, &distributorCurrentStatus{}, -1).Result()
-			if err != nil {
-				logger.Error("failed to get distributor status.", log.Error(err))
-				time.Sleep(f.distributorInterval)
-				continue
-			}
-			f.mu.Lock()
-			switch status := res.(distributorStatus); {
-			case status == distributorSuspended && !f.suspended:
-				f.suspended = true
-			case status == distributorRunning && f.suspended:
-				f.suspended = false
-			}
-			f.mu.Unlock()
-			time.Sleep(f.distributorInterval)
 		}
 	}
 }
@@ -285,18 +191,6 @@ type remover struct {
 	timeout  int64
 }
 
-// NewRemoverGroup returns parallelized Remover properties which is provided as RoundRobinGroup.
-func (g *Gateway) NewRemoverGroup() *actor.Props {
-	r := &remover{
-		queue:    g.queue,
-		queueURL: g.queueURL,
-		timeout:  g.timeout,
-	}
-	return router.NewRoundRobinPool(g.parallel).
-		WithFunc(r.receive).
-		WithMailbox(mailbox.Bounded(g.parallel * 100))
-}
-
 // StartRemover starts remover to remove sqs message.
 func (g *Gateway) StartRemover(ctx context.Context, removerCh chan *removeQueueMessage) {
 	r := &remover{
@@ -318,7 +212,6 @@ func (g *Gateway) StartRemover(ctx context.Context, removerCh chan *removeQueueM
 
 // removeQueueMessage brings Queue to remove from SQS.
 type removeQueueMessage struct {
-	Sender   *actor.PID
 	SenderCh chan removeQueueResultMessage
 	Message  Message
 }
@@ -346,26 +239,4 @@ func (r *remover) RunForRemove(ctx context.Context, msg *removeQueueMessage) {
 		time.Sleep(time.Second)
 	}
 	msg.SenderCh <- removeQueueResultMessage{Err: err, Queue: msg.Message}
-}
-
-func (r *remover) receive(c actor.Context) {
-	switch x := c.Message().(type) {
-	case *removeQueueMessage:
-		var err error
-		for i := 0; i < 16; i++ {
-			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
-				QueueUrl:      &r.queueURL,
-				ReceiptHandle: &x.Message.Receipt,
-			})
-			cancel()
-			if err == nil {
-				logger.Debug("succeeded to remove message.", log.String("message_id", x.Message.ID))
-				c.Send(x.Sender, &removeQueueResultMessage{Queue: x.Message})
-				return
-			}
-			time.Sleep(time.Second)
-		}
-		c.Send(x.Sender, &removeQueueResultMessage{Err: err, Queue: x.Message})
-	}
 }
