@@ -16,32 +16,27 @@ type Consumer struct {
 	Invoker  Invoker
 }
 
-func (csm *Consumer) startDistributor(ctx context.Context) chan Message {
-	msgsCh := make(chan Message, csm.Capacity)
-	go func() {
-		<-ctx.Done()
-		close(msgsCh)
-	}()
-	return msgsCh
+func (csm *Consumer) startMessageBroker(ctx context.Context) *messageBroker {
+	return newMessageBroker(ctx, csm.Capacity)
 }
 
 type messageProcessor func(ctx context.Context, msg Message) error
 
 type worker struct {
-	workings      sync.Map
-	distributorCh chan Message
-	removeFn      messageProcessor
-	invoker       Invoker
-	capacity      int
+	workings sync.Map
+	broker   *messageBroker
+	removeFn messageProcessor
+	invoker  Invoker
+	capacity int
 }
 
 // startWorker start worker to invoke and remove message.
-func (csm *Consumer) startWorker(ctx context.Context, distributor chan Message, removeFn messageProcessor) *worker {
+func (csm *Consumer) startWorker(ctx context.Context, broker *messageBroker, removeFn messageProcessor) *worker {
 	w := &worker{
-		capacity:      csm.Capacity,
-		invoker:       csm.Invoker,
-		distributorCh: distributor,
-		removeFn:      removeFn,
+		capacity: csm.Capacity,
+		invoker:  csm.Invoker,
+		broker:   broker,
+		removeFn: removeFn,
 	}
 	for i := 0; i < w.capacity; i++ {
 		go w.RunForProcess(ctx)
@@ -91,8 +86,10 @@ func (w *worker) RunForProcess(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-w.distributorCh:
-			w.wrappedProcess(msg)
+		case msg, ok := <-w.broker.Receive():
+			if ok {
+				w.wrappedProcess(msg)
+			}
 		}
 	}
 }

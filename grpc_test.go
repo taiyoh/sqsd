@@ -29,7 +29,7 @@ func TestGRPC(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	msgsCh := sys.consumer.startDistributor(ctx)
+	msgsCh := sys.consumer.startMessageBroker(ctx)
 	worker := sys.consumer.startWorker(ctx, msgsCh, nil)
 
 	monitor := NewMonitoringService(worker)

@@ -24,11 +24,11 @@ func TestMonitoringService(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	msgsCh := consumer.startDistributor(ctx)
+	broker := consumer.startMessageBroker(ctx)
 	var nopRemover messageProcessor = func(ctx context.Context, msg Message) error {
 		return nil
 	}
-	w := consumer.startWorker(ctx, msgsCh, nopRemover)
+	w := consumer.startWorker(ctx, broker, nopRemover)
 	monitor := NewMonitoringService(w)
 
 	resp, err := monitor.CurrentWorkings(ctx, nil)
@@ -37,9 +37,9 @@ func TestMonitoringService(t *testing.T) {
 	assert.Empty(t, resp.GetTasks())
 
 	for i := 1; i <= 3; i++ {
-		msgsCh <- Message{
+		broker.Append(Message{
 			ID: fmt.Sprintf("id:%d", i),
-		}
+		})
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -61,9 +61,9 @@ func TestMonitoringService(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	for i := 4; i <= 6; i++ {
-		msgsCh <- Message{
+		broker.Append(Message{
 			ID: fmt.Sprintf("id:%d", i),
-		}
+		})
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -86,9 +86,9 @@ func TestMonitoringService(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	for i := 7; i <= 9; i++ {
-		msgsCh <- Message{
+		broker.Append(Message{
 			ID: fmt.Sprintf("id:%d", i),
-		}
+		})
 	}
 	time.Sleep(100 * time.Millisecond)
 
@@ -106,9 +106,9 @@ func TestMonitoringService(t *testing.T) {
 	assert.NotEqual(t, ids2, ids3)
 	time.Sleep(50 * time.Millisecond)
 
-	msgsCh <- Message{
+	broker.Append(Message{
 		ID: "id:10",
-	}
+	})
 
 	errCh := make(chan error, 1)
 	go func() {

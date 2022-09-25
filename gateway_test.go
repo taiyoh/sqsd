@@ -36,16 +36,16 @@ func TestFetcherAndRemover(t *testing.T) {
 	}
 
 	consumer := Consumer{Capacity: 3}
-	msgsCh := consumer.startDistributor(ctx)
+	broker := consumer.startMessageBroker(ctx)
 
 	g := NewGateway(queue, queueURL, GatewayParallel(5))
-	go g.startFetcher(ctx, msgsCh,
+	go g.startFetcher(ctx, broker,
 		FetcherDistributorInterval(30*time.Millisecond),
 		FetcherInterval(50*time.Millisecond),
 	)
 
 	received := make([]Message, 0, 20)
-	for msg := range msgsCh {
+	for msg := range broker.Receive() {
 		received = append(received, msg)
 		if len(received) >= 20 {
 			break

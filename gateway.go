@@ -57,7 +57,7 @@ type fetcher struct {
 	fetcherInterval     time.Duration
 	queueURL            string
 	queue               *sqs.SQS
-	distributorCh       chan Message
+	broker              *messageBroker
 	timeout             int64
 	numberOfMessages    int64
 	locker              locker.QueueLocker
@@ -106,9 +106,9 @@ func FetcherMaxMessages(n int64) FetcherParameter {
 }
 
 // startFetcher starts Fetcher to fetch sqs messages.
-func (g *Gateway) startFetcher(ctx context.Context, distributor chan Message, fns ...FetcherParameter) {
+func (g *Gateway) startFetcher(ctx context.Context, broker *messageBroker, fns ...FetcherParameter) {
 	f := &fetcher{
-		distributorCh:       distributor,
+		broker:              broker,
 		queue:               g.queue,
 		queueURL:            g.queueURL,
 		timeout:             g.timeout,
@@ -144,7 +144,7 @@ func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
 		}
 		logger.Debug("caught messages.", NewField("length", len(messages)))
 		for _, msg := range messages {
-			f.distributorCh <- msg
+			f.broker.Append(msg)
 		}
 		time.Sleep(f.fetcherInterval)
 	}
