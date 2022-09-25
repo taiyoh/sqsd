@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/log"
 	"github.com/taiyoh/sqsd/locker"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -70,7 +69,7 @@ func (w *worker) wrappedProcess(msg Message) {
 		Receipt:   msg.Receipt,
 		StartedAt: timestamppb.New(time.Now()),
 	})
-	msgID := log.String("message_id", msg.ID)
+	msgID := NewField("message_id", msg.ID)
 	logger.Debug("start to invoke.", msgID)
 	switch err := w.invoker.Invoke(context.Background(), msg); err {
 	case nil:
@@ -81,12 +80,12 @@ func (w *worker) wrappedProcess(msg Message) {
 			ErrCh:   ch,
 		}
 		if err := <-ch; err != nil {
-			logger.Warn("failed to remove message", log.Error(err))
+			logger.Warn("failed to remove message", NewField("error", err))
 		}
 	case locker.ErrQueueExists:
 		logger.Warn("received message is duplicated", msgID)
 	default:
-		logger.Error("failed to invoke.", log.Error(err), msgID)
+		logger.Error("failed to invoke.", NewField("error", err), msgID)
 	}
 	w.workings.Delete(msg.ID)
 }

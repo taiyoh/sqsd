@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	palog "github.com/AsynkronIT/protoactor-go/log"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -65,7 +64,7 @@ func main() {
 
 	sqsd.SetLogLevel(args.LogLevel)
 
-	logger := palog.New(args.LogLevel.Level, "[sqsd-main]")
+	logger := sqsd.NewLogger(args.LogLevel, "[sqsd-main]")
 
 	queue := sqs.New(
 		session.Must(session.NewSession()),
@@ -106,12 +105,12 @@ func main() {
 
 	logger.Info("start process")
 	logger.Info("queue settings",
-		palog.String("url", args.QueueURL),
-		palog.Int("parallel", args.FetcherParallel))
+		sqsd.NewField("url", args.QueueURL),
+		sqsd.NewField("parallel", args.FetcherParallel))
 	logger.Info("invoker settings",
-		palog.String("url", args.RawURL),
-		palog.Int("parallel", args.InvokerParallel),
-		palog.Duration("timeout", args.Duration))
+		sqsd.NewField("url", args.RawURL),
+		sqsd.NewField("parallel", args.InvokerParallel),
+		sqsd.NewField("timeout", args.Duration))
 
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),

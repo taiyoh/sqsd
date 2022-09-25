@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/log"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -142,9 +141,9 @@ func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
 			if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
 				return
 			}
-			logger.Error("failed to fetch from SQS", log.Error(err))
+			logger.Error("failed to fetch from SQS", NewField("error", err))
 		}
-		logger.Debug("caught messages.", log.Int("length", len(messages)))
+		logger.Debug("caught messages.", NewField("length", len(messages)))
 		for _, msg := range messages {
 			f.distributorCh <- msg
 		}
@@ -167,7 +166,7 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 	for _, msg := range out.Messages {
 		if err := f.locker.Lock(ctx, *msg.MessageId); err != nil {
 			if err == locker.ErrQueueExists {
-				logger.Warn("received message is duplicated", log.String("message_id", *msg.MessageId))
+				logger.Warn("received message is duplicated", NewField("message_id", *msg.MessageId))
 				continue
 			}
 			return nil, err
@@ -224,7 +223,7 @@ func (r *remover) RunForRemove(ctx context.Context, msg Message) error {
 		})
 		cancel()
 		if err == nil {
-			logger.Debug("succeeded to remove message.", log.String("message_id", msg.ID))
+			logger.Debug("succeeded to remove message.", NewField("message_id", msg.ID))
 			return nil
 		}
 		time.Sleep(time.Second)
