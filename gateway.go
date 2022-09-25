@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/taiyoh/sqsd/locker"
 	nooplocker "github.com/taiyoh/sqsd/locker/noop"
@@ -188,29 +187,14 @@ type remover struct {
 	timeout  int64
 }
 
-// startRemover starts remover to remove sqs message.
-func (g *Gateway) startRemover(ctx context.Context, removerCh chan removeQueueMessage) {
-	r := &remover{
+// newRemover starts remover to remove sqs message.
+func (g *Gateway) newRemover() messageProcessor {
+	r := remover{
 		queue:    g.queue,
 		queueURL: g.queueURL,
 		timeout:  g.timeout,
 	}
-	sw := semaphore.NewWeighted(int64(g.parallel))
-	for msg := range removerCh {
-		if err := sw.Acquire(ctx, 1); err != nil {
-			return
-		}
-		go func(msg removeQueueMessage) {
-			defer sw.Release(1)
-			msg.ErrCh <- r.RunForRemove(ctx, msg.Message)
-		}(msg)
-	}
-}
-
-// removeQueueMessage brings Queue to remove from SQS.
-type removeQueueMessage struct {
-	ErrCh   chan error
-	Message Message
+	return r.RunForRemove
 }
 
 func (r *remover) RunForRemove(ctx context.Context, msg Message) error {

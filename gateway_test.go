@@ -36,10 +36,9 @@ func TestFetcherAndRemover(t *testing.T) {
 	}
 
 	consumer := Consumer{Capacity: 3}
-	msgsCh, removeCh := consumer.startDistributor(ctx)
+	msgsCh := consumer.startDistributor(ctx)
 
 	g := NewGateway(queue, queueURL, GatewayParallel(5))
-	go g.startRemover(ctx, removeCh)
 	go g.startFetcher(ctx, msgsCh,
 		FetcherDistributorInterval(30*time.Millisecond),
 		FetcherInterval(50*time.Millisecond),
@@ -53,16 +52,8 @@ func TestFetcherAndRemover(t *testing.T) {
 		}
 	}
 
-	rmCh := make(chan error, 20)
-	t.Cleanup(func() { close(rmCh) })
-
+	removeFn := g.newRemover()
 	for _, msg := range received {
-		removeCh <- removeQueueMessage{
-			Message: msg,
-			ErrCh:   rmCh,
-		}
-	}
-
-	for len(rmCh) < 20 {
+		assert.NoError(t, removeFn(ctx, msg))
 	}
 }

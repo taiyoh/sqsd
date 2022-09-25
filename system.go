@@ -62,8 +62,8 @@ func NewSystem(builders ...SystemBuilder) *System {
 
 // Run starts running actors and gRPC server.
 func (s *System) Run(ctx context.Context) error {
-	msgsCh, removeCh := s.consumer.startDistributor(ctx)
-	worker := s.consumer.startWorker(ctx, msgsCh, removeCh)
+	msgsCh := s.consumer.startDistributor(ctx)
+	worker := s.consumer.startWorker(ctx, msgsCh, s.gateway.newRemover())
 
 	monitor := NewMonitoringService(worker)
 
@@ -78,11 +78,7 @@ func (s *System) Run(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		s.gateway.startRemover(ctx, removeCh)
-	}()
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		s.gateway.startFetcher(ctx, msgsCh, s.fetcherParameters...)

@@ -16,32 +16,32 @@ type Consumer struct {
 	Invoker  Invoker
 }
 
-func (csm *Consumer) startDistributor(ctx context.Context) (chan Message, chan removeQueueMessage) {
+func (csm *Consumer) startDistributor(ctx context.Context) chan Message {
 	msgsCh := make(chan Message, csm.Capacity)
-	rmCh := make(chan removeQueueMessage, csm.Capacity*5)
 	go func() {
 		<-ctx.Done()
 		close(msgsCh)
-		close(rmCh)
 	}()
-	return msgsCh, rmCh
+	return msgsCh
 }
+
+type messageProcessor func(ctx context.Context, msg Message) error
 
 type worker struct {
 	workings      sync.Map
 	distributorCh chan Message
-	removerCh     chan removeQueueMessage
+	removeFn      messageProcessor
 	invoker       Invoker
 	capacity      int
 }
 
 // startWorker start worker to invoke and remove message.
-func (csm *Consumer) startWorker(ctx context.Context, distributor chan Message, remover chan removeQueueMessage) *worker {
+func (csm *Consumer) startWorker(ctx context.Context, distributor chan Message, removeFn messageProcessor) *worker {
 	w := &worker{
 		capacity:      csm.Capacity,
 		invoker:       csm.Invoker,
 		distributorCh: distributor,
-		removerCh:     remover,
+		removeFn:      removeFn,
 	}
 	for i := 0; i < w.capacity; i++ {
 		go w.RunForProcess(ctx)
@@ -71,15 +71,11 @@ func (w *worker) wrappedProcess(msg Message) {
 	})
 	msgID := NewField("message_id", msg.ID)
 	logger.Debug("start to invoke.", msgID)
-	switch err := w.invoker.Invoke(context.Background(), msg); err {
+	ctx := context.Background()
+	switch err := w.invoker.Invoke(ctx, msg); err {
 	case nil:
 		logger.Debug("succeeded to invoke.", msgID)
-		ch := make(chan error)
-		w.removerCh <- removeQueueMessage{
-			Message: msg.ResultSucceeded(),
-			ErrCh:   ch,
-		}
-		if err := <-ch; err != nil {
+		if err := w.removeFn(ctx, msg.ResultSucceeded()); err != nil {
 			logger.Warn("failed to remove message", NewField("error", err))
 		}
 	case locker.ErrQueueExists:

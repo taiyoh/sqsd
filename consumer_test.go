@@ -17,18 +17,6 @@ func (f testInvoker) Invoke(ctx context.Context, q Message) error {
 	return f(ctx, q)
 }
 
-// clear removeCh automatically
-func autoSucceededRemover(ctx context.Context, removeCh chan removeQueueMessage) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-removeCh:
-			msg.ErrCh <- nil
-		}
-	}
-}
-
 func TestWorker(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -44,10 +32,12 @@ func TestWorker(t *testing.T) {
 		Invoker:  testInvoker(testInvokerFn),
 	}
 
-	msgsCh, removeCh := consumer.startDistributor(ctx)
-	go autoSucceededRemover(ctx, removeCh)
+	msgsCh := consumer.startDistributor(ctx)
+	nopRemover := func(context.Context, Message) error {
+		return nil
+	}
 
-	w := consumer.startWorker(ctx, msgsCh, removeCh)
+	w := consumer.startWorker(ctx, msgsCh, nopRemover)
 	msgs := make([]Message, 0, 10)
 	for i := 1; i <= 10; i++ {
 		msgs = append(msgs, Message{

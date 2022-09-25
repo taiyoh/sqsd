@@ -24,9 +24,11 @@ func TestMonitoringService(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	msgsCh, removeCh := consumer.startDistributor(ctx)
-	go autoSucceededRemover(ctx, removeCh)
-	w := consumer.startWorker(ctx, msgsCh, removeCh)
+	msgsCh := consumer.startDistributor(ctx)
+	var nopRemover messageProcessor = func(ctx context.Context, msg Message) error {
+		return nil
+	}
+	w := consumer.startWorker(ctx, msgsCh, nopRemover)
 	monitor := NewMonitoringService(w)
 
 	resp, err := monitor.CurrentWorkings(ctx, nil)
