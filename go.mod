@@ -3,7 +3,7 @@ module github.com/taiyoh/sqsd
 go 1.16
 
 require (
-	github.com/aws/aws-sdk-go v1.44.133
+	github.com/aws/aws-sdk-go v1.44.163
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/go-cmp v0.5.7 // indirect
