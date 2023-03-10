@@ -3,13 +3,13 @@ module github.com/taiyoh/sqsd
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.44.133
+	github.com/aws/aws-sdk-go v1.44.218
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.8.2
 	google.golang.org/grpc v1.53.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.29.0
 )
 
 require (
