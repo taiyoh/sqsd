@@ -21,14 +21,9 @@ func newMessageBroker(ctx context.Context, capacity int) *messageBroker {
 }
 
 func (b *messageBroker) watch(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			atomic.StoreUint32(&b.isClosed, 1)
-			close(b.ch)
-			return
-		}
-	}
+	<-ctx.Done()
+	atomic.StoreUint32(&b.isClosed, 1)
+	close(b.ch)
 }
 
 func (b *messageBroker) Append(msg Message) {

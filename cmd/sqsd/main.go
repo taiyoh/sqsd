@@ -20,6 +20,7 @@ import (
 	"github.com/taiyoh/sqsd/locker"
 	memorylocker "github.com/taiyoh/sqsd/locker/memory"
 	redislocker "github.com/taiyoh/sqsd/locker/redis"
+	"golang.org/x/exp/slog"
 )
 
 type config struct {
@@ -31,7 +32,7 @@ type config struct {
 	FetcherParallel int           `env:"FETCHER_PARALLEL_COUNT" envDefault:"1"`
 	InvokerParallel int           `env:"INVOKER_PARALLEL_COUNT" envDefault:"1"`
 	MonitoringPort  int           `env:"MONITORING_PORT" envDefault:"6969"`
-	LogLevel        sqsd.LogLevel `env:"LOG_LEVEL" envDefault:"info"`
+	LogLevel        slog.Level    `env:"LOG_LEVEL" envDefault:"info"`
 	RedisLocker     *redisLocker  `env:"-"`
 }
 
@@ -62,9 +63,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sqsd.SetLogLevel(args.LogLevel)
+	sqsd.SetWithGlobalLevel(args.LogLevel)
 
-	logger := sqsd.NewLogger(args.LogLevel, "[sqsd-main]")
+	logger := slog.New((slog.HandlerOptions{
+		Level: args.LogLevel,
+	}).NewJSONHandler(os.Stderr).WithAttrs([]slog.Attr{
+		{
+			Key:   "system",
+			Value: slog.StringValue("sqsd-main"),
+		},
+	}))
 
 	queue := sqs.New(
 		session.Must(session.NewSession()),
@@ -105,12 +113,12 @@ func main() {
 
 	logger.Info("start process")
 	logger.Info("queue settings",
-		sqsd.NewField("url", args.QueueURL),
-		sqsd.NewField("parallel", args.FetcherParallel))
+		"url", args.QueueURL,
+		"parallel", args.FetcherParallel)
 	logger.Info("invoker settings",
-		sqsd.NewField("url", args.RawURL),
-		sqsd.NewField("parallel", args.InvokerParallel),
-		sqsd.NewField("timeout", args.Duration))
+		"url", args.RawURL,
+		"parallel", args.InvokerParallel,
+		"timeout", args.Duration)
 
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),

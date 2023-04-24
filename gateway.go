@@ -131,6 +131,7 @@ func (g *Gateway) startFetcher(ctx context.Context, broker *messageBroker, fns .
 
 func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
+	logger := getLogger()
 	for {
 		if err := ctx.Err(); err != nil {
 			return
@@ -140,9 +141,9 @@ func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
 			if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
 				return
 			}
-			logger.Error("failed to fetch from SQS", NewField("error", err))
+			logger.Error("failed to fetch from SQS", "error", err)
 		}
-		logger.Debug("caught messages.", NewField("length", len(messages)))
+		logger.Debug("caught messages.", "length", len(messages))
 		for _, msg := range messages {
 			f.broker.Append(msg)
 		}
@@ -162,10 +163,11 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 	}
 	receivedAt := time.Now().UTC()
 	messages := make([]Message, 0, len(out.Messages))
+	logger := getLogger()
 	for _, msg := range out.Messages {
 		if err := f.locker.Lock(ctx, *msg.MessageId); err != nil {
 			if err == locker.ErrQueueExists {
-				logger.Warn("received message is duplicated", NewField("message_id", *msg.MessageId))
+				logger.Warn("received message is duplicated", "message_id", *msg.MessageId)
 				continue
 			}
 			return nil, err
@@ -199,6 +201,7 @@ func (g *Gateway) newRemover() messageProcessor {
 
 func (r *remover) RunForRemove(ctx context.Context, msg Message) error {
 	var err error
+	logger := getLogger()
 	for i := 0; i < 16; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
@@ -207,7 +210,7 @@ func (r *remover) RunForRemove(ctx context.Context, msg Message) error {
 		})
 		cancel()
 		if err == nil {
-			logger.Debug("succeeded to remove message.", NewField("message_id", msg.ID))
+			logger.Debug("succeeded to remove message", "message_id", msg.ID)
 			return nil
 		}
 		time.Sleep(time.Second)
