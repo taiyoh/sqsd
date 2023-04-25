@@ -54,6 +54,7 @@ func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
 
 type fetcher struct {
 	fetcherInterval  time.Duration
+	waitTime         time.Duration
 	queueURL         string
 	queue            *sqs.SQS
 	broker           *messageBroker
@@ -69,6 +70,13 @@ type FetcherParameter func(*fetcher)
 func FetcherInterval(d time.Duration) FetcherParameter {
 	return func(f *fetcher) {
 		f.fetcherInterval = d
+	}
+}
+
+// FetcherWaitTime sets WaitTimeSecond of receiving message request.
+func FetcherWaitTime(d time.Duration) FetcherParameter {
+	return func(f *fetcher) {
+		f.waitTime = d
 	}
 }
 
@@ -103,6 +111,7 @@ func (g *Gateway) startFetcher(ctx context.Context, broker *messageBroker, fns .
 		queueURL:         g.queueURL,
 		timeout:          g.timeout,
 		fetcherInterval:  100 * time.Millisecond,
+		waitTime:         20 * time.Second,
 		numberOfMessages: 10,
 		locker:           nooplocker.Get(),
 	}
@@ -144,7 +153,7 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 	out, err := f.queue.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            &f.queueURL,
 		MaxNumberOfMessages: &f.numberOfMessages,
-		WaitTimeSeconds:     aws.Int64(20),
+		WaitTimeSeconds:     aws.Int64(int64(f.waitTime.Seconds())),
 		VisibilityTimeout:   aws.Int64(f.timeout),
 	})
 	if err != nil {
