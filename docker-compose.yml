@@ -3,6 +3,7 @@ version: "3"
 services:
   sqs:
     image: pafortin/goaws
+    platform: linux/amd64
     ports:
       - "4100:4100"
   redis:
