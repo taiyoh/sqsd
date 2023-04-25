@@ -48,6 +48,7 @@ type config struct {
 	Duration        time.Duration
 	UnlockInterval  time.Duration
 	LockExpire      time.Duration
+	FetcherWaitTime time.Duration
 	FetcherParallel int
 	InvokerParallel int
 	MonitoringPort  int
@@ -72,6 +73,7 @@ func (c *config) Load() error {
 		typedenv.DefaultDirect("INVOKER_TIMEOUT", &c.Duration, "60s"),
 		typedenv.DefaultDirect("UNLOCK_INTERVAL", &c.UnlockInterval, "1m"),
 		typedenv.DefaultDirect("LOCK_EXPIRE", &c.LockExpire, "24h"),
+		typedenv.DefaultDirect("FETCHER_WAIT_TIME", &c.FetcherWaitTime, "1s"),
 		typedenv.DefaultDirect("FETCHER_PARALLEL_COUNT", &c.FetcherParallel, "1"),
 		typedenv.DefaultDirect("INVOKER_PARALLEL_COUNT", &c.InvokerParallel, "1"),
 		typedenv.DefaultDirect("MONITORING_PORT", &c.MonitoringPort, "6969"),
@@ -137,16 +139,20 @@ func main() {
 		log.Fatal(err)
 	}
 
+	var maxMessages int64 = 1
+
 	sys := sqsd.NewSystem(
 		sqsd.GatewayBuilder(queue, args.QueueURL, args.FetcherParallel, args.Duration,
+			sqsd.FetcherMaxMessages(maxMessages),
+			sqsd.FetcherWaitTime(args.FetcherWaitTime),
 			sqsd.FetcherQueueLocker(queueLocker)),
 		sqsd.ConsumerBuilder(ivk, args.InvokerParallel),
 		sqsd.MonitorBuilder(args.MonitoringPort),
 	)
 
 	logger.Info("start process")
-	logger.Info("queue settings", "url", args.QueueURL, "parallel", args.FetcherParallel)
-	logger.Info("invoker settings", "url", args.RawURL, "parallel", args.InvokerParallel, "timeout", args.Duration)
+	logger.Info("queue settings", "url", args.QueueURL, "parallel", args.FetcherParallel, "wait_time", args.FetcherWaitTime.String(), "max_messages", maxMessages)
+	logger.Info("invoker settings", "url", args.RawURL, "parallel", args.InvokerParallel, "timeout", args.Duration.String())
 
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),

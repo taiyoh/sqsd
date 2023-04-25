@@ -40,7 +40,6 @@ func TestFetcherAndRemover(t *testing.T) {
 
 	g := NewGateway(queue, queueURL, GatewayParallel(5))
 	go g.startFetcher(ctx, broker,
-		FetcherDistributorInterval(30*time.Millisecond),
 		FetcherInterval(50*time.Millisecond),
 	)
 

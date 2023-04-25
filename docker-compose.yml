@@ -2,10 +2,11 @@ version: "3"
 
 services:
   sqs:
-    image: pafortin/goaws
-    platform: linux/amd64
+    image: softwaremill/elasticmq-native:latest
     ports:
-      - "4100:4100"
+      - "9324:9324"
+    volumes:
+      - ./containers/elasticmq/app.conf:/opt/elasticmq.conf
   redis:
     image: redis:6.2
     ports:
