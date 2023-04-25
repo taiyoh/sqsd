@@ -53,27 +53,17 @@ func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
 }
 
 type fetcher struct {
-	distributorInterval time.Duration
-	fetcherInterval     time.Duration
-	queueURL            string
-	queue               *sqs.SQS
-	broker              *messageBroker
-	timeout             int64
-	numberOfMessages    int64
-	locker              locker.QueueLocker
+	fetcherInterval  time.Duration
+	queueURL         string
+	queue            *sqs.SQS
+	broker           *messageBroker
+	timeout          int64
+	numberOfMessages int64
+	locker           locker.QueueLocker
 }
 
 // FetcherParameter sets parameter to fetcher by functional option pattern.
 type FetcherParameter func(*fetcher)
-
-// FetcherDistributorInterval sets interval duration of distributor request to fetcher.
-// Fetcher watches distributor status because
-// fetcher should be stopped when messages which distributor has is over capacity.
-func FetcherDistributorInterval(d time.Duration) FetcherParameter {
-	return func(f *fetcher) {
-		f.distributorInterval = d
-	}
-}
 
 // FetcherInterval sets interval duration of receiving queue request to fetcher.
 func FetcherInterval(d time.Duration) FetcherParameter {
@@ -108,14 +98,13 @@ func FetcherMaxMessages(n int64) FetcherParameter {
 // startFetcher starts Fetcher to fetch sqs messages.
 func (g *Gateway) startFetcher(ctx context.Context, broker *messageBroker, fns ...FetcherParameter) {
 	f := &fetcher{
-		broker:              broker,
-		queue:               g.queue,
-		queueURL:            g.queueURL,
-		timeout:             g.timeout,
-		distributorInterval: time.Second,
-		fetcherInterval:     100 * time.Millisecond,
-		numberOfMessages:    10,
-		locker:              nooplocker.Get(),
+		broker:           broker,
+		queue:            g.queue,
+		queueURL:         g.queueURL,
+		timeout:          g.timeout,
+		fetcherInterval:  100 * time.Millisecond,
+		numberOfMessages: 10,
+		locker:           nooplocker.Get(),
 	}
 	for _, fn := range fns {
 		fn(f)
