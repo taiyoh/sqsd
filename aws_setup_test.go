@@ -17,7 +17,7 @@ const awsRegion = "ap-northeast-1"
 
 func init() {
 	if _, ok := os.LookupEnv("SQS_ENDPOINT_URL"); !ok {
-		os.Setenv("SQS_ENDPOINT_URL", "http://localhost:4100")
+		os.Setenv("SQS_ENDPOINT_URL", "http://localhost:9324")
 	}
 
 	awsConf = aws.NewConfig().
