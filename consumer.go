@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/taiyoh/sqsd/locker"
+	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -64,19 +65,23 @@ func (w *worker) wrappedProcess(msg Message) {
 		Receipt:   msg.Receipt,
 		StartedAt: timestamppb.New(time.Now()),
 	})
-	msgID := NewField("message_id", msg.ID)
+	msgID := slog.Attr{
+		Key:   "message_id",
+		Value: slog.StringValue(msg.ID),
+	}
+	logger := getLogger()
 	logger.Debug("start to invoke.", msgID)
 	ctx := context.Background()
 	switch err := w.invoker.Invoke(ctx, msg); err {
 	case nil:
 		logger.Debug("succeeded to invoke.", msgID)
 		if err := w.removeFn(ctx, msg.ResultSucceeded()); err != nil {
-			logger.Warn("failed to remove message", NewField("error", err))
+			logger.Warn("failed to remove message", "error", err)
 		}
 	case locker.ErrQueueExists:
 		logger.Warn("received message is duplicated", msgID)
 	default:
-		logger.Error("failed to invoke.", NewField("error", err), msgID)
+		logger.Error("failed to invoke.", "error", err, msgID)
 	}
 	w.workings.Delete(msg.ID)
 }

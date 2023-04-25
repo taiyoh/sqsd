@@ -4,10 +4,11 @@ go 1.18
 
 require (
 	github.com/aws/aws-sdk-go v1.44.230
-	github.com/caarlos0/env/v6 v6.10.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.8.2
+	github.com/taiyoh/go-typedenv v0.1.1
+	golang.org/x/exp v0.0.0-20230424174712-0ee363d48fb1
 	google.golang.org/grpc v1.54.0
 	google.golang.org/protobuf v1.30.0
 )

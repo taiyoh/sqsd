@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding"
 	"flag"
 	"log"
 	"os"
@@ -13,44 +14,83 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/caarlos0/env/v6"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	"github.com/taiyoh/go-typedenv"
+	"golang.org/x/exp/slog"
+
 	sqsd "github.com/taiyoh/sqsd"
 	"github.com/taiyoh/sqsd/locker"
 	memorylocker "github.com/taiyoh/sqsd/locker/memory"
 	redislocker "github.com/taiyoh/sqsd/locker/redis"
 )
 
+type awsConf struct {
+	*aws.Config
+	target string
+}
+
+var _ encoding.TextUnmarshaler = (*awsConf)(nil)
+
+func (c *awsConf) UnmarshalText(b []byte) error {
+	switch c.target {
+	case "region":
+		c.Config = aws.NewConfig().WithRegion(string(b))
+	case "endpoint":
+		c.Config = aws.NewConfig().WithEndpoint(string(b))
+	}
+	return nil
+}
+
 type config struct {
-	RawURL          string        `env:"INVOKER_URL,required"`
-	QueueURL        string        `env:"QUEUE_URL,required"`
-	Duration        time.Duration `env:"INVOKER_TIMEOUT" envDefault:"60s"`
-	UnlockInterval  time.Duration `env:"UNLOCK_INTERVAL" envDefault:"1m"`
-	LockExpire      time.Duration `env:"LOCK_EXPIRE" envDefault:"24h"`
-	FetcherParallel int           `env:"FETCHER_PARALLEL_COUNT" envDefault:"1"`
-	InvokerParallel int           `env:"INVOKER_PARALLEL_COUNT" envDefault:"1"`
-	MonitoringPort  int           `env:"MONITORING_PORT" envDefault:"6969"`
-	LogLevel        sqsd.LogLevel `env:"LOG_LEVEL" envDefault:"info"`
-	RedisLocker     *redisLocker  `env:"-"`
+	RawURL          string
+	QueueURL        string
+	Duration        time.Duration
+	UnlockInterval  time.Duration
+	LockExpire      time.Duration
+	FetcherParallel int
+	InvokerParallel int
+	MonitoringPort  int
+	LogLevel        slog.Level
+	RedisLocker     *redisLocker
+	Region          awsConf
+	Endpoint        awsConf
 }
 
 type redisLocker struct {
-	Host    string `env:"HOST,required"`
-	DBName  int    `env:"DBNAME" envDefault:"0"`
-	KeyName string `env:"KEYNAME,required"`
+	Host    string
+	DBName  int
+	KeyName string
 }
 
 func (c *config) Load() error {
-	if err := env.Parse(c); err != nil {
+	c.Region.target = "region"
+	c.Endpoint.target = "endpoint"
+	if err := typedenv.Scan(
+		typedenv.RequiredDirect("INVOKER_URL", &c.RawURL),
+		typedenv.RequiredDirect("QUEUE_URL", &c.QueueURL),
+		typedenv.DefaultDirect("INVOKER_TIMEOUT", &c.Duration, "60s"),
+		typedenv.DefaultDirect("UNLOCK_INTERVAL", &c.UnlockInterval, "1m"),
+		typedenv.DefaultDirect("LOCK_EXPIRE", &c.LockExpire, "24h"),
+		typedenv.DefaultDirect("FETCHER_PARALLEL_COUNT", &c.FetcherParallel, "1"),
+		typedenv.DefaultDirect("INVOKER_PARALLEL_COUNT", &c.InvokerParallel, "1"),
+		typedenv.DefaultDirect("MONITORING_PORT", &c.MonitoringPort, "6969"),
+		typedenv.Default("LOG_LEVEL", &c.LogLevel, "info"),
+		typedenv.Default("AWS_REGION", &c.Region, "ap-northeast-1"),
+		typedenv.Lookup("SQS_ENDPOINT_URL", &c.Endpoint),
+	); err != nil {
 		return err
 	}
+
 	var rl redisLocker
-	if err := env.Parse(&rl, env.Options{
-		Prefix: "REDIS_LOCKER_",
-	}); err == nil {
+	if err := typedenv.Scan(
+		typedenv.RequiredDirect("REDIS_LOCKER_HOST", &rl.Host),
+		typedenv.DefaultDirect("REDIS_LOCKER_DBNAME", &rl.DBName, "0"),
+		typedenv.RequiredDirect("REDIS_LOCKER_KEYNAME", &rl.KeyName),
+	); err == nil {
 		c.RedisLocker = &rl
 	}
+
 	return nil
 }
 
@@ -62,15 +102,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sqsd.SetLogLevel(args.LogLevel)
+	sqsd.SetWithGlobalLevel(args.LogLevel)
 
-	logger := sqsd.NewLogger(args.LogLevel, "[sqsd-main]")
+	logger := sqsd.NewLogger(args.LogLevel, os.Stderr, "sqsd-main")
 
 	queue := sqs.New(
-		session.Must(session.NewSession()),
-		aws.NewConfig().
-			WithEndpoint(os.Getenv("SQS_ENDPOINT_URL")).
-			WithRegion(os.Getenv("AWS_REGION")),
+		session.Must(session.NewSession(
+			args.Region.Config,
+			aws.NewConfig().WithCredentialsChainVerboseErrors(true),
+		)),
+		args.Endpoint.Config,
 	)
 
 	var queueLocker locker.QueueLocker
@@ -104,13 +145,8 @@ func main() {
 	)
 
 	logger.Info("start process")
-	logger.Info("queue settings",
-		sqsd.NewField("url", args.QueueURL),
-		sqsd.NewField("parallel", args.FetcherParallel))
-	logger.Info("invoker settings",
-		sqsd.NewField("url", args.RawURL),
-		sqsd.NewField("parallel", args.InvokerParallel),
-		sqsd.NewField("timeout", args.Duration))
+	logger.Info("queue settings", "url", args.QueueURL, "parallel", args.FetcherParallel)
+	logger.Info("invoker settings", "url", args.RawURL, "parallel", args.InvokerParallel, "timeout", args.Duration)
 
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),
@@ -124,8 +160,6 @@ func main() {
 	}
 
 	logger.Info("end process")
-
-	time.Sleep(500 * time.Millisecond)
 }
 
 var cwd, _ = os.Getwd()

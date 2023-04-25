@@ -85,7 +85,7 @@ func (s *System) Run(ctx context.Context) error {
 	}()
 
 	<-ctx.Done()
-	logger.Info("signal caught. stopping worker...")
+	getLogger().Info("signal caught. stopping worker...")
 
 	if err := monitor.WaitUntilAllEnds(time.Hour); err != nil {
 		return err

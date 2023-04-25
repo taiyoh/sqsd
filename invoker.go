@@ -47,18 +47,19 @@ func (ivk *HTTPInvoker) Invoke(ctx context.Context, q Message) error {
 		return err
 	}
 	defer resp.Body.Close()
+	logger := getLogger()
 	switch s := resp.StatusCode; {
 	case s >= http.StatusInternalServerError:
 		b, _ := io.ReadAll(resp.Body)
 		logger.Info("response is failure status",
-			NewField("status_code", resp.StatusCode),
-			NewField("body", string(b)))
+			"status_code", resp.StatusCode,
+			"body", string(b))
 		return fmt.Errorf("failure response: %d", s)
 	case s >= http.StatusMultipleChoices:
 		b, _ := io.ReadAll(resp.Body)
 		logger.Info("response is not ok status",
-			NewField("status_code", resp.StatusCode),
-			NewField("body", string(b)))
+			"status_code", resp.StatusCode,
+			"body", string(b))
 	}
 	return nil
 }

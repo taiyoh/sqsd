@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"golang.org/x/exp/slog"
 )
 
 var awsConf *aws.Config
@@ -22,6 +23,8 @@ func init() {
 	awsConf = aws.NewConfig().
 		WithCredentials(credentials.NewStaticCredentials("dummy", "dummy", "")).
 		WithRegion(awsRegion)
+
+	SetWithGlobalLevel(slog.LevelDebug)
 }
 
 func setupSQS(t *testing.T, queue *sqs.SQS, resourceName string) (string, error) {
