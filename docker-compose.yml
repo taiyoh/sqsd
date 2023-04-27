@@ -5,6 +5,7 @@ services:
     image: softwaremill/elasticmq-native:latest
     ports:
       - "9324:9324"
+      - "9325:9325"
     volumes:
       - ./containers/elasticmq/app.conf:/opt/elasticmq.conf
   redis:
