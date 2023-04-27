@@ -34,6 +34,7 @@ func TestWorker(t *testing.T) {
 
 	broker := consumer.startMessageBroker(ctx)
 	nopRemover := func(context.Context, Message) error {
+		broker.Unset()
 		return nil
 	}
 

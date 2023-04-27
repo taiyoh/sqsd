@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -43,16 +45,31 @@ func TestFetcherAndRemover(t *testing.T) {
 		FetcherInterval(50*time.Millisecond),
 	)
 
-	received := make([]Message, 0, 20)
+	var removed int32
+	var wg sync.WaitGroup
+	wg.Add(1)
+	ch := make(chan Message, consumer.Capacity)
+	removeFn := g.newRemover(broker)
+	go func() {
+		defer wg.Done()
+		for msg := range ch {
+			if assert.NoError(t, removeFn(ctx, msg)) {
+				atomic.AddInt32(&removed, 1)
+			}
+		}
+	}()
+
+	var sent int
 	for msg := range broker.Receive() {
-		received = append(received, msg)
-		if len(received) >= 20 {
-			break
+		ch <- msg
+		sent++
+		if sent == 20 {
+			cancel()
+			close(ch)
 		}
 	}
 
-	removeFn := g.newRemover()
-	for _, msg := range received {
-		assert.NoError(t, removeFn(ctx, msg))
-	}
+	wg.Wait()
+
+	assert.Equal(t, int32(20), removed)
 }

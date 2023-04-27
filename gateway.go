@@ -185,14 +185,16 @@ type remover struct {
 	queue    *sqs.SQS
 	queueURL string
 	timeout  int64
+	broker   *messageBroker
 }
 
 // newRemover starts remover to remove sqs message.
-func (g *Gateway) newRemover() messageProcessor {
+func (g *Gateway) newRemover(broker *messageBroker) messageProcessor {
 	r := remover{
 		queue:    g.queue,
 		queueURL: g.queueURL,
 		timeout:  g.timeout,
+		broker:   broker,
 	}
 	return r.RunForRemove
 }
@@ -209,6 +211,7 @@ func (r *remover) RunForRemove(ctx context.Context, msg Message) error {
 		cancel()
 		if err == nil {
 			logger.Debug("succeeded to remove message", "message_id", msg.ID)
+			r.broker.Unset()
 			return nil
 		}
 		time.Sleep(time.Second)
