@@ -11,11 +11,15 @@ import (
 // `isClosed` blocks to send Message to channel which is closed.
 type messageBroker struct {
 	ch       chan Message
+	capacity chan struct{}
 	isClosed uint32
 }
 
 func newMessageBroker(ctx context.Context, capacity int) *messageBroker {
-	b := &messageBroker{ch: make(chan Message, capacity)}
+	b := &messageBroker{
+		ch:       make(chan Message, capacity),
+		capacity: make(chan struct{}, capacity),
+	}
 	go b.watch(ctx)
 	return b
 }
@@ -28,10 +32,15 @@ func (b *messageBroker) watch(ctx context.Context) {
 
 func (b *messageBroker) Append(msg Message) {
 	if atomic.LoadUint32(&b.isClosed) == 0 {
+		b.capacity <- struct{}{}
 		b.ch <- msg
 	}
 }
 
 func (b *messageBroker) Receive() <-chan Message {
 	return b.ch
+}
+
+func (b *messageBroker) Unset() {
+	<-b.capacity
 }
