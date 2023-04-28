@@ -56,7 +56,6 @@ func TestFetcherAndRemover(t *testing.T) {
 			if assert.NoError(t, removeFn(ctx, msg)) {
 				atomic.AddInt32(&removed, 1)
 			}
-			broker.Unset()
 		}
 	}()
 
