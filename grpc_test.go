@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestGRPC(t *testing.T) {
@@ -41,7 +42,7 @@ func TestGRPC(t *testing.T) {
 
 	conn, err := grpc.Dial(
 		fmt.Sprintf("localhost:%d", port),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	)
 
