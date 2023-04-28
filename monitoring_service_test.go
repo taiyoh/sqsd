@@ -26,7 +26,6 @@ func TestMonitoringService(t *testing.T) {
 
 	broker := consumer.startMessageBroker(ctx)
 	var nopRemover messageProcessor = func(ctx context.Context, msg Message) error {
-		broker.Unset()
 		return nil
 	}
 	w := consumer.startWorker(ctx, broker, nopRemover)

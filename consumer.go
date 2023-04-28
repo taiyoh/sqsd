@@ -8,6 +8,7 @@ import (
 
 	"github.com/taiyoh/sqsd/locker"
 	"golang.org/x/exp/slog"
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -24,20 +25,22 @@ func (csm *Consumer) startMessageBroker(ctx context.Context) *messageBroker {
 type messageProcessor func(ctx context.Context, msg Message) error
 
 type worker struct {
-	workings sync.Map
-	broker   *messageBroker
-	removeFn messageProcessor
-	invoker  Invoker
-	capacity int
+	workings  sync.Map
+	broker    *messageBroker
+	removeFn  messageProcessor
+	invoker   Invoker
+	capacity  int
+	semaphore *semaphore.Weighted
 }
 
 // startWorker start worker to invoke and remove message.
 func (csm *Consumer) startWorker(ctx context.Context, broker *messageBroker, removeFn messageProcessor) *worker {
 	w := &worker{
-		capacity: csm.Capacity,
-		invoker:  csm.Invoker,
-		broker:   broker,
-		removeFn: removeFn,
+		capacity:  csm.Capacity,
+		invoker:   csm.Invoker,
+		broker:    broker,
+		removeFn:  removeFn,
+		semaphore: semaphore.NewWeighted(int64(csm.Capacity)),
 	}
 	for i := 0; i < w.capacity; i++ {
 		go w.RunForProcess(ctx)
@@ -60,6 +63,12 @@ func (w *worker) CurrentWorkings(ctx context.Context) []*Task {
 }
 
 func (w *worker) wrappedProcess(msg Message) {
+	ctx := context.Background()
+
+	// error never be returned because always this method receives new context object.
+	_ = w.semaphore.Acquire(ctx, 1)
+	defer w.semaphore.Release(1)
+
 	w.workings.Store(msg.ID, &Task{
 		Id:        msg.ID,
 		Receipt:   msg.Receipt,
@@ -71,7 +80,6 @@ func (w *worker) wrappedProcess(msg Message) {
 	}
 	logger := getLogger()
 	logger.Debug("start to invoke.", msgID)
-	ctx := context.Background()
 	switch err := w.invoker.Invoke(ctx, msg); err {
 	case nil:
 		logger.Debug("succeeded to invoke.", msgID)
