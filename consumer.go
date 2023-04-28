@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/exp/slog"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -17,6 +16,14 @@ import (
 type Consumer struct {
 	Capacity int
 	Invoker  Invoker
+}
+
+// Message provides transition from sqs.Message
+type Message struct {
+	ID         string
+	Payload    string
+	Receipt    string
+	ReceivedAt time.Time
 }
 
 type worker struct {
@@ -69,22 +76,18 @@ func (w *worker) wrappedProcess(msg Message) {
 		Receipt:   msg.Receipt,
 		StartedAt: timestamppb.New(time.Now()),
 	})
-	msgID := slog.Attr{
-		Key:   "message_id",
-		Value: slog.StringValue(msg.ID),
-	}
-	logger := getLogger()
-	logger.Debug("start to invoke.", msgID)
+	logger := getLogger().With("message_id", msg.ID)
+	logger.Debug("start to invoke.")
 	switch err := w.invoker.Invoke(ctx, msg); err {
 	case nil:
-		logger.Debug("succeeded to invoke.", msgID)
-		if err := w.remover.Remove(ctx, msg.ResultSucceeded()); err != nil {
+		logger.Debug("succeeded to invoke.")
+		if err := w.remover.Remove(ctx, msg); err != nil {
 			logger.Warn("failed to remove message", "error", err)
 		}
 	case locker.ErrQueueExists:
-		logger.Warn("received message is duplicated", msgID)
+		logger.Warn("received message is duplicated")
 	default:
-		logger.Error("failed to invoke.", "error", err, msgID)
+		logger.Error("failed to invoke.", "error", err)
 	}
 	w.workings.Delete(msg.ID)
 }

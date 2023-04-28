@@ -173,11 +173,10 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 			return nil, err
 		}
 		messages = append(messages, Message{
-			ID:           *msg.MessageId,
-			Payload:      *msg.Body,
-			Receipt:      *msg.ReceiptHandle,
-			ReceivedAt:   receivedAt,
-			ResultStatus: NotRequested,
+			ID:         *msg.MessageId,
+			Payload:    *msg.Body,
+			Receipt:    *msg.ReceiptHandle,
+			ReceivedAt: receivedAt,
 		})
 	}
 	return messages, nil
