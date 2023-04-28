@@ -31,7 +31,7 @@ func TestGRPC(t *testing.T) {
 	defer cancel()
 
 	msgsCh := make(chan Message, 1)
-	worker := sys.consumer.startWorker(ctx, msgsCh, nil)
+	worker := sys.consumer.startWorker(ctx, msgsCh, remover{})
 
 	monitor := NewMonitoringService(worker)
 

@@ -19,24 +19,22 @@ type Consumer struct {
 	Invoker  Invoker
 }
 
-type messageProcessor func(ctx context.Context, msg Message) error
-
 type worker struct {
 	workings  sync.Map
 	broker    chan Message
-	removeFn  messageProcessor
+	remover   remover
 	invoker   Invoker
 	capacity  int
 	semaphore *semaphore.Weighted
 }
 
 // startWorker start worker to invoke and remove message.
-func (csm *Consumer) startWorker(ctx context.Context, broker chan Message, removeFn messageProcessor) *worker {
+func (csm *Consumer) startWorker(ctx context.Context, broker chan Message, rm remover) *worker {
 	w := &worker{
 		capacity:  csm.Capacity,
 		invoker:   csm.Invoker,
 		broker:    broker,
-		removeFn:  removeFn,
+		remover:   rm,
 		semaphore: semaphore.NewWeighted(int64(csm.Capacity)),
 	}
 	for i := 0; i < w.capacity; i++ {
@@ -80,7 +78,7 @@ func (w *worker) wrappedProcess(msg Message) {
 	switch err := w.invoker.Invoke(ctx, msg); err {
 	case nil:
 		logger.Debug("succeeded to invoke.", msgID)
-		if err := w.removeFn(ctx, msg.ResultSucceeded()); err != nil {
+		if err := w.remover.Remove(ctx, msg.ResultSucceeded()); err != nil {
 			logger.Warn("failed to remove message", "error", err)
 		}
 	case locker.ErrQueueExists:

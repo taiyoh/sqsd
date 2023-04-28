@@ -25,10 +25,7 @@ func TestMonitoringService(t *testing.T) {
 	defer cancel()
 
 	broker := make(chan Message, 3)
-	var nopRemover messageProcessor = func(ctx context.Context, msg Message) error {
-		return nil
-	}
-	w := consumer.startWorker(ctx, broker, nopRemover)
+	w := consumer.startWorker(ctx, broker, remover{})
 	monitor := NewMonitoringService(w)
 
 	resp, err := monitor.CurrentWorkings(ctx, nil)
