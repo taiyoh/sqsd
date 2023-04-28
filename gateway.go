@@ -186,21 +186,13 @@ func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
 type remover struct {
 	queue    *sqs.SQS
 	queueURL string
-	timeout  int64
 }
 
-// newRemover starts remover to remove sqs message.
-func (g *Gateway) newRemover() messageProcessor {
-	r := remover{
-		queue:    g.queue,
-		queueURL: g.queueURL,
-		timeout:  g.timeout,
+func (r *remover) Remove(ctx context.Context, msg Message) (err error) {
+	// in some tests, queue object is empty for nothing to do it.
+	if r.queue == nil {
+		return nil
 	}
-	return r.RunForRemove
-}
-
-func (r *remover) RunForRemove(ctx context.Context, msg Message) error {
-	var err error
 	logger := getLogger()
 	for i := 0; i < 16; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)

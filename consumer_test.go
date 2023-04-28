@@ -33,11 +33,7 @@ func TestWorker(t *testing.T) {
 	}
 
 	broker := make(chan Message, 3)
-	nopRemover := func(context.Context, Message) error {
-		return nil
-	}
-
-	w := consumer.startWorker(ctx, broker, nopRemover)
+	w := consumer.startWorker(ctx, broker, remover{})
 	msgs := make([]Message, 0, 10)
 	for i := 1; i <= 10; i++ {
 		msgs = append(msgs, Message{

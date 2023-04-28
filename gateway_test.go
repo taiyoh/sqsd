@@ -49,11 +49,14 @@ func TestFetcherAndRemover(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	ch := make(chan Message, consumer.Capacity)
-	removeFn := g.newRemover()
+	remover := remover{
+		queue:    g.queue,
+		queueURL: g.queueURL,
+	}
 	go func() {
 		defer wg.Done()
 		for msg := range ch {
-			if assert.NoError(t, removeFn(ctx, msg)) {
+			if assert.NoError(t, remover.Remove(ctx, msg)) {
 				atomic.AddInt32(&removed, 1)
 			}
 		}
