@@ -62,8 +62,8 @@ func NewSystem(builders ...SystemBuilder) *System {
 
 // Run starts running actors and gRPC server.
 func (s *System) Run(ctx context.Context) error {
-	msgsCh := s.consumer.startMessageBroker(ctx)
-	worker := s.consumer.startWorker(ctx, msgsCh, s.gateway.newRemover(msgsCh))
+	msgsCh := make(chan Message, s.consumer.Capacity)
+	worker := s.consumer.startWorker(ctx, msgsCh, s.gateway.newRemover())
 
 	monitor := NewMonitoringService(worker)
 

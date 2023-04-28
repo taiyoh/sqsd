@@ -32,7 +32,7 @@ func TestWorker(t *testing.T) {
 		Invoker:  testInvoker(testInvokerFn),
 	}
 
-	broker := consumer.startMessageBroker(ctx)
+	broker := make(chan Message, 3)
 	nopRemover := func(context.Context, Message) error {
 		return nil
 	}
@@ -52,7 +52,7 @@ func TestWorker(t *testing.T) {
 		msgs[9:],
 	} {
 		for _, msg := range chunk {
-			broker.Append(msg)
+			broker <- msg
 		}
 		time.Sleep(100 * time.Millisecond)
 

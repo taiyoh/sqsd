@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/taiyoh/sqsd/locker"
 	"golang.org/x/exp/slog"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/taiyoh/sqsd/locker"
 )
 
 // Consumer manages Invoker's invokation from receiving queues.
@@ -18,15 +19,11 @@ type Consumer struct {
 	Invoker  Invoker
 }
 
-func (csm *Consumer) startMessageBroker(ctx context.Context) *messageBroker {
-	return newMessageBroker(ctx, csm.Capacity)
-}
-
 type messageProcessor func(ctx context.Context, msg Message) error
 
 type worker struct {
 	workings  sync.Map
-	broker    *messageBroker
+	broker    chan Message
 	removeFn  messageProcessor
 	invoker   Invoker
 	capacity  int
@@ -34,7 +31,7 @@ type worker struct {
 }
 
 // startWorker start worker to invoke and remove message.
-func (csm *Consumer) startWorker(ctx context.Context, broker *messageBroker, removeFn messageProcessor) *worker {
+func (csm *Consumer) startWorker(ctx context.Context, broker chan Message, removeFn messageProcessor) *worker {
 	w := &worker{
 		capacity:  csm.Capacity,
 		invoker:   csm.Invoker,
@@ -99,7 +96,7 @@ func (w *worker) RunForProcess(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case msg, ok := <-w.broker.Receive():
+		case msg, ok := <-w.broker:
 			if ok {
 				w.wrappedProcess(msg)
 			}
