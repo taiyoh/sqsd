@@ -24,7 +24,7 @@ func TestMonitoringService(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	broker := consumer.startMessageBroker(ctx)
+	broker := make(chan Message, 3)
 	var nopRemover messageProcessor = func(ctx context.Context, msg Message) error {
 		return nil
 	}
@@ -37,9 +37,9 @@ func TestMonitoringService(t *testing.T) {
 	assert.Empty(t, resp.GetTasks())
 
 	for i := 1; i <= 3; i++ {
-		broker.Append(Message{
+		broker <- Message{
 			ID: fmt.Sprintf("id:%d", i),
-		})
+		}
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -61,9 +61,9 @@ func TestMonitoringService(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	for i := 4; i <= 6; i++ {
-		broker.Append(Message{
+		broker <- Message{
 			ID: fmt.Sprintf("id:%d", i),
-		})
+		}
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -86,9 +86,9 @@ func TestMonitoringService(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	for i := 7; i <= 9; i++ {
-		broker.Append(Message{
+		broker <- Message{
 			ID: fmt.Sprintf("id:%d", i),
-		})
+		}
 	}
 	time.Sleep(100 * time.Millisecond)
 
@@ -106,9 +106,9 @@ func TestMonitoringService(t *testing.T) {
 	assert.NotEqual(t, ids2, ids3)
 	time.Sleep(50 * time.Millisecond)
 
-	broker.Append(Message{
+	broker <- Message{
 		ID: "id:10",
-	})
+	}
 
 	errCh := make(chan error, 1)
 	go func() {

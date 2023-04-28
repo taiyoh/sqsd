@@ -57,7 +57,7 @@ type fetcher struct {
 	waitTime         time.Duration
 	queueURL         string
 	queue            *sqs.SQS
-	broker           *messageBroker
+	broker           chan Message
 	timeout          int64
 	numberOfMessages int64
 	locker           locker.QueueLocker
@@ -104,7 +104,7 @@ func FetcherMaxMessages(n int64) FetcherParameter {
 }
 
 // startFetcher starts Fetcher to fetch sqs messages.
-func (g *Gateway) startFetcher(ctx context.Context, broker *messageBroker, fns ...FetcherParameter) {
+func (g *Gateway) startFetcher(ctx context.Context, broker chan Message, fns ...FetcherParameter) {
 	f := &fetcher{
 		broker:           broker,
 		queue:            g.queue,
@@ -125,6 +125,8 @@ func (g *Gateway) startFetcher(ctx context.Context, broker *messageBroker, fns .
 		go f.RunForFetch(ctx, &wg)
 	}
 	wg.Wait()
+
+	close(broker)
 }
 
 func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
@@ -143,7 +145,7 @@ func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
 		}
 		logger.Debug("caught messages.", "length", len(messages))
 		for _, msg := range messages {
-			f.broker.Append(msg)
+			f.broker <- msg
 		}
 		time.Sleep(f.fetcherInterval)
 	}
@@ -185,16 +187,14 @@ type remover struct {
 	queue    *sqs.SQS
 	queueURL string
 	timeout  int64
-	broker   *messageBroker
 }
 
 // newRemover starts remover to remove sqs message.
-func (g *Gateway) newRemover(broker *messageBroker) messageProcessor {
+func (g *Gateway) newRemover() messageProcessor {
 	r := remover{
 		queue:    g.queue,
 		queueURL: g.queueURL,
 		timeout:  g.timeout,
-		broker:   broker,
 	}
 	return r.RunForRemove
 }
