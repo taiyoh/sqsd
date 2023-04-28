@@ -211,7 +211,6 @@ func (r *remover) RunForRemove(ctx context.Context, msg Message) error {
 		cancel()
 		if err == nil {
 			logger.Debug("succeeded to remove message", "message_id", msg.ID)
-			r.broker.Unset()
 			return nil
 		}
 		time.Sleep(time.Second)

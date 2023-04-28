@@ -83,6 +83,7 @@ func (w *worker) wrappedProcess(msg Message) {
 	default:
 		logger.Error("failed to invoke.", "error", err, msgID)
 	}
+	w.broker.Unset()
 	w.workings.Delete(msg.ID)
 }
 
