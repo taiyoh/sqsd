@@ -37,8 +37,7 @@ func TestFetcherAndRemover(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	consumer := Consumer{Capacity: 3}
-	broker := make(chan Message, consumer.Capacity)
+	broker := make(chan Message, 3)
 
 	g := NewGateway(queue, queueURL, GatewayParallel(5))
 	go g.startFetcher(ctx, broker,
@@ -48,7 +47,7 @@ func TestFetcherAndRemover(t *testing.T) {
 	var removed int32
 	var wg sync.WaitGroup
 	wg.Add(1)
-	ch := make(chan Message, consumer.Capacity)
+	ch := make(chan Message, 3)
 	remover := remover{
 		queue:    g.queue,
 		queueURL: g.queueURL,
