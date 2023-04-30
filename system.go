@@ -15,8 +15,9 @@ const DisableMonitoring = -1
 type System struct {
 	gateway           *Gateway
 	fetcherParameters []FetcherParameter
-	consumer          *Consumer
+	consumer          *consumer
 	port              int
+	capacity          int
 }
 
 // SystemBuilder provides constructor for system object requirements.
@@ -35,10 +36,10 @@ func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.
 // ConsumerBuilder builds consumer for system.
 func ConsumerBuilder(invoker Invoker, parallel int) SystemBuilder {
 	return func(s *System) {
-		s.consumer = &Consumer{
-			Invoker:  invoker,
-			Capacity: parallel,
+		s.consumer = &consumer{
+			Invoker: invoker,
 		}
+		s.capacity = parallel
 	}
 }
 
@@ -62,7 +63,7 @@ func NewSystem(builders ...SystemBuilder) *System {
 
 // Run starts running actors and gRPC server.
 func (s *System) Run(ctx context.Context) error {
-	msgsCh := make(chan Message, s.consumer.Capacity)
+	msgsCh := make(chan Message, s.capacity)
 	worker := s.consumer.startWorker(ctx, msgsCh, remover{
 		queue:    s.gateway.queue,
 		queueURL: s.gateway.queueURL,

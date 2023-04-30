@@ -27,9 +27,8 @@ func TestWorker(t *testing.T) {
 		<-nextCh
 		return nil
 	}
-	consumer := &Consumer{
-		Capacity: 3,
-		Invoker:  testInvoker(testInvokerFn),
+	consumer := &consumer{
+		Invoker: testInvoker(testInvokerFn),
 	}
 
 	broker := make(chan Message, 3)

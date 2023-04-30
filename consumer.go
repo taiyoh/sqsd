@@ -12,10 +12,9 @@ import (
 	"github.com/taiyoh/sqsd/locker"
 )
 
-// Consumer manages Invoker's invokation from receiving queues.
-type Consumer struct {
-	Capacity int
-	Invoker  Invoker
+// consumer manages Invoker's invokation from receiving queues.
+type consumer struct {
+	Invoker Invoker
 }
 
 // Message provides transition from sqs.Message
@@ -31,20 +30,18 @@ type worker struct {
 	broker    chan Message
 	remover   remover
 	invoker   Invoker
-	capacity  int
 	semaphore *semaphore.Weighted
 }
 
 // startWorker start worker to invoke and remove message.
-func (csm *Consumer) startWorker(ctx context.Context, broker chan Message, rm remover) *worker {
+func (csm *consumer) startWorker(ctx context.Context, broker chan Message, rm remover) *worker {
 	w := &worker{
-		capacity:  csm.Capacity,
 		invoker:   csm.Invoker,
 		broker:    broker,
 		remover:   rm,
-		semaphore: semaphore.NewWeighted(int64(csm.Capacity)),
+		semaphore: semaphore.NewWeighted(int64(cap(broker))),
 	}
-	for i := 0; i < w.capacity; i++ {
+	for i := 0; i < cap(broker); i++ {
 		go w.RunForProcess(ctx)
 	}
 
@@ -53,7 +50,7 @@ func (csm *Consumer) startWorker(ctx context.Context, broker chan Message, rm re
 
 // CurrentWorkings returns tasks which are invoked.
 func (w *worker) CurrentWorkings(ctx context.Context) []*Task {
-	tasks := make([]*Task, 0, w.capacity)
+	tasks := make([]*Task, 0, cap(w.broker))
 	w.workings.Range(func(key, val interface{}) bool {
 		tasks = append(tasks, val.(*Task))
 		return true

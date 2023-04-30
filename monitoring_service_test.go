@@ -19,7 +19,7 @@ func TestMonitoringService(t *testing.T) {
 		<-nextCh
 		return nil
 	}
-	consumer := &Consumer{Invoker: testInvoker(testInvokerFn), Capacity: 3}
+	consumer := &consumer{Invoker: testInvoker(testInvokerFn)}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
