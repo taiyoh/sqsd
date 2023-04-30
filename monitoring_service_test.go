@@ -19,13 +19,12 @@ func TestMonitoringService(t *testing.T) {
 		<-nextCh
 		return nil
 	}
-	consumer := &consumer{Invoker: testInvoker(testInvokerFn)}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	broker := make(chan Message, 3)
-	w := consumer.startWorker(ctx, broker, remover{})
+	w := startWorker(ctx, testInvoker(testInvokerFn), broker, remover{})
 	monitor := NewMonitoringService(w)
 
 	resp, err := monitor.CurrentWorkings(ctx, nil)

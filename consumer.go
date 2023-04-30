@@ -12,11 +12,6 @@ import (
 	"github.com/taiyoh/sqsd/locker"
 )
 
-// consumer manages Invoker's invokation from receiving queues.
-type consumer struct {
-	Invoker Invoker
-}
-
 // Message provides transition from sqs.Message
 type Message struct {
 	ID         string
@@ -33,10 +28,9 @@ type worker struct {
 	semaphore *semaphore.Weighted
 }
 
-// startWorker start worker to invoke and remove message.
-func (csm *consumer) startWorker(ctx context.Context, broker chan Message, rm remover) *worker {
+func startWorker(ctx context.Context, ivk Invoker, broker chan Message, rm remover) *worker {
 	w := &worker{
-		invoker:   csm.Invoker,
+		invoker:   ivk,
 		broker:    broker,
 		remover:   rm,
 		semaphore: semaphore.NewWeighted(int64(cap(broker))),

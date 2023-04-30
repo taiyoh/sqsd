@@ -27,12 +27,9 @@ func TestWorker(t *testing.T) {
 		<-nextCh
 		return nil
 	}
-	consumer := &consumer{
-		Invoker: testInvoker(testInvokerFn),
-	}
 
 	broker := make(chan Message, 3)
-	w := consumer.startWorker(ctx, broker, remover{})
+	w := startWorker(ctx, testInvoker(testInvokerFn), broker, remover{})
 	msgs := make([]Message, 0, 10)
 	for i := 1; i <= 10; i++ {
 		msgs = append(msgs, Message{
