@@ -57,7 +57,6 @@ type fetcher struct {
 	waitTime         time.Duration
 	queueURL         string
 	queue            *sqs.SQS
-	broker           chan Message
 	timeout          int64
 	numberOfMessages int64
 	locker           locker.QueueLocker
@@ -106,7 +105,6 @@ func FetcherMaxMessages(n int64) FetcherParameter {
 // startFetcher starts Fetcher to fetch sqs messages.
 func (g *Gateway) startFetcher(ctx context.Context, broker chan Message, fns ...FetcherParameter) {
 	f := &fetcher{
-		broker:           broker,
 		queue:            g.queue,
 		queueURL:         g.queueURL,
 		timeout:          g.timeout,
@@ -119,67 +117,57 @@ func (g *Gateway) startFetcher(ctx context.Context, broker chan Message, fns ...
 		fn(f)
 	}
 
+	input := &sqs.ReceiveMessageInput{
+		QueueUrl:            &f.queueURL,
+		MaxNumberOfMessages: &f.numberOfMessages,
+		WaitTimeSeconds:     aws.Int64(int64(f.waitTime.Seconds())),
+		VisibilityTimeout:   aws.Int64(f.timeout),
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(g.parallel)
 	for i := 0; i < g.parallel; i++ {
-		go f.RunForFetch(ctx, &wg)
+		go f.RunForFetch(ctx, &wg, broker, input)
 	}
 	wg.Wait()
 
 	close(broker)
 }
 
-func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup) {
+func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup, broker chan Message, input *sqs.ReceiveMessageInput) {
 	defer wg.Done()
 	logger := getLogger()
 	for {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		messages, err := f.fetch(ctx)
+		out, err := f.queue.ReceiveMessageWithContext(ctx, input)
 		if err != nil {
 			if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
 				return
 			}
 			logger.Error("failed to fetch from SQS", "error", err)
 		}
-		logger.Debug("caught messages.", "length", len(messages))
-		for _, msg := range messages {
-			f.broker <- msg
-		}
-		time.Sleep(f.fetcherInterval)
-	}
-}
-
-func (f *fetcher) fetch(ctx context.Context) ([]Message, error) {
-	out, err := f.queue.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
-		QueueUrl:            &f.queueURL,
-		MaxNumberOfMessages: &f.numberOfMessages,
-		WaitTimeSeconds:     aws.Int64(int64(f.waitTime.Seconds())),
-		VisibilityTimeout:   aws.Int64(f.timeout),
-	})
-	if err != nil {
-		return nil, err
-	}
-	receivedAt := time.Now().UTC()
-	messages := make([]Message, 0, len(out.Messages))
-	logger := getLogger()
-	for _, msg := range out.Messages {
-		if err := f.locker.Lock(ctx, *msg.MessageId); err != nil {
-			if err == locker.ErrQueueExists {
-				logger.Warn("received message is duplicated", "message_id", *msg.MessageId)
+		receivedAt := time.Now().UTC()
+		for _, msg := range out.Messages {
+			if err := f.locker.Lock(ctx, *msg.MessageId); err != nil {
+				if err == locker.ErrQueueExists {
+					logger.Warn("received message is duplicated", "message_id", *msg.MessageId)
+				} else {
+					logger.Error("failed to lock", "error", err)
+				}
 				continue
 			}
-			return nil, err
+			broker <- Message{
+				ID:         *msg.MessageId,
+				Payload:    *msg.Body,
+				Receipt:    *msg.ReceiptHandle,
+				ReceivedAt: receivedAt,
+			}
 		}
-		messages = append(messages, Message{
-			ID:         *msg.MessageId,
-			Payload:    *msg.Body,
-			Receipt:    *msg.ReceiptHandle,
-			ReceivedAt: receivedAt,
-		})
+		logger.Debug("caught messages.", "length", len(out.Messages))
+		time.Sleep(f.fetcherInterval)
 	}
-	return messages, nil
 }
 
 type remover struct {
