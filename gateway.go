@@ -117,25 +117,26 @@ func (g *Gateway) startFetcher(ctx context.Context, broker chan Message, fns ...
 		fn(f)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(g.parallel)
-	for i := 0; i < g.parallel; i++ {
-		go f.RunForFetch(ctx, &wg, broker)
-	}
-	wg.Wait()
-
-	close(broker)
-}
-
-func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup, broker chan Message) {
-	defer wg.Done()
-	logger := getLogger()
 	input := &sqs.ReceiveMessageInput{
 		QueueUrl:            &f.queueURL,
 		MaxNumberOfMessages: &f.numberOfMessages,
 		WaitTimeSeconds:     aws.Int64(int64(f.waitTime.Seconds())),
 		VisibilityTimeout:   aws.Int64(f.timeout),
 	}
+
+	var wg sync.WaitGroup
+	wg.Add(g.parallel)
+	for i := 0; i < g.parallel; i++ {
+		go f.RunForFetch(ctx, &wg, broker, input)
+	}
+	wg.Wait()
+
+	close(broker)
+}
+
+func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup, broker chan Message, input *sqs.ReceiveMessageInput) {
+	defer wg.Done()
+	logger := getLogger()
 	for {
 		if err := ctx.Err(); err != nil {
 			return
@@ -148,7 +149,6 @@ func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup, broker ch
 			logger.Error("failed to fetch from SQS", "error", err)
 		}
 		receivedAt := time.Now().UTC()
-		messages := make([]Message, 0, len(out.Messages))
 		for _, msg := range out.Messages {
 			if err := f.locker.Lock(ctx, *msg.MessageId); err != nil {
 				if err == locker.ErrQueueExists {
@@ -158,17 +158,14 @@ func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup, broker ch
 				}
 				continue
 			}
-			messages = append(messages, Message{
+			broker <- Message{
 				ID:         *msg.MessageId,
 				Payload:    *msg.Body,
 				Receipt:    *msg.ReceiptHandle,
 				ReceivedAt: receivedAt,
-			})
+			}
 		}
-		logger.Debug("caught messages.", "length", len(messages))
-		for _, msg := range messages {
-			broker <- msg
-		}
+		logger.Debug("caught messages.", "length", len(out.Messages))
 		time.Sleep(f.fetcherInterval)
 	}
 }
