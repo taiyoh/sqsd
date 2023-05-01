@@ -4,24 +4,18 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSystem(t *testing.T) {
 	resourceName := fmt.Sprintf("system-%d", time.Now().UnixNano())
-	sess := session.Must(session.NewSession(awsConf))
-	queue := sqs.New(
-		sess,
-		aws.NewConfig().WithEndpoint(os.Getenv("SQS_ENDPOINT_URL")))
+	queue := sqs.NewFromConfig(awsConf, sqsEndpoint)
 	queueURL, err := setupSQS(t, queue, resourceName)
 	if err != nil {
 		panic(err)

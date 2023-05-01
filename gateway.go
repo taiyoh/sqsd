@@ -2,12 +2,12 @@ package sqsd
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/smithy-go"
 
 	"github.com/taiyoh/sqsd/locker"
 	nooplocker "github.com/taiyoh/sqsd/locker/noop"
@@ -16,7 +16,7 @@ import (
 // Gateway fetches and removes jobs from SQS.
 type Gateway struct {
 	queueURL        string
-	queue           *sqs.SQS
+	queue           *sqs.Client
 	locker          locker.QueueLocker
 	fetcherInterval time.Duration
 	parallel        int
@@ -25,19 +25,19 @@ type Gateway struct {
 
 type gatewayParams struct {
 	fetcherInterval  time.Duration
-	waitTime         int64
-	timeout          int64
-	numberOfMessages int64
+	waitTime         int32
+	timeout          int32
+	numberOfMessages int32
 	parallel         int
 	locker           locker.QueueLocker
 }
 
 // NewGateway returns Gateway object.
-func NewGateway(queue *sqs.SQS, queueURL string, params ...GatewayParameter) *Gateway {
+func NewGateway(queue *sqs.Client, queueURL string, params ...GatewayParameter) *Gateway {
 	param := gatewayParams{
 		fetcherInterval:  100 * time.Millisecond,
 		timeout:          30, // default Visibility Timeout
-		waitTime:         int64((20 * time.Second).Seconds()),
+		waitTime:         int32((20 * time.Second).Seconds()),
 		numberOfMessages: 10,
 		parallel:         1,
 		locker:           nooplocker.Get(),
@@ -54,9 +54,9 @@ func NewGateway(queue *sqs.SQS, queueURL string, params ...GatewayParameter) *Ga
 		parallel:        param.parallel,
 		input: &sqs.ReceiveMessageInput{
 			QueueUrl:            &queueURL,
-			MaxNumberOfMessages: &param.numberOfMessages,
-			WaitTimeSeconds:     aws.Int64(param.waitTime),
-			VisibilityTimeout:   aws.Int64(param.timeout),
+			MaxNumberOfMessages: param.numberOfMessages,
+			WaitTimeSeconds:     param.waitTime,
+			VisibilityTimeout:   param.timeout,
 		},
 	}
 }
@@ -74,7 +74,7 @@ func FetchInterval(d time.Duration) GatewayParameter {
 // FetcherWaitTime sets WaitTimeSecond of receiving message request.
 func FetcherWaitTime(d time.Duration) GatewayParameter {
 	return func(g *gatewayParams) {
-		g.waitTime = int64(d.Seconds())
+		g.waitTime = int32(d.Seconds())
 	}
 }
 
@@ -89,7 +89,7 @@ func FetcherQueueLocker(l locker.QueueLocker) GatewayParameter {
 // Fetcher's default value is 10.
 // if supplied value is out of range, forcely sets 1 or 10.
 // (if n is less than 1, set 1 and is more than 10, set 10)
-func FetcherMaxMessages(n int64) GatewayParameter {
+func FetcherMaxMessages(n int32) GatewayParameter {
 	if n < 1 {
 		n = 1
 	}
@@ -126,9 +126,10 @@ func (f *Gateway) runForFetch(ctx context.Context, wg *sync.WaitGroup, broker ch
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		out, err := f.queue.ReceiveMessageWithContext(ctx, input)
+		out, err := f.queue.ReceiveMessage(ctx, input)
 		if err != nil {
-			if e, ok := err.(awserr.Error); ok && e.OrigErr() == context.Canceled {
+			var apiErr *smithy.CanceledError
+			if errors.As(err, &apiErr) {
 				return
 			}
 			logger.Error("failed to fetch from SQS", "error", err)
@@ -164,7 +165,7 @@ func (g *Gateway) remove(ctx context.Context, msg Message) (err error) {
 	logger := getLogger()
 	for i := 0; i < 16; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		_, err = g.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
+		_, err = g.queue.DeleteMessage(ctx, &sqs.DeleteMessageInput{
 			QueueUrl:      &g.queueURL,
 			ReceiptHandle: &msg.Receipt,
 		})

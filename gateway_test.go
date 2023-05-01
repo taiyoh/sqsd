@@ -3,15 +3,12 @@ package sqsd
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,10 +16,7 @@ func TestFetcherAndRemover(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	resourceName := fmt.Sprintf("fetcher-and-remover-%d", time.Now().UnixNano())
-	sess := session.Must(session.NewSession(awsConf))
-	queue := sqs.New(
-		sess,
-		aws.NewConfig().WithEndpoint(os.Getenv("SQS_ENDPOINT_URL")))
+	queue := sqs.NewFromConfig(awsConf, sqsEndpoint)
 	queueURL, err := setupSQS(t, queue, resourceName)
 	if err != nil {
 		panic(err)
@@ -30,7 +24,7 @@ func TestFetcherAndRemover(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		body := fmt.Sprintf(`{"foo":"bar","hoge":100,"index":%d}`, i)
-		_, err := queue.SendMessage(&sqs.SendMessageInput{
+		_, err := queue.SendMessage(context.Background(), &sqs.SendMessageInput{
 			QueueUrl:    &queueURL,
 			MessageBody: &body,
 		})

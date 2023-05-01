@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding"
 	"flag"
 	"log"
 	"os"
@@ -11,9 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	"github.com/taiyoh/go-typedenv"
@@ -25,24 +23,25 @@ import (
 	redislocker "github.com/taiyoh/sqsd/locker/redis"
 )
 
-type awsConf struct {
-	*aws.Config
-	target string
+type regionConf struct {
+	opt config.LoadOptionsFunc
 }
 
-var _ encoding.TextUnmarshaler = (*awsConf)(nil)
-
-func (c *awsConf) UnmarshalText(b []byte) error {
-	switch c.target {
-	case "region":
-		c.Config = aws.NewConfig().WithRegion(string(b))
-	case "endpoint":
-		c.Config = aws.NewConfig().WithEndpoint(string(b))
-	}
+func (c *regionConf) UnmarshalText(b []byte) error {
+	c.opt = config.WithRegion(string(b))
 	return nil
 }
 
-type config struct {
+type endpointConf struct {
+	opt func(*sqs.Options)
+}
+
+func (c *endpointConf) UnmarshalText(b []byte) error {
+	c.opt = sqs.WithEndpointResolver(sqs.EndpointResolverFromURL(string(b)))
+	return nil
+}
+
+type sqsdConfig struct {
 	RawURL          string
 	QueueURL        string
 	Duration        time.Duration
@@ -54,8 +53,8 @@ type config struct {
 	MonitoringPort  int
 	LogLevel        slog.Level
 	RedisLocker     *redisLocker
-	Region          awsConf
-	Endpoint        awsConf
+	Region          regionConf
+	Endpoint        endpointConf
 }
 
 type redisLocker struct {
@@ -64,9 +63,7 @@ type redisLocker struct {
 	KeyName string
 }
 
-func (c *config) Load() error {
-	c.Region.target = "region"
-	c.Endpoint.target = "endpoint"
+func (c *sqsdConfig) Load() error {
 	if err := typedenv.Scan(
 		typedenv.RequiredDirect("INVOKER_URL", &c.RawURL),
 		typedenv.RequiredDirect("QUEUE_URL", &c.QueueURL),
@@ -99,7 +96,7 @@ func (c *config) Load() error {
 func main() {
 	loadEnvFromFile()
 
-	var args config
+	var args sqsdConfig
 	if err := args.Load(); err != nil {
 		log.Fatal(err)
 	}
@@ -108,13 +105,12 @@ func main() {
 
 	logger := sqsd.NewLogger(args.LogLevel, os.Stderr, "sqsd-main")
 
-	queue := sqs.New(
-		session.Must(session.NewSession(
-			args.Region.Config,
-			aws.NewConfig().WithCredentialsChainVerboseErrors(true),
-		)),
-		args.Endpoint.Config,
-	)
+	cfg, err := config.LoadDefaultConfig(context.Background(), args.Region.opt)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	queue := sqs.NewFromConfig(cfg, args.Endpoint.opt)
 
 	var queueLocker locker.QueueLocker
 	if rl := args.RedisLocker; rl != nil {
@@ -139,7 +135,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var maxMessages int64 = 1
+	var maxMessages int32 = 1
 
 	sys := sqsd.NewSystem(
 		sqsd.GatewayBuilder(queue, args.QueueURL, args.FetcherParallel, args.Duration,
