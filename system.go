@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
 // DisableMonitoring makes gRPC server disable to run.
@@ -23,7 +23,7 @@ type System struct {
 type SystemBuilder func(*System)
 
 // GatewayBuilder builds gateway for system.
-func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.Duration, params ...GatewayParameter) SystemBuilder {
+func GatewayBuilder(queue *sqs.Client, queueURL string, parallel int, timeout time.Duration, params ...GatewayParameter) SystemBuilder {
 	return func(s *System) {
 		s.gateway = NewGateway(queue, queueURL, params...)
 	}

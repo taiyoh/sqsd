@@ -7,7 +7,7 @@ import (
 )
 
 func TestConfigWithoutRedisLocker(t *testing.T) {
-	var conf config
+	var conf sqsdConfig
 	t.Setenv("INVOKER_URL", "http://localhost:8080")
 	t.Setenv("QUEUE_URL", "http://localhost:8080")
 
@@ -21,13 +21,13 @@ func TestConfigWithRedisLocker(t *testing.T) {
 	t.Setenv("REDIS_LOCKER_HOST", "localhost:6739")
 
 	t.Run("redis locker variables are not enough", func(t *testing.T) {
-		var conf config
+		var conf sqsdConfig
 		assert.NoError(t, conf.Load())
 		assert.Nil(t, conf.RedisLocker)
 	})
 
 	t.Run("redis locker variables are sets", func(t *testing.T) {
-		var conf config
+		var conf sqsdConfig
 		t.Setenv("REDIS_LOCKER_DBNAME", "3")
 		t.Setenv("REDIS_LOCKER_KEYNAME", "hogefuga")
 		assert.NoError(t, conf.Load())
