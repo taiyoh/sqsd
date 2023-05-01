@@ -29,7 +29,7 @@ func TestWorker(t *testing.T) {
 	}
 
 	broker := make(chan Message, 3)
-	w := startWorker(ctx, testInvoker(testInvokerFn), broker, remover{})
+	w := startWorker(ctx, testInvoker(testInvokerFn), broker, &Gateway{})
 	msgs := make([]Message, 0, 10)
 	for i := 1; i <= 10; i++ {
 		msgs = append(msgs, Message{

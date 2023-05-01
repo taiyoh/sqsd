@@ -13,23 +13,19 @@ const DisableMonitoring = -1
 
 // System controls actor system of sqsd.
 type System struct {
-	gateway           *Gateway
-	fetcherParameters []FetcherParameter
-	port              int
-	capacity          int
-	invoker           Invoker
+	gateway  *Gateway
+	port     int
+	capacity int
+	invoker  Invoker
 }
 
 // SystemBuilder provides constructor for system object requirements.
 type SystemBuilder func(*System)
 
 // GatewayBuilder builds gateway for system.
-func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.Duration, params ...FetcherParameter) SystemBuilder {
+func GatewayBuilder(queue *sqs.SQS, queueURL string, parallel int, timeout time.Duration, params ...GatewayParameter) SystemBuilder {
 	return func(s *System) {
-		s.gateway = NewGateway(queue, queueURL,
-			GatewayParallel(parallel),
-			GatewayVisibilityTimeout(timeout))
-		s.fetcherParameters = params
+		s.gateway = NewGateway(queue, queueURL, params...)
 	}
 }
 
@@ -62,10 +58,7 @@ func NewSystem(builders ...SystemBuilder) *System {
 // Run starts running actors and gRPC server.
 func (s *System) Run(ctx context.Context) error {
 	msgsCh := make(chan Message, s.capacity)
-	worker := startWorker(ctx, s.invoker, msgsCh, remover{
-		queue:    s.gateway.queue,
-		queueURL: s.gateway.queueURL,
-	})
+	worker := startWorker(ctx, s.invoker, msgsCh, s.gateway)
 
 	monitor := NewMonitoringService(worker)
 
@@ -83,7 +76,7 @@ func (s *System) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.gateway.startFetcher(ctx, msgsCh, s.fetcherParameters...)
+		s.gateway.start(ctx, msgsCh)
 	}()
 
 	<-ctx.Done()
