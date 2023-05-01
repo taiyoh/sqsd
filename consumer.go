@@ -58,6 +58,10 @@ func (w *worker) CurrentWorkings(ctx context.Context) []*Task {
 	return tasks
 }
 
+type remover interface {
+	remove(ctx context.Context, msg Message) error
+}
+
 func (w *worker) wrappedProcess(msg Message, rm remover) {
 	ctx := context.Background()
 
@@ -77,7 +81,7 @@ func (w *worker) wrappedProcess(msg Message, rm remover) {
 	switch err := w.invoker.Invoke(ctx, msg); err {
 	case nil:
 		logger.Debug("succeeded to invoke.")
-		if err := rm.Remove(ctx, msg); err != nil {
+		if err := rm.remove(ctx, msg); err != nil {
 			logger.Warn("failed to remove message", "error", err)
 		}
 	case locker.ErrQueueExists:

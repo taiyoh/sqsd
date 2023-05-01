@@ -15,74 +15,73 @@ import (
 
 // Gateway fetches and removes jobs from SQS.
 type Gateway struct {
-	parallel int
-	queueURL string
-	queue    *sqs.SQS
-	timeout  int64
+	queueURL        string
+	queue           *sqs.SQS
+	locker          locker.QueueLocker
+	fetcherInterval time.Duration
+	parallel        int
+	input           *sqs.ReceiveMessageInput
 }
 
-// GatewayParameter sets parameter in Gateway.
-type GatewayParameter func(*Gateway)
-
-// GatewayParallel sets parallel size in Gateway.
-func GatewayParallel(p int) GatewayParameter {
-	return func(g *Gateway) {
-		g.parallel = p
-	}
-}
-
-// GatewayVisibilityTimeout sets visibility timeout in Gateway to receive messages from SQS.
-func GatewayVisibilityTimeout(d time.Duration) GatewayParameter {
-	return func(g *Gateway) {
-		g.timeout = int64(d.Seconds())
-	}
-}
-
-// NewGateway returns Gateway object.
-func NewGateway(queue *sqs.SQS, qURL string, fns ...GatewayParameter) *Gateway {
-	gw := &Gateway{
-		queueURL: qURL,
-		queue:    queue,
-		parallel: 1,
-		timeout:  30, // default SQS settings
-	}
-	for _, fn := range fns {
-		fn(gw)
-	}
-	return gw
-}
-
-type fetcher struct {
+type gatewayParams struct {
 	fetcherInterval  time.Duration
-	waitTime         time.Duration
-	queueURL         string
-	queue            *sqs.SQS
+	waitTime         int64
 	timeout          int64
 	numberOfMessages int64
+	parallel         int
 	locker           locker.QueueLocker
 }
 
-// FetcherParameter sets parameter to fetcher by functional option pattern.
-type FetcherParameter func(*fetcher)
+// NewGateway returns Gateway object.
+func NewGateway(queue *sqs.SQS, queueURL string, params ...GatewayParameter) *Gateway {
+	param := gatewayParams{
+		fetcherInterval:  100 * time.Millisecond,
+		timeout:          30, // default Visibility Timeout
+		waitTime:         int64((20 * time.Second).Seconds()),
+		numberOfMessages: 10,
+		parallel:         1,
+		locker:           nooplocker.Get(),
+	}
+	for _, fn := range params {
+		fn(&param)
+	}
 
-// FetcherInterval sets interval duration of receiving queue request to fetcher.
-func FetcherInterval(d time.Duration) FetcherParameter {
-	return func(f *fetcher) {
-		f.fetcherInterval = d
+	return &Gateway{
+		queue:           queue,
+		queueURL:        queueURL,
+		fetcherInterval: param.fetcherInterval,
+		locker:          nooplocker.Get(),
+		parallel:        param.parallel,
+		input: &sqs.ReceiveMessageInput{
+			QueueUrl:            &queueURL,
+			MaxNumberOfMessages: &param.numberOfMessages,
+			WaitTimeSeconds:     aws.Int64(param.waitTime),
+			VisibilityTimeout:   aws.Int64(param.timeout),
+		},
+	}
+}
+
+// GatewayParameter sets parameter to fetcher by functional option pattern.
+type GatewayParameter func(*gatewayParams)
+
+// FetchInterval sets interval duration of receiving queue request to fetcher.
+func FetchInterval(d time.Duration) GatewayParameter {
+	return func(g *gatewayParams) {
+		g.fetcherInterval = d
 	}
 }
 
 // FetcherWaitTime sets WaitTimeSecond of receiving message request.
-func FetcherWaitTime(d time.Duration) FetcherParameter {
-	return func(f *fetcher) {
-		f.waitTime = d
+func FetcherWaitTime(d time.Duration) GatewayParameter {
+	return func(g *gatewayParams) {
+		g.waitTime = int64(d.Seconds())
 	}
 }
 
-// FetcherQueueLocker sets QueueLocker in Fetcher to block duplicated queue.
-func FetcherQueueLocker(l locker.QueueLocker) FetcherParameter {
-	return func(f *fetcher) {
-		f.locker = l
+// FetcherQueueLocker sets FetcherQueueLocker in Gateway to block duplicated queue.
+func FetcherQueueLocker(l locker.QueueLocker) GatewayParameter {
+	return func(g *gatewayParams) {
+		g.locker = l
 	}
 }
 
@@ -90,51 +89,37 @@ func FetcherQueueLocker(l locker.QueueLocker) FetcherParameter {
 // Fetcher's default value is 10.
 // if supplied value is out of range, forcely sets 1 or 10.
 // (if n is less than 1, set 1 and is more than 10, set 10)
-func FetcherMaxMessages(n int64) FetcherParameter {
+func FetcherMaxMessages(n int64) GatewayParameter {
 	if n < 1 {
 		n = 1
 	}
 	if n > 10 {
 		n = 10
 	}
-	return func(f *fetcher) {
+	return func(f *gatewayParams) {
 		f.numberOfMessages = n
 	}
 }
 
-// startFetcher starts Fetcher to fetch sqs messages.
-func (g *Gateway) startFetcher(ctx context.Context, broker chan Message, fns ...FetcherParameter) {
-	f := &fetcher{
-		queue:            g.queue,
-		queueURL:         g.queueURL,
-		timeout:          g.timeout,
-		fetcherInterval:  100 * time.Millisecond,
-		waitTime:         20 * time.Second,
-		numberOfMessages: 10,
-		locker:           nooplocker.Get(),
+// FetcherParalles sets pallalel count of fetching process to SQS.
+func FetchParallel(n int) GatewayParameter {
+	return func(g *gatewayParams) {
+		g.parallel = n
 	}
-	for _, fn := range fns {
-		fn(f)
-	}
+}
 
-	input := &sqs.ReceiveMessageInput{
-		QueueUrl:            &f.queueURL,
-		MaxNumberOfMessages: &f.numberOfMessages,
-		WaitTimeSeconds:     aws.Int64(int64(f.waitTime.Seconds())),
-		VisibilityTimeout:   aws.Int64(f.timeout),
-	}
-
+func (f Gateway) start(ctx context.Context, broker chan Message) {
 	var wg sync.WaitGroup
-	wg.Add(g.parallel)
-	for i := 0; i < g.parallel; i++ {
-		go f.RunForFetch(ctx, &wg, broker, input)
+	wg.Add(f.parallel)
+	for i := 0; i < f.parallel; i++ {
+		go f.runForFetch(ctx, &wg, broker, f.input)
 	}
 	wg.Wait()
 
 	close(broker)
 }
 
-func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup, broker chan Message, input *sqs.ReceiveMessageInput) {
+func (f *Gateway) runForFetch(ctx context.Context, wg *sync.WaitGroup, broker chan Message, input *sqs.ReceiveMessageInput) {
 	defer wg.Done()
 	logger := getLogger()
 	for {
@@ -170,21 +155,17 @@ func (f *fetcher) RunForFetch(ctx context.Context, wg *sync.WaitGroup, broker ch
 	}
 }
 
-type remover struct {
-	queue    *sqs.SQS
-	queueURL string
-}
-
-func (r *remover) Remove(ctx context.Context, msg Message) (err error) {
+// Remove sends delete-message to SQS.
+func (g *Gateway) remove(ctx context.Context, msg Message) (err error) {
 	// in some tests, queue object is empty for nothing to do it.
-	if r.queue == nil {
+	if g.queue == nil {
 		return nil
 	}
 	logger := getLogger()
 	for i := 0; i < 16; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		_, err = r.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
-			QueueUrl:      &r.queueURL,
+		_, err = g.queue.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
+			QueueUrl:      &g.queueURL,
 			ReceiptHandle: &msg.Receipt,
 		})
 		cancel()

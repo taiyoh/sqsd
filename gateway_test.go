@@ -39,23 +39,17 @@ func TestFetcherAndRemover(t *testing.T) {
 
 	broker := make(chan Message, 3)
 
-	g := NewGateway(queue, queueURL, GatewayParallel(5))
-	go g.startFetcher(ctx, broker,
-		FetcherInterval(50*time.Millisecond),
-	)
+	f := NewGateway(queue, queueURL, FetchParallel(5), FetchInterval(50*time.Millisecond))
+	go f.start(ctx, broker)
 
 	var removed int32
 	var wg sync.WaitGroup
 	wg.Add(1)
 	ch := make(chan Message, 3)
-	remover := remover{
-		queue:    g.queue,
-		queueURL: g.queueURL,
-	}
 	go func() {
 		defer wg.Done()
 		for msg := range ch {
-			if assert.NoError(t, remover.Remove(ctx, msg)) {
+			if assert.NoError(t, f.remove(ctx, msg)) {
 				atomic.AddInt32(&removed, 1)
 			}
 		}

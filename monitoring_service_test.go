@@ -24,7 +24,7 @@ func TestMonitoringService(t *testing.T) {
 	defer cancel()
 
 	broker := make(chan Message, 3)
-	w := startWorker(ctx, testInvoker(testInvokerFn), broker, remover{})
+	w := startWorker(ctx, testInvoker(testInvokerFn), broker, &Gateway{})
 	monitor := NewMonitoringService(w)
 
 	resp, err := monitor.CurrentWorkings(ctx, nil)
