@@ -3,7 +3,7 @@ module github.com/taiyoh/sqsd
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.44.251
+	github.com/aws/aws-sdk-go v1.44.254
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.8.2
