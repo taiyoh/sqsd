@@ -16,7 +16,7 @@ func NewLogger(lv slog.Level, w io.Writer, system string) *slog.Logger {
 		Level: lv,
 	}
 
-	return slog.New(opt.NewJSONHandler(w).WithAttrs([]slog.Attr{
+	return slog.New(slog.NewJSONHandler(w, &opt).WithAttrs([]slog.Attr{
 		{
 			Key:   "system",
 			Value: slog.StringValue(system),
