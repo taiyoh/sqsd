@@ -2,6 +2,7 @@ package sqsd
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 	"time"
@@ -62,6 +63,10 @@ type remover interface {
 	remove(ctx context.Context, msg Message) error
 }
 
+// ErrRetainMessage shows that this message should keep in queue.
+// So, this error means that worker must not to remove message.
+var ErrRetainMessage = errors.New("this message should be retained")
+
 func (w *worker) wrappedProcess(msg Message, rm remover) {
 	ctx := context.Background()
 
@@ -86,6 +91,8 @@ func (w *worker) wrappedProcess(msg Message, rm remover) {
 		}
 	case locker.ErrQueueExists:
 		logger.Warn("received message is duplicated")
+	case ErrRetainMessage:
+		logger.Info("received message should be retained")
 	default:
 		logger.Error("failed to invoke.", "error", err)
 	}
