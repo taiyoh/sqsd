@@ -14,8 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	"github.com/redis/rueidis"
 	"github.com/taiyoh/go-typedenv"
 	"golang.org/x/exp/slog"
 
@@ -118,10 +118,13 @@ func main() {
 
 	var queueLocker locker.QueueLocker
 	if rl := args.RedisLocker; rl != nil {
-		db := redis.NewClient(&redis.Options{
-			Addr: rl.Host,
-			DB:   rl.DBName,
+		db, err := rueidis.NewClient(rueidis.ClientOption{
+			InitAddress: []string{rl.Host},
+			SelectDB:    rl.DBName,
 		})
+		if err != nil {
+			log.Fatal(err)
+		}
 		queueLocker = redislocker.New(db, rl.KeyName)
 		logger.Info("redis queue locker is selected")
 	} else {

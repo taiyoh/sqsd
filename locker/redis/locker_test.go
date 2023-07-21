@@ -2,48 +2,27 @@ package redislocker
 
 import (
 	"context"
-	"log"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/rueidis"
 	"github.com/stretchr/testify/assert"
 	"github.com/taiyoh/sqsd/locker"
 )
 
-type traceHook struct {
-	redis.Hook
-}
-
-func (traceHook) BeforeProcess(ctx context.Context, cmd redis.Cmder) (context.Context, error) {
-	log.Printf("[REDIS] %s\n", cmd.String())
-	return ctx, nil
-}
-
-func (traceHook) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
-	return nil
-}
-
-func (traceHook) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmder) (context.Context, error) {
-	return ctx, nil
-}
-
-func (traceHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) error {
-	return nil
-}
-
 func TestRedsislocker(t *testing.T) {
 	db := rand.Intn(16)
-	cli := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   db,
+	cli, err := rueidis.NewClient(rueidis.ClientOption{
+		InitAddress: []string{"localhost:6379"},
+		SelectDB:    db,
 	})
+	assert.NoError(t, err)
 	t.Cleanup(func() {
-		cli.FlushDB(context.Background())
+		cli.Do(context.Background(), cli.B().Flushdb().Build())
 		cli.Close()
 	})
-	cli.AddHook(&traceHook{})
+	// cli.AddHook(&traceHook{})
 	obj := New(cli, "testKey")
 
 	t0 := time.Now() // before lock
@@ -55,7 +34,9 @@ func TestRedsislocker(t *testing.T) {
 
 	t.Run("no items removed", func(t *testing.T) {
 		assert.NoError(t, obj.Unlock(ctx, t0))
-		ids, err := cli.ZRangeByScore(ctx, "testKey", &redis.ZRangeBy{Min: "-inf", Max: "+inf"}).Result()
+		result := cli.Do(ctx, cli.B().Zrangebyscore().Key("testKey").Min("-inf").Max("+inf").Build())
+		assert.NoError(t, result.Error())
+		ids, err := result.AsStrSlice()
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"q1"}, ids)
 	})
@@ -67,7 +48,9 @@ func TestRedsislocker(t *testing.T) {
 
 	t.Run("item removed", func(t *testing.T) {
 		assert.NoError(t, obj.Unlock(ctx, t1))
-		ids, err := cli.ZRangeByScore(ctx, "testKey", &redis.ZRangeBy{Min: "-inf", Max: "+inf"}).Result()
+		result := cli.Do(ctx, cli.B().Zrangebyscore().Key("testKey").Min("-inf").Max("+inf").Build())
+		assert.NoError(t, result.Error())
+		ids, err := result.AsStrSlice()
 		assert.NoError(t, err)
 		assert.Empty(t, ids)
 	})
@@ -77,14 +60,18 @@ func TestRedsislocker(t *testing.T) {
 
 	t.Run("q2 not removed", func(t *testing.T) {
 		assert.NoError(t, obj.Unlock(ctx, t1))
-		ids, err := cli.ZRangeByScore(ctx, "testKey", &redis.ZRangeBy{Min: "-inf", Max: "+inf"}).Result()
+		result := cli.Do(ctx, cli.B().Zrangebyscore().Key("testKey").Min("-inf").Max("+inf").Build())
+		assert.NoError(t, result.Error())
+		ids, err := result.AsStrSlice()
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"q2"}, ids)
 	})
 
 	t.Run("q2 removed", func(t *testing.T) {
 		assert.NoError(t, obj.Unlock(ctx, time.Now()))
-		ids, err := cli.ZRangeByScore(ctx, "testKey", &redis.ZRangeBy{Min: "-inf", Max: "+inf"}).Result()
+		result := cli.Do(ctx, cli.B().Zrangebyscore().Key("testKey").Min("-inf").Max("+inf").Build())
+		assert.NoError(t, result.Error())
+		ids, err := result.AsStrSlice()
 		assert.NoError(t, err)
 		assert.Empty(t, ids)
 	})
