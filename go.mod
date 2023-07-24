@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/aws/aws-sdk-go v1.44.263
 	github.com/joho/godotenv v1.5.1
-	github.com/redis/rueidis v1.0.12
+	github.com/redis/rueidis v1.0.13
 	github.com/stretchr/testify v1.8.4
 	github.com/taiyoh/go-typedenv v0.1.1
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
