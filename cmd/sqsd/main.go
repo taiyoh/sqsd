@@ -104,9 +104,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sqsd.SetWithGlobalLevel(args.LogLevel)
+	slogHandlerOpts := slog.HandlerOptions{Level: args.LogLevel}
+	sqsd.SetWithHandlerOptions(slogHandlerOpts)
 
-	logger := sqsd.NewLogger(args.LogLevel, os.Stderr, "sqsd-main")
+	logger := sqsd.NewLogger(slogHandlerOpts, os.Stderr, "sqsd-main")
 
 	queue := sqs.New(
 		session.Must(session.NewSession(
