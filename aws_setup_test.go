@@ -24,7 +24,8 @@ func init() {
 		WithCredentials(credentials.NewStaticCredentials("dummy", "dummy", "")).
 		WithRegion(awsRegion)
 
-	SetWithGlobalLevel(slog.LevelDebug)
+	slogHandlerOpts := slog.HandlerOptions{Level: slog.LevelDebug}
+	SetWithHandlerOptions(slogHandlerOpts)
 }
 
 func setupSQS(t *testing.T, queue *sqs.SQS, resourceName string) (string, error) {
