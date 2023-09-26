@@ -2,13 +2,13 @@ package sqsd
 
 import (
 	"log"
+	"log/slog"
 	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"golang.org/x/exp/slog"
 )
 
 var awsConf *aws.Config
