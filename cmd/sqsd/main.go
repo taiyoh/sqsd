@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"flag"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/redis/rueidis"
 	"github.com/taiyoh/go-typedenv"
-	"golang.org/x/exp/slog"
 
 	sqsd "github.com/taiyoh/sqsd"
 	"github.com/taiyoh/sqsd/locker"

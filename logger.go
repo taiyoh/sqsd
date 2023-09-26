@@ -2,10 +2,9 @@ package sqsd
 
 import (
 	"io"
+	"log/slog"
 	"os"
 	"sync/atomic"
-
-	"golang.org/x/exp/slog"
 )
 
 var logger atomic.Value
