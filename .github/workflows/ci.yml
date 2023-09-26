@@ -22,7 +22,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - uses: actions/cache@v3.3.1
+      - uses: actions/cache@v3.3.2
         with:
           path: |
             ~/.cache/go-build
