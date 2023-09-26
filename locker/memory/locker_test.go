@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taiyoh/sqsd/locker"
+	"github.com/taiyoh/sqsd/v2/locker"
 )
 
 func TestMemoryLocker(t *testing.T) {

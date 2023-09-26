@@ -17,10 +17,10 @@ import (
 	"github.com/redis/rueidis"
 	"github.com/taiyoh/go-typedenv"
 
-	sqsd "github.com/taiyoh/sqsd"
-	"github.com/taiyoh/sqsd/locker"
-	memorylocker "github.com/taiyoh/sqsd/locker/memory"
-	redislocker "github.com/taiyoh/sqsd/locker/redis"
+	sqsd "github.com/taiyoh/sqsd/v2"
+	"github.com/taiyoh/sqsd/v2/locker"
+	memorylocker "github.com/taiyoh/sqsd/v2/locker/memory"
+	redislocker "github.com/taiyoh/sqsd/v2/locker/redis"
 )
 
 type regionConf struct {

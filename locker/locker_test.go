@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taiyoh/sqsd/locker"
-	nooplocker "github.com/taiyoh/sqsd/locker/noop"
+	"github.com/taiyoh/sqsd/v2/locker"
+	nooplocker "github.com/taiyoh/sqsd/v2/locker/noop"
 )
 
 func TestUnlocker(t *testing.T) {

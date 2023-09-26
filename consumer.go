@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/taiyoh/sqsd/locker"
+	"github.com/taiyoh/sqsd/v2/locker"
 )
 
 // Message provides transition from sqs.Message

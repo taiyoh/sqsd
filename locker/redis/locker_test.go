@@ -8,7 +8,7 @@ import (
 
 	"github.com/redis/rueidis"
 	"github.com/stretchr/testify/assert"
-	"github.com/taiyoh/sqsd/locker"
+	"github.com/taiyoh/sqsd/v2/locker"
 )
 
 func TestRedsislocker(t *testing.T) {

@@ -1,4 +1,4 @@
-module github.com/taiyoh/sqsd
+module github.com/taiyoh/sqsd/v2
 
 go 1.21
 

@@ -9,8 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/smithy-go"
 
-	"github.com/taiyoh/sqsd/locker"
-	nooplocker "github.com/taiyoh/sqsd/locker/noop"
+	"github.com/taiyoh/sqsd/v2/locker"
+	nooplocker "github.com/taiyoh/sqsd/v2/locker/noop"
 )
 
 // Gateway fetches and removes jobs from SQS.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/taiyoh/sqsd/locker"
+	"github.com/taiyoh/sqsd/v2/locker"
 )
 
 type noopLocker struct {

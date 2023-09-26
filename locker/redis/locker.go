@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/rueidis"
-	"github.com/taiyoh/sqsd/locker"
+	"github.com/taiyoh/sqsd/v2/locker"
 )
 
 type redislocker struct {
