@@ -78,6 +78,17 @@ func FetcherWaitTime(d time.Duration) GatewayParameter {
 	}
 }
 
+// FetcherVisibilityTimeout sets VisibilityTimeout of receiving message request.
+func FetcherVisibilityTimeout(d time.Duration) GatewayParameter {
+	const max = 12 * time.Hour
+	if d > max {
+		d = max
+	}
+	return func(g *gatewayParams) {
+		g.timeout = int64(d.Seconds())
+	}
+}
+
 // FetcherQueueLocker sets FetcherQueueLocker in Gateway to block duplicated queue.
 func FetcherQueueLocker(l locker.QueueLocker) GatewayParameter {
 	return func(g *gatewayParams) {
