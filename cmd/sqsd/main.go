@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/joho/godotenv"
@@ -37,7 +38,9 @@ type endpointConf struct {
 }
 
 func (c *endpointConf) UnmarshalText(b []byte) error {
-	c.opt = sqs.WithEndpointResolver(sqs.EndpointResolverFromURL(string(b)))
+	c.opt = func(o *sqs.Options) {
+		o.BaseEndpoint = aws.String(string(b))
+	}
 	return nil
 }
 
