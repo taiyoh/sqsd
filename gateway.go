@@ -85,7 +85,7 @@ func FetcherVisibilityTimeout(d time.Duration) GatewayParameter {
 		d = max
 	}
 	return func(g *gatewayParams) {
-		g.timeout = int64(d.Seconds())
+		g.timeout = int32(d.Seconds())
 	}
 }
 
