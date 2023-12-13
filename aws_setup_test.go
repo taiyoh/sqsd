@@ -32,7 +32,10 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	sqsEndpoint = sqs.WithEndpointResolver(sqs.EndpointResolverFromURL(os.Getenv("SQS_ENDPOINT_URL")))
+	endpointURL := os.Getenv("SQS_ENDPOINT_URL")
+	sqsEndpoint = func(o *sqs.Options) {
+		o.BaseEndpoint = &endpointURL
+	}
 
 	slogHandlerOpts := slog.HandlerOptions{Level: slog.LevelDebug}
 	SetWithHandlerOptions(slogHandlerOpts)
