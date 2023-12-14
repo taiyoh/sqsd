@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/joho/godotenv"
@@ -24,27 +23,8 @@ import (
 	redislocker "github.com/taiyoh/sqsd/v2/locker/redis"
 )
 
-type regionConf struct {
-	opt config.LoadOptionsFunc
-}
-
-func (c *regionConf) UnmarshalText(b []byte) error {
-	c.opt = config.WithRegion(string(b))
-	return nil
-}
-
-type endpointConf struct {
-	opt func(*sqs.Options)
-}
-
-func (c *endpointConf) UnmarshalText(b []byte) error {
-	c.opt = func(o *sqs.Options) {
-		o.BaseEndpoint = aws.String(string(b))
-	}
-	return nil
-}
-
 type sqsdConfig struct {
+	awsConf         config.SharedConfig
 	RawURL          string
 	QueueURL        string
 	Duration        time.Duration
@@ -56,8 +36,10 @@ type sqsdConfig struct {
 	MonitoringPort  int
 	LogLevel        slog.Level
 	RedisLocker     *redisLocker
-	Region          regionConf
-	Endpoint        endpointConf
+}
+
+func (c sqsdConfig) withEndpoint(o *sqs.Options) {
+	o.BaseEndpoint = &c.awsConf.BaseEndpoint
 }
 
 type redisLocker struct {
@@ -78,8 +60,8 @@ func (c *sqsdConfig) Load() error {
 		typedenv.DefaultDirect("INVOKER_PARALLEL_COUNT", &c.InvokerParallel, "1"),
 		typedenv.DefaultDirect("MONITORING_PORT", &c.MonitoringPort, "6969"),
 		typedenv.Default("LOG_LEVEL", &c.LogLevel, "info"),
-		typedenv.Default("AWS_REGION", &c.Region, "ap-northeast-1"),
-		typedenv.Lookup("SQS_ENDPOINT_URL", &c.Endpoint),
+		typedenv.DefaultDirect("AWS_REGION", &c.awsConf.Region, "ap-northeast-1"),
+		typedenv.LookupDirect("SQS_ENDPOINT_URL", &c.awsConf.BaseEndpoint),
 	); err != nil {
 		return err
 	}
@@ -109,12 +91,12 @@ func main() {
 
 	logger := sqsd.NewLogger(slogHandlerOpts, os.Stderr, "sqsd-main")
 
-	cfg, err := config.LoadDefaultConfig(context.Background(), args.Region.opt)
+	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(args.awsConf.Region))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	queue := sqs.NewFromConfig(cfg, args.Endpoint.opt)
+	queue := sqs.NewFromConfig(cfg, args.withEndpoint)
 
 	var queueLocker locker.QueueLocker
 	if rl := args.RedisLocker; rl != nil {
