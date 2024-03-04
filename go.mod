@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.12
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.29.5
-	github.com/aws/smithy-go v1.20.0
+	github.com/aws/smithy-go v1.20.1
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/rueidis v1.0.23
 	github.com/stretchr/testify v1.9.0
