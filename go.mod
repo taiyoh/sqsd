@@ -10,7 +10,7 @@ require (
 	github.com/aws/smithy-go v1.20.0
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/rueidis v1.0.23
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/taiyoh/go-typedenv v0.1.1
 	golang.org/x/sync v0.6.0
 	google.golang.org/grpc v1.61.0
