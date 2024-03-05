@@ -10,18 +10,18 @@ updates:
       - taiyoh
     assignees:
       - taiyoh
-  - package-ecosystem: gomod
-    directory: "/actor"
-    schedule:
-      interval: weekly
-      time: "20:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - taiyoh
-    assignees:
-      - taiyoh
+    groups:
+      go-mod:
+        dependency-type: "production"
+        patterns:
+          - "go.mod"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: weekly
       time: "20:00"
+    groups:
+      workflows:
+        dependency-type: "production"
+        patterns:
+          - ".github/workflows/*.yml"
