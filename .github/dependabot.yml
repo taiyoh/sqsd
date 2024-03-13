@@ -12,9 +12,8 @@ updates:
       - taiyoh
     groups:
       go-mod:
-        dependency-type: "production"
         patterns:
-          - "go.mod"
+          - "*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -22,6 +21,5 @@ updates:
       time: "20:00"
     groups:
       workflows:
-        dependency-type: "production"
         patterns:
-          - ".github/workflows/*.yml"
+          - "*"
