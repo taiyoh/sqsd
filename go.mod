@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.32.7
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.48
-	github.com/aws/aws-sdk-go-v2/service/sqs v1.37.3
+	github.com/aws/aws-sdk-go-v2/service/sqs v1.37.4
 	github.com/aws/smithy-go v1.22.1
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/rueidis v1.0.51
@@ -16,7 +16,7 @@ require (
 	github.com/taiyoh/go-typedenv v0.1.1
 	golang.org/x/sync v0.10.0
 	google.golang.org/grpc v1.69.2
-	google.golang.org/protobuf v1.36.0
+	google.golang.org/protobuf v1.36.1
 )
 
 require (
