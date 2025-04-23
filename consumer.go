@@ -33,7 +33,7 @@ func startWorker(ctx context.Context, ivk Invoker, broker chan Message, rm remov
 		invoker:   ivk,
 		semaphore: semaphore.NewWeighted(int64(capacity)),
 	}
-	for i := 0; i < capacity; i++ {
+	for range capacity {
 		go w.RunForProcess(ctx, broker, rm)
 	}
 

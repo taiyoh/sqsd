@@ -47,7 +47,7 @@ func TestMonitoringService(t *testing.T) {
 	tasks := resp.GetTasks()
 	assert.Len(t, tasks, 3)
 	ids := make([]string, 0, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		ids = append(ids, tasks[i].GetId())
 		nextCh <- struct{}{}
 	}
@@ -71,7 +71,7 @@ func TestMonitoringService(t *testing.T) {
 	tasks = resp.GetTasks()
 	assert.Len(t, tasks, 3)
 	ids2 := make([]string, 0, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		ids2 = append(ids2, tasks[i].GetId())
 		nextCh <- struct{}{}
 	}
@@ -94,7 +94,7 @@ func TestMonitoringService(t *testing.T) {
 	tasks = resp.GetTasks()
 	assert.Len(t, tasks, 3)
 	ids3 := make([]string, 0, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		ids3 = append(ids3, tasks[i].GetId())
 		nextCh <- struct{}{}
 	}

@@ -22,7 +22,7 @@ func TestFetcherAndRemover(t *testing.T) {
 		panic(err)
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		body := fmt.Sprintf(`{"foo":"bar","hoge":100,"index":%d}`, i)
 		_, err := queue.SendMessage(context.Background(), &sqs.SendMessageInput{
 			QueueUrl:    &queueURL,

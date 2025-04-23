@@ -53,7 +53,7 @@ func TestWorker(t *testing.T) {
 		sort.Slice(tasks, func(i, j int) bool {
 			return strings.Compare(tasks[i].Id, tasks[j].Id) < 0
 		})
-		for i := 0; i < len(chunk); i++ {
+		for i := range len(chunk) {
 			id := fmt.Sprintf("id:%d", (i+1)+(p*3))
 			assert.Equal(t, id, tasks[i].Id)
 			nextCh <- struct{}{}
