@@ -19,7 +19,7 @@ func TestGRPC(t *testing.T) {
 	assert.NotNil(t, l)
 	port, err := strconv.Atoi(strings.Split(l.Addr().String(), ":")[1])
 	assert.NoError(t, err)
-	l.Close()
+	assert.NoError(t, l.Close())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -34,10 +34,9 @@ func TestGRPC(t *testing.T) {
 	grpcServer.Start()
 	defer grpcServer.Stop()
 
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		fmt.Sprintf("localhost:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 
 	assert.NoError(t, err)

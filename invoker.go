@@ -46,6 +46,7 @@ func (ivk *HTTPInvoker) Invoke(ctx context.Context, q Message) error {
 	if err != nil {
 		return err
 	}
+	//nolint:errcheck // ignore error for defer
 	defer resp.Body.Close()
 	logger := getLogger()
 	switch s := resp.StatusCode; {

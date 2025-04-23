@@ -26,7 +26,7 @@ func TestSystem(t *testing.T) {
 	assert.NotNil(t, l)
 	port, err := strconv.Atoi(strings.Split(l.Addr().String(), ":")[1])
 	assert.NoError(t, err)
-	l.Close()
+	assert.NoError(t, l.Close())
 	sys := NewSystem(
 		GatewayBuilder(queue, queueURL, 1, time.Hour),
 		ConsumerBuilder(nil, 3),

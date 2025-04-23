@@ -21,7 +21,8 @@ const awsRegion = "ap-northeast-1"
 
 func init() {
 	if _, ok := os.LookupEnv("SQS_ENDPOINT_URL"); !ok {
-		os.Setenv("SQS_ENDPOINT_URL", "http://localhost:9324")
+		//nolint:errcheck // ignore for test
+		_ = os.Setenv("SQS_ENDPOINT_URL", "http://localhost:9324")
 	}
 
 	var err error
