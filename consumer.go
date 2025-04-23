@@ -99,6 +99,10 @@ func (w *worker) wrappedProcess(msg Message, rm remover) {
 }
 
 func (w *worker) RunForProcess(ctx context.Context, broker chan Message, rm remover) {
+	if wg := wgFrom(ctx); wg != nil {
+		wg.Add(1)
+		defer wg.Done()
+	}
 	for {
 		select {
 		case <-ctx.Done():

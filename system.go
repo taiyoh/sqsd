@@ -55,10 +55,27 @@ func NewSystem(builders ...SystemBuilder) *System {
 	return sys
 }
 
+type wgKey struct{}
+
+func wgFrom(ctx context.Context) *sync.WaitGroup {
+	wg, ok := ctx.Value(wgKey{}).(*sync.WaitGroup)
+	if !ok {
+		return nil
+	}
+	return wg
+}
+
+func wgTo(ctx context.Context, wg *sync.WaitGroup) context.Context {
+	return context.WithValue(ctx, wgKey{}, wg)
+}
+
 // Run starts running actors and gRPC server.
 func (s *System) Run(ctx context.Context) error {
 	msgsCh := make(chan Message, s.capacity)
-	worker := startWorker(ctx, s.invoker, msgsCh, s.gateway)
+
+	var wg sync.WaitGroup
+	wg.Add(s.capacity)
+	worker := startWorker(wgTo(ctx, &wg), s.invoker, msgsCh, s.gateway)
 
 	monitor := NewMonitoringService(worker)
 
@@ -72,7 +89,6 @@ func (s *System) Run(ctx context.Context) error {
 		defer grpcServer.Stop()
 	}
 
-	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
