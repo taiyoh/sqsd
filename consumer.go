@@ -33,6 +33,9 @@ func startWorker(ctx context.Context, ivk Invoker, broker chan Message, rm remov
 		invoker:   ivk,
 		semaphore: semaphore.NewWeighted(int64(capacity)),
 	}
+	if wg := wgFrom(ctx); wg != nil {
+		wg.Add(capacity)
+	}
 	for range capacity {
 		go w.RunForProcess(ctx, broker, rm)
 	}
@@ -100,7 +103,6 @@ func (w *worker) wrappedProcess(msg Message, rm remover) {
 
 func (w *worker) RunForProcess(ctx context.Context, broker chan Message, rm remover) {
 	if wg := wgFrom(ctx); wg != nil {
-		wg.Add(1)
 		defer wg.Done()
 	}
 	for {

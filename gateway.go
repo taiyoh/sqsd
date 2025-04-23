@@ -120,18 +120,25 @@ func FetchParallel(n int) GatewayParameter {
 }
 
 func (f Gateway) start(ctx context.Context, broker chan Message) {
+	if mainWg := wgFrom(ctx); mainWg != nil {
+		mainWg.Add(1)
+		defer mainWg.Done()
+	}
 	var wg sync.WaitGroup
 	wg.Add(f.parallel)
+	fetchCtx := wgTo(ctx, &wg)
 	for range f.parallel {
-		go f.runForFetch(ctx, &wg, broker, f.input)
+		go f.runForFetch(fetchCtx, broker, f.input)
 	}
 	wg.Wait()
 
 	close(broker)
 }
 
-func (f *Gateway) runForFetch(ctx context.Context, wg *sync.WaitGroup, broker chan Message, input *sqs.ReceiveMessageInput) {
-	defer wg.Done()
+func (f *Gateway) runForFetch(ctx context.Context, broker chan Message, input *sqs.ReceiveMessageInput) {
+	if wg := wgFrom(ctx); wg != nil {
+		defer wg.Done()
+	}
 	logger := getLogger()
 	for {
 		if err := ctx.Err(); err != nil {

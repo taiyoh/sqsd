@@ -74,8 +74,8 @@ func (s *System) Run(ctx context.Context) error {
 	msgsCh := make(chan Message, s.capacity)
 
 	var wg sync.WaitGroup
-	wg.Add(s.capacity)
-	worker := startWorker(wgTo(ctx, &wg), s.invoker, msgsCh, s.gateway)
+	ctx = wgTo(ctx, &wg)
+	worker := startWorker(ctx, s.invoker, msgsCh, s.gateway)
 
 	monitor := NewMonitoringService(worker)
 
@@ -89,11 +89,7 @@ func (s *System) Run(ctx context.Context) error {
 		defer grpcServer.Stop()
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		s.gateway.start(ctx, msgsCh)
-	}()
+	go s.gateway.start(ctx, msgsCh)
 
 	<-ctx.Done()
 	getLogger().Info("signal caught. stopping worker...")
