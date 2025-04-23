@@ -48,7 +48,7 @@ func TestMemoryLocker(t *testing.T) {
 		t.Run(tt.label, func(t *testing.T) {
 			assert.NoError(t, l.Unlock(ctx, tt.ts))
 			var keys []string
-			l.(*memoryLocker).pool.Range(func(key, value interface{}) bool {
+			l.(*memoryLocker).pool.Range(func(key, value any) bool {
 				keys = append(keys, key.(string))
 				return true
 			})

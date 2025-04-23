@@ -42,7 +42,7 @@ func startWorker(ctx context.Context, ivk Invoker, broker chan Message, rm remov
 
 type taskList []*Task
 
-func (tasks *taskList) Range(key, val interface{}) bool {
+func (tasks *taskList) Range(key, val any) bool {
 	*tasks = append(*tasks, val.(*Task))
 	return true
 }
