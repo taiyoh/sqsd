@@ -122,7 +122,7 @@ func FetchParallel(n int) GatewayParameter {
 func (f Gateway) start(ctx context.Context, broker chan Message) {
 	var wg sync.WaitGroup
 	wg.Add(f.parallel)
-	for i := 0; i < f.parallel; i++ {
+	for range f.parallel {
 		go f.runForFetch(ctx, &wg, broker, f.input)
 	}
 	wg.Wait()
@@ -174,7 +174,7 @@ func (g *Gateway) remove(ctx context.Context, msg Message) (err error) {
 		return nil
 	}
 	logger := getLogger()
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		_, err = g.queue.DeleteMessage(ctx, &sqs.DeleteMessageInput{
 			QueueUrl:      &g.queueURL,

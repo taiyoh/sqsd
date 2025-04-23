@@ -29,8 +29,8 @@ func (l *memoryLocker) Lock(_ context.Context, queueID string) error {
 }
 
 func (l *memoryLocker) Unlock(_ context.Context, ts time.Time) error {
-	var keys []interface{}
-	l.pool.Range(func(key, value interface{}) bool {
+	var keys []any
+	l.pool.Range(func(key, value any) bool {
 		if value.(time.Time).Before(ts) {
 			keys = append(keys, key)
 		}
