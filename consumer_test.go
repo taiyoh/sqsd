@@ -19,7 +19,6 @@ func (f testInvoker) Invoke(ctx context.Context, q Message) error {
 
 func TestWorker(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
 	rcvCh := make(chan Message, 100)
 	nextCh := make(chan struct{}, 100)
 	testInvokerFn := func(ctx context.Context, q Message) error {
@@ -60,4 +59,7 @@ func TestWorker(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+
+	cancel()
+	w.Wait()
 }
