@@ -25,6 +25,7 @@ type worker struct {
 	workings  sync.Map
 	invoker   Invoker
 	semaphore *semaphore.Weighted
+	wg        sync.WaitGroup
 }
 
 func startWorker(ctx context.Context, ivk Invoker, broker chan Message, rm remover) *worker {
@@ -33,11 +34,17 @@ func startWorker(ctx context.Context, ivk Invoker, broker chan Message, rm remov
 		invoker:   ivk,
 		semaphore: semaphore.NewWeighted(int64(capacity)),
 	}
+	w.wg.Add(capacity)
 	for range capacity {
 		go w.RunForProcess(ctx, broker, rm)
 	}
 
 	return w
+}
+
+// Wait waits until all workers are stopped.
+func (w *worker) Wait() {
+	w.wg.Wait()
 }
 
 type taskList []*Task
@@ -99,6 +106,7 @@ func (w *worker) wrappedProcess(msg Message, rm remover) {
 }
 
 func (w *worker) RunForProcess(ctx context.Context, broker chan Message, rm remover) {
+	defer w.wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
