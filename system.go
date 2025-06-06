@@ -86,6 +86,7 @@ func (s *System) Run(ctx context.Context) error {
 		return err
 	}
 
+	worker.Wait()
 	wg.Wait()
 
 	return nil
