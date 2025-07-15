@@ -14,7 +14,7 @@ require (
 	github.com/redis/rueidis v1.0.57
 	github.com/stretchr/testify v1.10.0
 	github.com/taiyoh/go-typedenv v0.1.1
-	golang.org/x/sync v0.15.0
+	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 )
